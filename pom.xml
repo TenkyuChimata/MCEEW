@@ -6,7 +6,7 @@
 
     <groupId>jp.wolfx</groupId>
     <artifactId>MCEEW</artifactId>
-    <version>1.1.1</version>
+    <version>1.1.0</version>
     <packaging>jar</packaging>
 
     <name>MCEEW</name>
@@ -54,14 +54,6 @@
 
     <repositories>
         <repository>
-            <id>central</id>
-            <url>http://repo.maven.apache.org/maven2</url>
-            <layout>default</layout>
-            <snapshots>
-                <enabled>false</enabled>
-            </snapshots>
-        </repository>
-        <repository>
             <id>spigotmc-repo</id>
             <url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>
         </repository>
@@ -88,6 +80,7 @@
             <groupId>org.json</groupId>
             <artifactId>json</artifactId>
             <version>20220320</version>
+            <scope>compile</scope>
         </dependency>
     </dependencies>
 </project>
