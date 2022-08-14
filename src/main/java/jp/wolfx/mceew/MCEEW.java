@@ -39,7 +39,6 @@ public final class MCEEW extends JavaPlugin {
     private static double alert_sound_volume;
     private static double alert_sound_pitch;
 
-
     @Override
     public void onEnable() {
         this.load_EEW();
@@ -110,7 +109,7 @@ public final class MCEEW extends JavaPlugin {
     }
 
     private void EEW_Test() throws ParseException {
-        String flag = "予報";
+        String flag = "警報";
         String origin_time_str = "20110311144617";
         String report_time = "2011/03/11 14:48:36";
         String num = "15";
@@ -130,14 +129,11 @@ public final class MCEEW extends JavaPlugin {
 
     private static void EEW_Action(String flag, String report_time, String origin_time, String num, String lat, String lon, String region, String mag, String depth, String shindo, String type) {
         if (broadcast_bool) {
-            broadcast_message = broadcast_message.replaceAll("%flag%", flag).replaceAll("%report_time%", report_time).replaceAll("%origin_time%", origin_time).replaceAll("%num%", num).replaceAll("%lat%", lat).replaceAll("%lon%", lon).replaceAll("%region%", region).replaceAll("%mag%", mag).replaceAll("%depth%", depth).replaceAll("%shindo%", shindo).replaceAll("%type%", type);
-            Bukkit.broadcastMessage(broadcast_message);
+            Bukkit.broadcastMessage(broadcast_message.replaceAll("%flag%", flag).replaceAll("%report_time%", report_time).replaceAll("%origin_time%", origin_time).replaceAll("%num%", num).replaceAll("%lat%", lat).replaceAll("%lon%", lon).replaceAll("%region%", region).replaceAll("%mag%", mag).replaceAll("%depth%", depth).replaceAll("%shindo%", shindo).replaceAll("%type%", type));
         }
         if (title_bool) {
             for(Player player : Bukkit.getServer().getOnlinePlayers()) {
-                title_message = title_message.replaceAll("%flag%", flag).replaceAll("%report_time%", report_time).replaceAll("%origin_time%", origin_time).replaceAll("%num%", num).replaceAll("%lat%", lat).replaceAll("%lon%", lon).replaceAll("%region%", region).replaceAll("%mag%", mag).replaceAll("%depth%", depth).replaceAll("%shindo%", shindo).replaceAll("%type%", type);
-                subtitle_message = subtitle_message.replaceAll("%flag%", flag).replaceAll("%report_time%", report_time).replaceAll("%origin_time%", origin_time).replaceAll("%num%", num).replaceAll("%lat%", lat).replaceAll("%lon%", lon).replaceAll("%region%", region).replaceAll("%mag%", mag).replaceAll("%depth%", depth).replaceAll("%shindo%", shindo).replaceAll("%type%", type);
-                player.sendTitle(title_message, subtitle_message);
+                player.sendTitle(title_message.replaceAll("%flag%", flag).replaceAll("%report_time%", report_time).replaceAll("%origin_time%", origin_time).replaceAll("%num%", num).replaceAll("%lat%", lat).replaceAll("%lon%", lon).replaceAll("%region%", region).replaceAll("%mag%", mag).replaceAll("%depth%", depth).replaceAll("%shindo%", shindo).replaceAll("%type%", type), subtitle_message.replaceAll("%flag%", flag).replaceAll("%report_time%", report_time).replaceAll("%origin_time%", origin_time).replaceAll("%num%", num).replaceAll("%lat%", lat).replaceAll("%lon%", lon).replaceAll("%region%", region).replaceAll("%mag%", mag).replaceAll("%depth%", depth).replaceAll("%shindo%", shindo).replaceAll("%type%", type));
             }
         }
         if (alert_bool) {
@@ -149,20 +145,26 @@ public final class MCEEW extends JavaPlugin {
     }
 
     public boolean onCommand(@NonNull CommandSender sender, @NonNull Command command, @NonNull String label, String[] args) {
-        if (args.length > 0 && args[0].equalsIgnoreCase("reload") && sender.isOp()) {
-            this.load_EEW();
-            sender.sendMessage("[MCEEW] Configure reload successfully!");
-            return true;
-        } else if (args[0].equalsIgnoreCase("test") && sender.isOp()) {
-            try {
-                this.EEW_Test();
-            } catch (ParseException e) {
-                throw new RuntimeException(e);
+        if (sender.isOp()) {
+            if (args.length == 0) {
+                sender.sendMessage("[MCEEW] List commands /eew");
+                sender.sendMessage("[MCEEW] Run EEW test /eew test");
+                sender.sendMessage("[MCEEW] Reload configuration /eew reload");
+                return true;
+            } else if (args[0].equalsIgnoreCase("reload")) {
+                this.load_EEW();
+                sender.sendMessage("[MCEEW] Configure reload successfully!");
+                return true;
+            } else if (args[0].equalsIgnoreCase("test")) {
+                try {
+                    this.EEW_Test();
+                    return true;
+                } catch (ParseException e) {
+                    throw new RuntimeException(e);
+                }
             }
-            return true;
-        } else {
-            return false;
         }
+        return false;
     }
 
     private void load_EEW() {

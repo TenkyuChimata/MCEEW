@@ -20,21 +20,21 @@ EEW: true
 time_format: "yyyy年MM月dd日 HH時mm分ss秒"
 
 Action:
-  # Whether to broadcast messages to the chat
+  # Whether to broadcast messages to chat
   broadcast: true
-  # Whether to broadcast messages to the title
+  # Whether to broadcast messages to title
   title: true
   # Whether to enable sound alert
   alert: true
   # Whether to broadcast a notification to the console every time the API is updated
-  notification: true
+  notification: false
 
 Message:
-  # Set the message to be broadcast to the chat
-  broadcast: "&c緊急地震速報 (%flag%) | 第%num%報 %type%\n &e%origin_time% &f発生\n&f 震央: &e%region%(北緯: &e%lat%度, 東経: &e%lon%度)\n &f震度: &e%shindo%\n &fマグニチュード: &e%mag%\n &f深さ: &e%depth%"
-  # Set the message to be broadcast to the title
+  # Set the message to be broadcast to chat
+  broadcast: "&c緊急地震速報 (%flag%) | 第%num%報 %type%\n &e%origin_time% &f発生\n &f震央: &e%region% (北緯: &e%lat%度 東経: &e%lon%度)\n &fマグニチュード: &e%mag%\n &f深さ: &e%depth%\n &f最大震度: &e%shindo%\n &f更新時間: &e%report_time%"
+  # Set the message to be broadcast to title
   title: "&c緊急地震速報 (%flag%)"
-  # Set the message to be broadcast to the subtitle
+  # Set the message to be broadcast to subtitle
   subtitle: "&e%region%で震度%shindo%の地震"
 
 Sound:
