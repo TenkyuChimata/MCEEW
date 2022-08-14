@@ -19,4 +19,4 @@ A real-time Japan EEW plugin for Spigot/Paper
 You can download from [Releases](https://github.com/TenkyuChimata/MCEEW/releases/latest).
 
 ## Screenshots
-[](https://s2.loli.net/2022/08/14/DLlEWCSBq5O2uh3.png)
+[readme.png](https://s2.loli.net/2022/08/14/DLlEWCSBq5O2uh3.png)
