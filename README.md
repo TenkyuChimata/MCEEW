@@ -10,7 +10,7 @@ A real-time Japan EEW plugin for Spigot/Paper
 * **Support for custom broadcast messages.**
 * **Support for custom alert sound.**
 
-## Commands
+## Commands (need admin)
 * List commands /eew
 * Run EEW test /eew test
 * Reload configuration /eew reload
@@ -19,4 +19,4 @@ A real-time Japan EEW plugin for Spigot/Paper
 You can download from [Releases](https://github.com/TenkyuChimata/MCEEW/releases/latest).
 
 ## Screenshots
-[readme.png](https://s2.loli.net/2022/08/14/DLlEWCSBq5O2uh3.png)
+![11.png](https://s2.loli.net/2022/08/14/DLlEWCSBq5O2uh3.png)
