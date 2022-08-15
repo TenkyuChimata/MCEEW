@@ -22,6 +22,7 @@ jobs:
       with:
         java-version: '17'
         distribution: 'temurin'
+        settings-path: ${{ github.workspace }}
 
     - name: Build with Maven
       run: mvn -B package --file pom.xml
