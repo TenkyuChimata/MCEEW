@@ -1,5 +1,7 @@
 package jp.wolfx.mceew;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.methods.HttpGet;
@@ -14,8 +16,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
-import org.checkerframework.checker.nullness.qual.NonNull;
-import org.json.JSONObject;
+import org.jetbrains.annotations.NotNull;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
@@ -54,33 +55,33 @@ public final class MCEEW extends JavaPlugin {
                             HttpResponse response = httpclient.execute(request);
                             if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
                                 String responseData = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
-                                JSONObject json = new JSONObject(responseData);
-                                if (json.getBoolean("eew")) {
+                                JsonObject json = JsonParser.parseString(responseData).getAsJsonObject();
+                                if (json.get("eew").getAsBoolean()) {
                                     String type = "";
-                                    String flag = json.getString("alertflg");
-                                    String report_time = json.getString("report_time");
-                                    String num = json.getString("report_num");
-                                    String lat = json.getString("latitude");
-                                    String lon = json.getString("longitude");
-                                    String region = json.getString("region_name");
-                                    String mag = json.getString("magunitude");
-                                    String depth = json.getString("depth");
-                                    String shindo = json.getString("calcintensity");
+                                    String flag = json.get("alertflg").getAsString();
+                                    String report_time = json.get("report_time").getAsString();
+                                    String num = json.get("report_num").getAsString();
+                                    String lat = json.get("latitude").getAsString();
+                                    String lon = json.get("longitude").getAsString();
+                                    String region = json.get("region_name").getAsString();
+                                    String mag = json.get("magunitude").getAsString();
+                                    String depth = json.get("depth").getAsString();
+                                    String shindo = json.get("calcintensity").getAsString();
                                     SimpleDateFormat origin_time1 = new SimpleDateFormat("yyyyMMddHHmmss");
                                     origin_time1.setTimeZone(TimeZone.getTimeZone("Asia/Tokyo"));
-                                    Date origin_time2 = origin_time1.parse(json.getString("origin_time"));
+                                    Date origin_time2 = origin_time1.parse(json.get("origin_time").getAsString());
                                     String origin_time = new SimpleDateFormat(time_format).format(origin_time2);
-                                    if (json.getBoolean("is_cancel")) {
+                                    if (json.get("is_cancel").getAsBoolean()) {
                                         type = "取消";
                                     }
-                                    if (json.getBoolean("is_training")) {
-                                        if (json.getBoolean("is_final")) {
+                                    if (json.get("is_training").getAsBoolean()) {
+                                        if (json.get("is_final").getAsBoolean()) {
                                             type = "訓練 (最終報)";
                                         } else {
                                             type = "訓練";
                                         }
                                     }
-                                    if (json.getBoolean("is_final")) {
+                                    if (json.get("is_final").getAsBoolean()) {
                                         type = "最終報";
                                     }
                                     if (notification_bool) {
@@ -133,7 +134,7 @@ public final class MCEEW extends JavaPlugin {
         }
         if (title_bool) {
             for(Player player : Bukkit.getServer().getOnlinePlayers()) {
-                player.sendTitle(title_message.replaceAll("%flag%", flag).replaceAll("%report_time%", report_time).replaceAll("%origin_time%", origin_time).replaceAll("%num%", num).replaceAll("%lat%", lat).replaceAll("%lon%", lon).replaceAll("%region%", region).replaceAll("%mag%", mag).replaceAll("%depth%", depth).replaceAll("%shindo%", shindo).replaceAll("%type%", type), subtitle_message.replaceAll("%flag%", flag).replaceAll("%report_time%", report_time).replaceAll("%origin_time%", origin_time).replaceAll("%num%", num).replaceAll("%lat%", lat).replaceAll("%lon%", lon).replaceAll("%region%", region).replaceAll("%mag%", mag).replaceAll("%depth%", depth).replaceAll("%shindo%", shindo).replaceAll("%type%", type));
+                player.sendTitle(title_message.replaceAll("%flag%", flag).replaceAll("%report_time%", report_time).replaceAll("%origin_time%", origin_time).replaceAll("%num%", num).replaceAll("%lat%", lat).replaceAll("%lon%", lon).replaceAll("%region%", region).replaceAll("%mag%", mag).replaceAll("%depth%", depth).replaceAll("%shindo%", shindo).replaceAll("%type%", type), subtitle_message.replaceAll("%flag%", flag).replaceAll("%report_time%", report_time).replaceAll("%origin_time%", origin_time).replaceAll("%num%", num).replaceAll("%lat%", lat).replaceAll("%lon%", lon).replaceAll("%region%", region).replaceAll("%mag%", mag).replaceAll("%depth%", depth).replaceAll("%shindo%", shindo).replaceAll("%type%", type), -1, -1, -1);
             }
         }
         if (alert_bool) {
@@ -144,9 +145,10 @@ public final class MCEEW extends JavaPlugin {
         }
     }
 
-    public boolean onCommand(@NonNull CommandSender sender, @NonNull Command command, @NonNull String label, String[] args) {
+    public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
         if (sender.isOp()) {
             if (args.length == 0) {
+                sender.sendMessage("[MCEEW] Version: v" + this.getDescription().getVersion());
                 sender.sendMessage("[MCEEW] List commands /eew");
                 sender.sendMessage("[MCEEW] Run EEW test /eew test");
                 sender.sendMessage("[MCEEW] Reload configuration /eew reload");
