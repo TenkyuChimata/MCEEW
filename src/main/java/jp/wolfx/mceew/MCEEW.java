@@ -39,6 +39,7 @@ public final class MCEEW extends JavaPlugin {
     private static String alert_sound_type;
     private static double alert_sound_volume;
     private static double alert_sound_pitch;
+    private static int update_num = 0;
 
     @Override
     public void onEnable() {
@@ -56,7 +57,7 @@ public final class MCEEW extends JavaPlugin {
                             if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
                                 String responseData = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
                                 JsonObject json = JsonParser.parseString(responseData).getAsJsonObject();
-                                if (json.get("eew").getAsBoolean()) {
+                                if (json.get("eew").getAsBoolean() && json.get("report_num").getAsInt() > update_num) {
                                     String type = "";
                                     String flag = json.get("alertflg").getAsString();
                                     String report_time = json.get("report_time").getAsString();
@@ -88,10 +89,12 @@ public final class MCEEW extends JavaPlugin {
                                         Bukkit.getLogger().info("[MCEEW] Earthquake Warning detected.");
                                     }
                                     MCEEW.EEW_Action(flag, origin_time, report_time, num, lat, lon, region, mag, depth, shindo, type);
+                                    update_num = json.get("report_num").getAsInt();
                                 } else {
                                     if (notification_bool) {
                                         Bukkit.getLogger().info("[MCEEW] No Earthquake Warning issued.");
                                     }
+                                    update_num = 0;
                                 }
                             }
                         } catch (IOException e) {
