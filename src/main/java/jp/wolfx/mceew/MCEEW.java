@@ -84,28 +84,26 @@ public final class MCEEW extends JavaPlugin {
                                     }
                                     if (json.get("is_final").getAsBoolean()) {
                                         type = "最終報";
+                                        update_num = 0;
                                     }
                                     if (notification_bool) {
                                         Bukkit.getLogger().info("[MCEEW] Earthquake Warning detected.");
                                     }
-                                    MCEEW.EEW_Action(flag, origin_time, report_time, num, lat, lon, region, mag, depth, shindo, type);
+                                    MCEEW.EEW_Action(flag, report_time, origin_time, num, lat, lon, region, mag, depth, shindo, type);
                                     update_num = json.get("report_num").getAsInt();
                                 } else {
                                     if (notification_bool) {
                                         Bukkit.getLogger().info("[MCEEW] No Earthquake Warning issued.");
                                     }
-                                    update_num = 0;
                                 }
                             }
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        } catch (ParseException e) {
-                            throw new RuntimeException(e);
+                        } catch (IOException | ParseException e) {
+                            Bukkit.getLogger().warning("[MCEEW] NIED API Connection failed.");
                         } finally {
                             httpclient.close();
                         }
                     } catch (IOException e) {
-                        e.printStackTrace();
+                        Bukkit.getLogger().warning("[MCEEW] NIED API Connection failed.");
                     }
                 }
             }).runTaskTimerAsynchronously(this, 20L, 20L);
@@ -128,7 +126,7 @@ public final class MCEEW extends JavaPlugin {
         origin_time1.setTimeZone(TimeZone.getTimeZone("Asia/Tokyo"));
         Date origin_time2 = origin_time1.parse(origin_time_str);
         String origin_time = new SimpleDateFormat(time_format).format(origin_time2);
-        MCEEW.EEW_Action(flag, origin_time, report_time, num, lat, lon, region, mag, depth, shindo, type);
+        MCEEW.EEW_Action(flag, report_time, origin_time, num, lat, lon, region, mag, depth, shindo, type);
     }
 
     private static void EEW_Action(String flag, String report_time, String origin_time, String num, String lat, String lon, String region, String mag, String depth, String shindo, String type) {
@@ -165,7 +163,7 @@ public final class MCEEW extends JavaPlugin {
                     this.EEW_Test();
                     return true;
                 } catch (ParseException e) {
-                    throw new RuntimeException(e);
+                    Bukkit.getLogger().warning("[MCEEW] Unknown error.");
                 }
             }
         }
