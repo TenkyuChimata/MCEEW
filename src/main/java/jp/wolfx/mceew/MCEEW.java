@@ -1,9 +1,11 @@
 package jp.wolfx.mceew;
 
+import com.google.common.base.FinalizableReferenceQueue;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
@@ -39,7 +41,6 @@ public final class MCEEW extends JavaPlugin {
     private static String alert_sound_type;
     private static double alert_sound_volume;
     private static double alert_sound_pitch;
-    private static int update_num = 0;
 
     @Override
     public void onEnable() {
@@ -48,62 +49,72 @@ public final class MCEEW extends JavaPlugin {
 
     private void EEW_Update() {
         if(EEW_bool) {
+            RequestConfig httpclient_config = RequestConfig.custom()
+                    .setConnectTimeout(1500)
+                    .setConnectionRequestTimeout(1500)
+                    .setSocketTimeout(1500)
+                    .build();
             (new BukkitRunnable() {
                 public void run() {
-                    try (CloseableHttpClient httpclient = HttpClients.createDefault()) {
-                        try {
-                            HttpGet request = new HttpGet("https://api.wolfx.jp/nied_eew.json");
-                            HttpResponse response = httpclient.execute(request);
-                            if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
-                                String responseData = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
-                                JsonObject json = JsonParser.parseString(responseData).getAsJsonObject();
-                                if (json.get("eew").getAsBoolean() && json.get("report_num").getAsInt() > update_num) {
-                                    String type = "";
-                                    String flag = json.get("alertflg").getAsString();
-                                    String report_time = json.get("report_time").getAsString();
-                                    String num = json.get("report_num").getAsString();
-                                    String lat = json.get("latitude").getAsString();
-                                    String lon = json.get("longitude").getAsString();
-                                    String region = json.get("region_name").getAsString();
-                                    String mag = json.get("magunitude").getAsString();
-                                    String depth = json.get("depth").getAsString();
-                                    String shindo = json.get("calcintensity").getAsString();
-                                    SimpleDateFormat origin_time1 = new SimpleDateFormat("yyyyMMddHHmmss");
-                                    origin_time1.setTimeZone(TimeZone.getTimeZone("Asia/Tokyo"));
-                                    Date origin_time2 = origin_time1.parse(json.get("origin_time").getAsString());
-                                    String origin_time = new SimpleDateFormat(time_format).format(origin_time2);
-                                    if (json.get("is_cancel").getAsBoolean()) {
-                                        type = "取消";
-                                    }
-                                    if (json.get("is_training").getAsBoolean()) {
-                                        if (json.get("is_final").getAsBoolean()) {
-                                            type = "訓練 (最終報)";
-                                        } else {
-                                            type = "訓練";
-                                        }
-                                    }
+                    CloseableHttpClient httpclient = HttpClients.custom()
+                            .setDefaultRequestConfig(httpclient_config)
+                            .build();
+                    try {
+                        HttpGet request = new HttpGet("https://api.wolfx.jp/nied_eew.json");
+                        HttpResponse response = httpclient.execute(request);
+                        if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
+                            String responseData = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
+                            JsonObject json = JsonParser.parseString(responseData).getAsJsonObject();
+                            if (json.get("eew").getAsBoolean()) {
+                                String type = "";
+                                String flag = json.get("alertflg").getAsString();
+                                String report_time = json.get("report_time").getAsString();
+                                String num = json.get("report_num").getAsString();
+                                String lat = json.get("latitude").getAsString();
+                                String lon = json.get("longitude").getAsString();
+                                String region = json.get("region_name").getAsString();
+                                String mag = json.get("magunitude").getAsString();
+                                String depth = json.get("depth").getAsString();
+                                String shindo = json.get("calcintensity").getAsString();
+                                SimpleDateFormat origin_time1 = new SimpleDateFormat("yyyyMMddHHmmss");
+                                origin_time1.setTimeZone(TimeZone.getTimeZone("Asia/Tokyo"));
+                                Date origin_time2 = origin_time1.parse(json.get("origin_time").getAsString());
+                                String origin_time = new SimpleDateFormat(time_format).format(origin_time2);
+                                if (json.get("is_cancel").getAsBoolean()) {
+                                    type = "取消";
+                                }
+                                if (json.get("is_training").getAsBoolean()) {
                                     if (json.get("is_final").getAsBoolean()) {
-                                        type = "最終報";
-                                        update_num = 0;
-                                    }
-                                    if (notification_bool) {
-                                        Bukkit.getLogger().info("[MCEEW] Earthquake Warning detected.");
-                                    }
-                                    MCEEW.EEW_Action(flag, report_time, origin_time, num, lat, lon, region, mag, depth, shindo, type);
-                                    update_num = json.get("report_num").getAsInt();
-                                } else {
-                                    if (notification_bool) {
-                                        Bukkit.getLogger().info("[MCEEW] No Earthquake Warning issued.");
+                                        type = "訓練 (最終報)";
+                                    } else {
+                                        type = "訓練";
                                     }
                                 }
+                                if (json.get("is_final").getAsBoolean()) {
+                                    type = "最終報";
+                                }
+                                if (notification_bool) {
+                                    Bukkit.getLogger().info("[MCEEW] Earthquake Warning detected.");
+                                }
+                                MCEEW.EEW_Action(flag, report_time, origin_time, num, lat, lon, region, mag, depth, shindo, type);
+                            } else {
+                                if (notification_bool) {
+                                    Bukkit.getLogger().info("[MCEEW] No Earthquake Warning issued.");
+                                }
                             }
-                        } catch (IOException | ParseException e) {
-                            Bukkit.getLogger().warning("[MCEEW] NIED API Connection failed.");
-                        } finally {
-                            httpclient.close();
                         }
-                    } catch (IOException e) {
-                        Bukkit.getLogger().warning("[MCEEW] NIED API Connection failed.");
+                    } catch (IllegalStateException | IOException | ParseException e) {
+                        if (notification_bool) {
+                            Bukkit.getLogger().warning("[MCEEW] NIED API Connection failed, retrying..");
+                        }
+                    } finally {
+                        try {
+                            httpclient.close();
+                        } catch (IOException e) {
+                            if (notification_bool) {
+                                Bukkit.getLogger().warning("[MCEEW] Unable to close connection, retrying..");
+                            }
+                        }
                     }
                 }
             }).runTaskTimerAsynchronously(this, 20L, 20L);
