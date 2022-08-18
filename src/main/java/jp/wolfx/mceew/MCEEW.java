@@ -1,6 +1,5 @@
 package jp.wolfx.mceew;
 
-import com.google.common.base.FinalizableReferenceQueue;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.apache.http.HttpResponse;
