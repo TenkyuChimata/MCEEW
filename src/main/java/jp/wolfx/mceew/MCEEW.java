@@ -97,7 +97,7 @@ public final class MCEEW extends JavaPlugin {
                                     Bukkit.getLogger().info("[MCEEW] Earthquake Warning detected.");
                                 }
                                 MCEEW.EEW_Action(flag, report_time, origin_time, num, lat, lon, region, mag, depth, shindo, type);
-                                update_report = json.get("report_time").getAsString();
+                                update_report = report_time;
                             } else {
                                 if (notification_bool) {
                                     Bukkit.getLogger().info("[MCEEW] No Earthquake Warning issued.");
