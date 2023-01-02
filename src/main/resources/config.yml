@@ -13,20 +13,20 @@
 # \n Change to next line
 ########################
 
-# Enable EEW
+# Whether to enable EEW
 EEW: true
 
 # Set the time format
 time_format: "yyyy年MM月dd日 HH時mm分ss秒"
 
 Action:
-  # Broadcast messages to chat
+  # Whether to broadcast messages to chat
   broadcast: true
-  # Broadcast messages to title
+  # Whether to broadcast messages to title
   title: true
-  # Enable sound alert
+  # Whether to enable sound alert
   alert: true
-  # Broadcast a notification to the console every time the API is updated
+  # Whether to broadcast a notification to the console every time the API is updated
   notification: false
 
 Message:
