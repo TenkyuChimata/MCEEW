@@ -25,6 +25,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Objects;
 import java.util.TimeZone;
+import org.bstats.bukkit.Metrics;
 
 public final class MCEEW extends JavaPlugin {
 
@@ -45,6 +46,7 @@ public final class MCEEW extends JavaPlugin {
     @Override
     public void onEnable() {
         this.load_EEW();
+        new Metrics(this, 17261);
     }
 
     private void EEW_Update() {
