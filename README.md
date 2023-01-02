@@ -2,7 +2,7 @@
 A real-time Japan EEW plugin for Spigot/Paper
 
 ## Features
-* **Support Spigot/Paper 1.18+.**
+* **Support Spigot/Paper 1.13+.**
 * **Support for receiving forecasts and alerts from NIED.**
 * **Support for broadcast messages to chat.**
 * **Support for broadcast messages to title.**
