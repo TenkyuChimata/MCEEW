@@ -17,7 +17,9 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bstats.bukkit.Metrics;
 import org.jetbrains.annotations.NotNull;
+
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.ZoneId;
@@ -25,19 +27,11 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Objects;
-import org.bstats.bukkit.Metrics;
 
 public final class MCEEW extends JavaPlugin {
-
-    private static boolean EEW_bool;
-    private static boolean enable_jma_bool;
-    private static boolean enable_sc_bool;
     private static boolean broadcast_bool;
     private static boolean title_bool;
     private static boolean alert_bool;
-    private static boolean final_bool;
-    private static boolean notification_bool;
-    private static boolean updater_bool;
     private static String time_format;
     private static String time_format_final;
     private static String alert_broadcast_message;
@@ -70,299 +64,249 @@ public final class MCEEW extends JavaPlugin {
 
     @Override
     public void onEnable() {
-        this.load_EEW();
+        this.load_EEW(true);
         new Metrics(this, 17261);
-        this.Updater();
+    }
+
+    private static RequestConfig Get_RequestConfig(int timeout) {
+        return RequestConfig.custom()
+                .setConnectTimeout(timeout)
+                .setConnectionRequestTimeout(timeout)
+                .setSocketTimeout(timeout)
+                .build();
+    }
+
+    private static String Get_API(RequestConfig httpclient_config, boolean notification_bool, int source) {
+        String data = null;
+        CloseableHttpClient httpclient = HttpClients.custom()
+                .setDefaultRequestConfig(httpclient_config)
+                .build();
+        HttpGet request;
+        if (source == 0) {
+            request = new HttpGet("https://api.wolfx.jp/jma_eew.json");
+        } else if (source == 1) {
+            request = new HttpGet("https://api.wolfx.jp/nied_eew.json");
+        } else if (source == 2) {
+            request = new HttpGet("https://api.wolfx.jp/jma_eqlist.json");
+        } else if (source == 3) {
+            request = new HttpGet("https://api.wolfx.jp/sc_eew.json");
+        } else {
+            request = new HttpGet("https://tenkyuchimata.github.io/MCEEW/version.json");
+        }
+        try {
+            HttpResponse response = httpclient.execute(request);
+            if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
+                data = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
+            }
+        } catch (IllegalStateException | IOException e) {
+            if (notification_bool) {
+                Bukkit.getLogger().warning("API connection failed, retrying...");
+            }
+        } finally {
+            try {
+                httpclient.close();
+            } catch (IOException e) {
+                Bukkit.getLogger().warning(String.valueOf(e));
+            }
+        }
+        return data;
     }
 
     private void Updater() {
-        if (updater_bool) {
-            RequestConfig httpclient_config = RequestConfig.custom()
-                    .setConnectTimeout(5000)
-                    .setConnectionRequestTimeout(5000)
-                    .setSocketTimeout(5000)
-                    .build();
-            new BukkitRunnable() {
-                public void run() {
-                    CloseableHttpClient httpclient = HttpClients.custom()
-                            .setDefaultRequestConfig(httpclient_config)
-                            .build();
-                    try {
-                        HttpGet request = new HttpGet("https://tenkyuchimata.github.io/MCEEW/version.json");
-                        HttpResponse response = httpclient.execute(request);
-                        if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
-                            String responseData = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
-                            JsonObject json = JsonParser.parseString(responseData).getAsJsonObject();
-                            String api_version = json.get("version").getAsString();
-                            if (!version.equals(api_version)) {
-                                Bukkit.getLogger().warning("[MCEEW] New plugin version v" + api_version + " detected, Please download a new version from https://acg.kr/mceew");
-                            } else {
-                                Bukkit.getLogger().info("[MCEEW] You are running the latest version.");
-                            }
-                        }
-                    } catch (IllegalStateException | IOException e) {
-                        Bukkit.getLogger().warning("[MCEEW] Failed to get new version.");
-                    } finally {
-                        try {
-                            httpclient.close();
-                        } catch (IOException e) {
-                            Bukkit.getLogger().warning(String.valueOf(e));
-                        }
+        RequestConfig httpclient_config = Get_RequestConfig(5000);
+        new BukkitRunnable() {
+            public void run() {
+                String responseData = Get_API(httpclient_config, true, -1);
+                if (responseData != null) {
+                    JsonObject json = JsonParser.parseString(responseData).getAsJsonObject();
+                    String api_version = json.get("version").getAsString();
+                    if (!version.equals(api_version)) {
+                        Bukkit.getLogger().warning("[MCEEW] New plugin version v" + api_version + " detected, Please download a new version from https://acg.kr/mceew");
+                    } else {
+                        Bukkit.getLogger().info("[MCEEW] You are running the latest version.");
                     }
                 }
-            }.runTaskAsynchronously(this);
+            }
+        }.runTaskAsynchronously(this);
+    }
+
+    private static String Get_Date(String pattern, String time_format, String timezone, String origin_time) {
+        DateTimeFormatter origin_time1 = DateTimeFormatter.ofPattern(pattern);
+        ZonedDateTime origin_time2 = ZonedDateTime.parse(origin_time, origin_time1.withZone(ZoneId.of(timezone)));
+        return origin_time2.format(DateTimeFormatter.ofPattern(time_format));
+    }
+
+    private static void Play_Sound(String alert_sound_type, double alert_sound_volume, double alert_sound_pitch) {
+        Sound alert_playedSound = Sound.valueOf(alert_sound_type);
+        for (Player player : Bukkit.getServer().getOnlinePlayers()) {
+            player.playSound(player.getLocation(), alert_playedSound, (float) alert_sound_volume, (float) alert_sound_pitch);
         }
     }
 
-    private void EEW_Update() {
-        if(EEW_bool) {
-            RequestConfig httpclient_config = RequestConfig.custom()
-                    .setConnectTimeout(1500)
-                    .setConnectionRequestTimeout(1500)
-                    .setSocketTimeout(1500)
-                    .build();
-            new BukkitRunnable() {
-                public void run() {
-                    CloseableHttpClient httpclient = HttpClients.custom()
-                            .setDefaultRequestConfig(httpclient_config)
-                            .build();
-                    try {
-                        if (enable_jma_bool) {
-                            HttpGet request = new HttpGet("https://api.wolfx.jp/jma_eew.json");
-                            HttpResponse response = httpclient.execute(request);
-                            if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
-                                String responseData = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
-                                JsonObject json = JsonParser.parseString(responseData).getAsJsonObject();
-                                if (!Objects.equals(json.get("OriginalText").getAsString(), OriginalText)) {
-                                    String type = "";
-                                    String flag = json.get("Title").getAsString().substring(7, 9);
-                                    String report_time = json.get("AnnouncedTime").getAsString();
-                                    String num = json.get("Serial").getAsString();
-                                    String lat = json.get("Latitude").getAsString();
-                                    String lon = json.get("Longitude").getAsString();
-                                    String region = json.get("Hypocenter").getAsString();
-                                    String mag = json.get("Magunitude").getAsString();
-                                    String depth = json.get("Depth").getAsString() + "km";
-                                    String shindo = json.get("MaxIntensity").getAsString();
-                                    DateTimeFormatter origin_time1 = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss");
-                                    ZonedDateTime origin_time2 = ZonedDateTime.parse(json.get("OriginTime").getAsString(), origin_time1.withZone(ZoneId.of("Asia/Tokyo")));
-                                    String origin_time = origin_time2.format(DateTimeFormatter.ofPattern(time_format));
-                                    if (json.get("isAssumption").getAsBoolean()) {
-                                        if (json.get("isFinal").getAsBoolean()) {
-                                            type = "訓練 (最終報)";
-                                        } else {
-                                            type = "訓練";
-                                        }
-                                    }
-                                    if (json.get("isFinal").getAsBoolean()) {
-                                        type = "最終報";
-                                    }
-                                    if (notification_bool) {
-                                        Bukkit.getLogger().info("[MCEEW] Earthquake Early Warning detected.");
-                                    }
-                                    if (OriginalText != null) {
-                                        MCEEW.EEW_Action(flag, report_time, origin_time, num, lat, lon, region, mag, depth, shindo, type);
-                                    }
-                                    OriginalText = json.get("OriginalText").getAsString();
+    private void EEW_Update(boolean enable_jma_bool, boolean notification_bool) {
+        RequestConfig httpclient_config = Get_RequestConfig(1500);
+        new BukkitRunnable() {
+            public void run() {
+                if (enable_jma_bool) {
+                    String responseData = Get_API(httpclient_config, notification_bool, 0);
+                    if (responseData != null) {
+                        JsonObject json = JsonParser.parseString(responseData).getAsJsonObject();
+                        if (!Objects.equals(json.get("OriginalText").getAsString(), OriginalText)) {
+                            String type = "";
+                            String flag = json.get("Title").getAsString().substring(7, 9);
+                            String report_time = json.get("AnnouncedTime").getAsString();
+                            String num = json.get("Serial").getAsString();
+                            String lat = json.get("Latitude").getAsString();
+                            String lon = json.get("Longitude").getAsString();
+                            String region = json.get("Hypocenter").getAsString();
+                            String mag = json.get("Magunitude").getAsString();
+                            String depth = json.get("Depth").getAsString() + "km";
+                            String shindo = json.get("MaxIntensity").getAsString();
+                            String origin_time = Get_Date("yyyy/MM/dd HH:mm:ss", time_format, "Asia/Tokyo", json.get("OriginTime").getAsString());
+                            if (json.get("isAssumption").getAsBoolean()) {
+                                if (json.get("isFinal").getAsBoolean()) {
+                                    type = "訓練 (最終報)";
                                 } else {
-                                    if (notification_bool) {
-                                        Bukkit.getLogger().info("[MCEEW] No Earthquake Early Warning issued.");
-                                    }
+                                    type = "訓練";
                                 }
                             }
+                            if (json.get("isFinal").getAsBoolean()) {
+                                type = "最終報";
+                            }
+                            if (notification_bool) {
+                                Bukkit.getLogger().info("[MCEEW] JMA EEW detected.");
+                            }
+                            if (OriginalText != null) {
+                                EEW_Action(flag, report_time, origin_time, num, lat, lon, region, mag, depth, shindo, type);
+                            }
+                            OriginalText = json.get("OriginalText").getAsString();
                         } else {
-                            HttpGet request = new HttpGet("https://api.wolfx.jp/nied_eew.json");
-                            HttpResponse response = httpclient.execute(request);
-                            if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
-                                String responseData = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
-                                JsonObject json = JsonParser.parseString(responseData).getAsJsonObject();
-                                if (!Objects.equals(json.get("report_time").getAsString(), update_report)) {
-                                    String type = "";
-                                    String flag = json.get("alertflg").getAsString();
-                                    String report_time = json.get("report_time").getAsString();
-                                    String num = json.get("report_num").getAsString();
-                                    String lat = json.get("latitude").getAsString();
-                                    String lon = json.get("longitude").getAsString();
-                                    String region = json.get("region_name").getAsString();
-                                    String mag = json.get("magunitude").getAsString();
-                                    String depth = json.get("depth").getAsString();
-                                    String shindo = json.get("calcintensity").getAsString();
-                                    DateTimeFormatter origin_time1 = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
-                                    ZonedDateTime origin_time2 = ZonedDateTime.parse(json.get("origin_time").getAsString(), origin_time1.withZone(ZoneId.of("Asia/Tokyo")));
-                                    String origin_time = origin_time2.format(DateTimeFormatter.ofPattern(time_format));
-                                    if (json.get("is_cancel").getAsBoolean()) {
-                                        type = "取消";
-                                    }
-                                    if (json.get("is_training").getAsBoolean()) {
-                                        if (json.get("is_final").getAsBoolean()) {
-                                            type = "訓練 (最終報)";
-                                        } else {
-                                            type = "訓練";
-                                        }
-                                    }
-                                    if (json.get("is_final").getAsBoolean()) {
-                                        type = "最終報";
-                                    }
-                                    if (notification_bool) {
-                                        Bukkit.getLogger().info("[MCEEW] Earthquake Early Warning detected.");
-                                    }
-                                    if (update_report != null) {
-                                        MCEEW.EEW_Action(flag, report_time, origin_time, num, lat, lon, region, mag, depth, shindo, type);
-                                    }
-                                    update_report = report_time;
+                            if (notification_bool) {
+                                Bukkit.getLogger().info("[MCEEW] No JMA EEW issued.");
+                            }
+                        }
+                    }
+                } else {
+                    String responseData = Get_API(httpclient_config, notification_bool, 1);
+                    if (responseData != null) {
+                        JsonObject json = JsonParser.parseString(responseData).getAsJsonObject();
+                        if (!Objects.equals(json.get("report_time").getAsString(), update_report)) {
+                            String type = "";
+                            String flag = json.get("alertflg").getAsString();
+                            String report_time = json.get("report_time").getAsString();
+                            String num = json.get("report_num").getAsString();
+                            String lat = json.get("latitude").getAsString();
+                            String lon = json.get("longitude").getAsString();
+                            String region = json.get("region_name").getAsString();
+                            String mag = json.get("magunitude").getAsString();
+                            String depth = json.get("depth").getAsString();
+                            String shindo = json.get("calcintensity").getAsString();
+                            String origin_time = Get_Date("yyyyMMddHHmmss", time_format, "Asia/Tokyo", json.get("origin_time").getAsString());
+                            if (json.get("is_cancel").getAsBoolean()) {
+                                type = "取消";
+                            }
+                            if (json.get("is_training").getAsBoolean()) {
+                                if (json.get("is_final").getAsBoolean()) {
+                                    type = "訓練 (最終報)";
                                 } else {
-                                    if (notification_bool) {
-                                        Bukkit.getLogger().info("[MCEEW] No Earthquake Early Warning issued.");
-                                    }
+                                    type = "訓練";
                                 }
                             }
-                        }
-                    } catch (IllegalStateException | IOException e) {
-                        if (notification_bool) {
-                            Bukkit.getLogger().warning("[MCEEW] EEW API Connection failed, retrying..");
-                        }
-                    } finally {
-                        try {
-                            httpclient.close();
-                        } catch (IOException e) {
+                            if (json.get("is_final").getAsBoolean()) {
+                                type = "最終報";
+                            }
                             if (notification_bool) {
-                                Bukkit.getLogger().warning(String.valueOf(e));
+                                Bukkit.getLogger().info("[MCEEW] NIED EEW detected.");
+                            }
+                            if (update_report != null) {
+                                EEW_Action(flag, report_time, origin_time, num, lat, lon, region, mag, depth, shindo, type);
+                            }
+                            update_report = report_time;
+                        } else {
+                            if (notification_bool) {
+                                Bukkit.getLogger().info("[MCEEW] No NIED EEW issued.");
                             }
                         }
                     }
                 }
-            }.runTaskTimerAsynchronously(this, 20L, 20L);
-        }
+            }
+        }.runTaskTimerAsynchronously(this, 20L, 20L);
     }
 
-    private void Final_Update() {
-        if (final_bool) {
-            RequestConfig httpclient_config = RequestConfig.custom()
-                    .setConnectTimeout(5000)
-                    .setConnectionRequestTimeout(5000)
-                    .setSocketTimeout(5000)
-                    .build();
-            new BukkitRunnable() {
-                public void run() {
-                    CloseableHttpClient httpclient = HttpClients.custom()
-                            .setDefaultRequestConfig(httpclient_config)
-                            .build();
-                    try {
-                        HttpGet request = new HttpGet("https://api.wolfx.jp/jma_eqlist.json");
-                        HttpResponse response = httpclient.execute(request);
-                        if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
-                            String responseData = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
-                            JsonObject json = JsonParser.parseString(responseData).getAsJsonObject().get("No1").getAsJsonObject();
-                            if (!(json.get("time").getAsString() + json.get("location").getAsString() + json.get("magnitude").getAsString() + json.get("depth").getAsString() + json.get("shindo").getAsString() + json.get("info").getAsString().replace("\n", "").trim()).equals(final_md5)) {
-                                String time_str = json.get("time").getAsString();
-                                String region = json.get("location").getAsString();
-                                String mag = json.get("magnitude").getAsString();
-                                String depth = json.get("depth").getAsString();
-                                String shindo = json.get("shindo").getAsString();
-                                String info = json.get("info").getAsString().replace("\n", "").trim();
-                                DateTimeFormatter origin_time1 = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm");
-                                ZonedDateTime origin_time2 = ZonedDateTime.parse(time_str, origin_time1.withZone(ZoneId.of("Asia/Tokyo")));
-                                String origin_time = origin_time2.format(DateTimeFormatter.ofPattern(time_format_final));
-                                if (notification_bool) {
-                                    Bukkit.getLogger().info("[MCEEW] Final report updated.");
-                                }
-                                if (final_md5 != null) {
-                                    MCEEW.Final_Action(origin_time, region, mag, depth, shindo, info);
-                                }
-                                final_md5 = time_str + region + mag + depth + shindo + info;
-                                final_info.clear();
-                                final_info.add(origin_time);
-                                final_info.add(region);
-                                final_info.add(mag);
-                                final_info.add(depth);
-                                final_info.add(shindo);
-                                final_info.add(info);
-                            } else {
-                                if (notification_bool) {
-                                    Bukkit.getLogger().info("[MCEEW] No final report update.");
-                                }
-                            }
-                        }
-                    } catch (IllegalStateException | IOException e) {
+    private void Final_Update(boolean notification_bool) {
+        RequestConfig httpclient_config = Get_RequestConfig(5000);
+        new BukkitRunnable() {
+            public void run() {
+                String responseData = Get_API(httpclient_config, notification_bool, 2);
+                if (responseData != null) {
+                    JsonObject json = JsonParser.parseString(responseData).getAsJsonObject().get("No1").getAsJsonObject();
+                    if (!(json.get("time").getAsString() + json.get("location").getAsString() + json.get("magnitude").getAsString() + json.get("depth").getAsString() + json.get("shindo").getAsString() + json.get("info").getAsString().replace("\n", "").trim()).equals(final_md5)) {
+                        String time_str = json.get("time").getAsString();
+                        String region = json.get("location").getAsString();
+                        String mag = json.get("magnitude").getAsString();
+                        String depth = json.get("depth").getAsString();
+                        String shindo = json.get("shindo").getAsString();
+                        String info = json.get("info").getAsString().replace("\n", "").trim();
+                        String origin_time = Get_Date("yyyy/MM/dd HH:mm", time_format_final, "Asia/Tokyo", time_str);
                         if (notification_bool) {
-                            Bukkit.getLogger().warning("[MCEEW] Final report API Connection failed, retrying..");
+                            Bukkit.getLogger().info("[MCEEW] Final report updated.");
                         }
-                    } finally {
-                        try {
-                            httpclient.close();
-                        } catch (IOException e) {
-                            if (notification_bool) {
-                                Bukkit.getLogger().warning(String.valueOf(e));
-                            }
+                        if (final_md5 != null) {
+                            Final_Action(origin_time, region, mag, depth, shindo, info);
+                        }
+                        final_md5 = time_str + region + mag + depth + shindo + info;
+                        final_info.clear();
+                        final_info.add(origin_time);
+                        final_info.add(region);
+                        final_info.add(mag);
+                        final_info.add(depth);
+                        final_info.add(shindo);
+                        final_info.add(info);
+                    } else {
+                        if (notification_bool) {
+                            Bukkit.getLogger().info("[MCEEW] No final report update.");
                         }
                     }
                 }
-            }.runTaskTimerAsynchronously(this, 20L, 100L);
-        }
+            }
+        }.runTaskTimerAsynchronously(this, 20L, 100L);
     }
 
-    private void SC_EEW_Update() {
-        if (EEW_bool && enable_sc_bool) {
-            RequestConfig httpclient_config = RequestConfig.custom()
-                    .setConnectTimeout(1500)
-                    .setConnectionRequestTimeout(1500)
-                    .setSocketTimeout(1500)
-                    .build();
-            new BukkitRunnable() {
-                public void run() {
-                    CloseableHttpClient httpclient = HttpClients.custom()
-                            .setDefaultRequestConfig(httpclient_config)
-                            .build();
-                    try {
-                        HttpGet request = new HttpGet("https://api.wolfx.jp/sc_eew.json");
-                        HttpResponse response = httpclient.execute(request);
-                        if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
-                            String responseData = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
-                            JsonObject json = JsonParser.parseString(responseData).getAsJsonObject();
-                            if (!Objects.equals(json.get("EventID").getAsString(), EventID)) {
-                                String report_time = json.get("ReportTime").getAsString();
-                                String num = json.get("ReportNum").getAsString();
-                                String lat = json.get("Latitude").getAsString();
-                                String lon = json.get("Longitude").getAsString();
-                                String region = json.get("HypoCenter").getAsString();
-                                String mag = json.get("Magunitude").getAsString();
-                                String depth = "10km";
-                                String intensity = String.valueOf(Math.round(Float.parseFloat(json.get("MaxIntensity").getAsString())));
-                                DateTimeFormatter origin_time1 = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-                                ZonedDateTime origin_time2 = ZonedDateTime.parse(json.get("OriginTime").getAsString(), origin_time1.withZone(ZoneId.of("Asia/Shanghai")));
-                                String origin_time = origin_time2.format(DateTimeFormatter.ofPattern(time_format));
-                                if (notification_bool) {
-                                    Bukkit.getLogger().info("[MCEEW] Sichuan Earthquake Early Warning detected.");
-                                }
-                                if (EventID != null) {
-                                    MCEEW.SC_EEW_Action(report_time, origin_time, num, lat, lon, region, mag, depth, intensity);
-                                }
-                                EventID = json.get("EventID").getAsString();
-                            } else {
-                                if (notification_bool) {
-                                    Bukkit.getLogger().info("[MCEEW] No Sichuan Earthquake Early Warning issued.");
-                                }
-                            }
-                        }
-                    } catch (IllegalStateException | IOException e) {
+    private void SC_EEW_Update(boolean notification_bool) {
+        RequestConfig httpclient_config = Get_RequestConfig(1500);
+        new BukkitRunnable() {
+            public void run() {
+                String responseData = Get_API(httpclient_config, notification_bool, 3);
+                if (responseData != null) {
+                    JsonObject json = JsonParser.parseString(responseData).getAsJsonObject();
+                    if (!Objects.equals(json.get("EventID").getAsString(), EventID)) {
+                        String report_time = json.get("ReportTime").getAsString();
+                        String num = json.get("ReportNum").getAsString();
+                        String lat = json.get("Latitude").getAsString();
+                        String lon = json.get("Longitude").getAsString();
+                        String region = json.get("HypoCenter").getAsString();
+                        String mag = json.get("Magunitude").getAsString();
+                        String depth = "10km";
+                        String intensity = String.valueOf(Math.round(Float.parseFloat(json.get("MaxIntensity").getAsString())));
+                        String origin_time = Get_Date("yyyy-MM-dd HH:mm:ss", time_format, "Asia/Shanghai", json.get("OriginTime").getAsString());
                         if (notification_bool) {
-                            Bukkit.getLogger().warning("[MCEEW] Sichuan EEW API Connection failed, retrying..");
+                            Bukkit.getLogger().info("[MCEEW] Sichuan EEW detected.");
                         }
-                    } finally {
-                        try {
-                            httpclient.close();
-                        } catch (IOException e) {
-                            if (notification_bool) {
-                                Bukkit.getLogger().warning(String.valueOf(e));
-                            }
+                        if (EventID != null) {
+                            SC_EEW_Action(report_time, origin_time, num, lat, lon, region, mag, depth, intensity);
+                        }
+                        EventID = json.get("EventID").getAsString();
+                    } else {
+                        if (notification_bool) {
+                            Bukkit.getLogger().info("[MCEEW] No Sichuan EEW issued.");
                         }
                     }
                 }
-            }.runTaskTimerAsynchronously(this, 20L, 20L);
-        }
+            }
+        }.runTaskTimerAsynchronously(this, 20L, 20L);
     }
 
-    private void EEW_Test(int flag) {
+    private static void EEW_Test(int flag) {
         if (flag == 1) {
             String flags = "警報";
             String origin_time_str = "20220316233426";
@@ -375,10 +319,8 @@ public final class MCEEW extends JavaPlugin {
             String depth = "60km";
             String shindo = "5弱";
             String type = "最終報";
-            DateTimeFormatter origin_time1 = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
-            ZonedDateTime origin_time2 = ZonedDateTime.parse(origin_time_str, origin_time1.withZone(ZoneId.of("Asia/Tokyo")));
-            String origin_time = origin_time2.format(DateTimeFormatter.ofPattern(time_format));
-            MCEEW.EEW_Action(flags, report_time, origin_time, num, lat, lon, region, mag, depth, shindo, type);
+            String origin_time = Get_Date("yyyyMMddHHmmss", time_format, "Asia/Tokyo", origin_time_str);
+            EEW_Action(flags, report_time, origin_time, num, lat, lon, region, mag, depth, shindo, type);
         } else if (flag == 2) {
             String origin_time_str = "2023/01/02 14:20";
             String region = "浦河沖";
@@ -386,10 +328,8 @@ public final class MCEEW extends JavaPlugin {
             String depth = "70km";
             String shindo = "2";
             String info = "\n                \n    \n    \n      この地震による津波の心配はありません。\n    \n  \n                \n              ";
-            DateTimeFormatter origin_time1 = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm");
-            ZonedDateTime origin_time2 = ZonedDateTime.parse(origin_time_str, origin_time1.withZone(ZoneId.of("Asia/Tokyo")));
-            String origin_time = origin_time2.format(DateTimeFormatter.ofPattern(time_format_final));
-            MCEEW.Final_Action(origin_time, region, mag, depth, shindo, info.replace("\n", "").trim());
+            String origin_time = Get_Date("yyyy/MM/dd HH:mm", time_format_final, "Asia/Tokyo", origin_time_str);
+            Final_Action(origin_time, region, mag, depth, shindo, info.replace("\n", "").trim());
         } else if (flag == 3) {
             String origin_time_str = "2023-01-01 21:08:30";
             String report_time = "2023-01-01 21:08:39";
@@ -400,10 +340,8 @@ public final class MCEEW extends JavaPlugin {
             String mag = "3.2";
             String depth = "10km";
             String intensity = "5";
-            DateTimeFormatter origin_time1 = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-            ZonedDateTime origin_time2 = ZonedDateTime.parse(origin_time_str, origin_time1.withZone(ZoneId.of("Asia/Shanghai")));
-            String origin_time = origin_time2.format(DateTimeFormatter.ofPattern(time_format));
-            MCEEW.SC_EEW_Action(report_time, origin_time, num, lat, lon, region, mag, depth, intensity);
+            String origin_time = Get_Date("yyyy-MM-dd HH:mm:ss", time_format, "Asia/Shanghai", origin_time_str);
+            SC_EEW_Action(report_time, origin_time, num, lat, lon, region, mag, depth, intensity);
         } else {
             String flags = "予報";
             String origin_time_str = "20220316233428";
@@ -416,15 +354,13 @@ public final class MCEEW extends JavaPlugin {
             String depth = "50km";
             String shindo = "3";
             String type = "";
-            DateTimeFormatter origin_time1 = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
-            ZonedDateTime origin_time2 = ZonedDateTime.parse(origin_time_str, origin_time1.withZone(ZoneId.of("Asia/Tokyo")));
-            String origin_time = origin_time2.format(DateTimeFormatter.ofPattern(time_format));
-            MCEEW.EEW_Action(flags, report_time, origin_time, num, lat, lon, region, mag, depth, shindo, type);
+            String origin_time = Get_Date("yyyyMMddHHmmss", time_format, "Asia/Tokyo", origin_time_str);
+            EEW_Action(flags, report_time, origin_time, num, lat, lon, region, mag, depth, shindo, type);
         }
     }
 
     private static void EEW_Action(String flag, String report_time, String origin_time, String num, String lat, String lon, String region, String mag, String depth, String shindo, String type) {
-        shindo = MCEEW.GetShindoColor(shindo);
+        shindo = GetShindoColor(shindo);
         if (broadcast_bool) {
             if (Objects.equals(flag, "警報")) {
                 Bukkit.broadcastMessage(
@@ -459,7 +395,7 @@ public final class MCEEW extends JavaPlugin {
             }
         }
         if (title_bool) {
-            for(Player player : Bukkit.getServer().getOnlinePlayers()) {
+            for (Player player : Bukkit.getServer().getOnlinePlayers()) {
                 if (Objects.equals(flag, "警報")) {
                     player.sendTitle(
                             alert_title_message.
@@ -521,21 +457,15 @@ public final class MCEEW extends JavaPlugin {
         }
         if (alert_bool) {
             if (Objects.equals(flag, "警報")) {
-                Sound alert_playedSound = Sound.valueOf(alert_alert_sound_type);
-                for (Player player : Bukkit.getServer().getOnlinePlayers()) {
-                    player.playSound(player.getLocation(), alert_playedSound, (float) alert_alert_sound_volume, (float) alert_alert_sound_pitch);
-                }
+                Play_Sound(alert_alert_sound_type, alert_alert_sound_volume, alert_alert_sound_pitch);
             } else {
-                Sound alert_playedSound = Sound.valueOf(forecast_alert_sound_type);
-                for (Player player : Bukkit.getServer().getOnlinePlayers()) {
-                    player.playSound(player.getLocation(), alert_playedSound, (float) forecast_alert_sound_volume, (float) forecast_alert_sound_pitch);
-                }
+                Play_Sound(forecast_alert_sound_type, forecast_alert_sound_volume, forecast_alert_sound_pitch);
             }
         }
     }
 
     private static void SC_EEW_Action(String report_time, String origin_time, String num, String lat, String lon, String region, String mag, String depth, String intensity) {
-        intensity = MCEEW.GetIntensityColor(intensity);
+        intensity = GetIntensityColor(intensity);
         if (broadcast_bool) {
             Bukkit.broadcastMessage(
                     sichuan_broadcast_message.
@@ -551,7 +481,7 @@ public final class MCEEW extends JavaPlugin {
             );
         }
         if (title_bool) {
-            for(Player player : Bukkit.getServer().getOnlinePlayers()) {
+            for (Player player : Bukkit.getServer().getOnlinePlayers()) {
                 player.sendTitle(
                         sichuan_title_message.
                                 replaceAll("%report_time%", report_time).
@@ -578,15 +508,12 @@ public final class MCEEW extends JavaPlugin {
             }
         }
         if (alert_bool) {
-            Sound alert_playedSound = Sound.valueOf(sc_alert_sound_type);
-            for(Player player : Bukkit.getServer().getOnlinePlayers()) {
-                player.playSound(player.getLocation(), alert_playedSound, (float) sc_alert_sound_volume, (float) sc_alert_sound_pitch);
-            }
+            Play_Sound(sc_alert_sound_type, sc_alert_sound_volume, sc_alert_sound_pitch);
         }
     }
 
     private static void Final_Action(String origin_time, String region, String mag, String depth, String shindo, String info) {
-        shindo = MCEEW.GetShindoColor(shindo);
+        shindo = GetShindoColor(shindo);
         Bukkit.broadcastMessage(
                 final_broadcast_message.
                         replaceAll("%origin_time%", origin_time).
@@ -598,8 +525,8 @@ public final class MCEEW extends JavaPlugin {
         );
     }
 
-    private void Final_Command(CommandSender sender) {
-        String shindo = MCEEW.GetShindoColor(final_info.get(4));
+    private static void Final_Command(CommandSender sender) {
+        String shindo = GetShindoColor(final_info.get(4));
         if (final_md5 != null) {
             sender.sendMessage(
                     final_broadcast_message.
@@ -638,35 +565,8 @@ public final class MCEEW extends JavaPlugin {
         return shindo;
     }
 
-    private static String GetIntensityColor(String intensity) {
-        if (Objects.equals(intensity, "1")) {
-            intensity = ChatColor.translateAlternateColorCodes('&', intensity_color[1]) + intensity;
-        } else if (Objects.equals(intensity, "2")) {
-            intensity = ChatColor.translateAlternateColorCodes('&', intensity_color[2]) + intensity;
-        } else if (Objects.equals(intensity, "3")) {
-            intensity = ChatColor.translateAlternateColorCodes('&', intensity_color[3]) + intensity;
-        } else if (Objects.equals(intensity, "4")) {
-            intensity = ChatColor.translateAlternateColorCodes('&', intensity_color[4]) + intensity;
-        } else if (Objects.equals(intensity, "5")) {
-            intensity = ChatColor.translateAlternateColorCodes('&', intensity_color[5]) + intensity;
-        } else if (Objects.equals(intensity, "6")) {
-            intensity = ChatColor.translateAlternateColorCodes('&', intensity_color[6]) + intensity;
-        } else if (Objects.equals(intensity, "7")) {
-            intensity = ChatColor.translateAlternateColorCodes('&', intensity_color[7]) + intensity;
-        } else if (Objects.equals(intensity, "8")) {
-            intensity = ChatColor.translateAlternateColorCodes('&', intensity_color[8]) + intensity;
-        } else if (Objects.equals(intensity, "9")) {
-            intensity = ChatColor.translateAlternateColorCodes('&', intensity_color[9]) + intensity;
-        }  else if (Objects.equals(intensity, "10")) {
-            intensity = ChatColor.translateAlternateColorCodes('&', intensity_color[10]) + intensity;
-        } else if (Objects.equals(intensity, "11")) {
-            intensity = ChatColor.translateAlternateColorCodes('&', intensity_color[11]) + intensity;
-        } else if (Objects.equals(intensity, "12")) {
-            intensity = ChatColor.translateAlternateColorCodes('&', intensity_color[12]) + intensity;
-        } else {
-            intensity = ChatColor.translateAlternateColorCodes('&', intensity_color[0]) + intensity;
-        }
-        return intensity;
+    private static String GetIntensityColor(String intensity_str) {
+        return ChatColor.translateAlternateColorCodes('&', intensity_color[Integer.parseInt(intensity_str)]) + intensity_str;
     }
 
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
@@ -679,27 +579,27 @@ public final class MCEEW extends JavaPlugin {
             return true;
         } else if (args[0].equalsIgnoreCase("reload")) {
             if (sender.isOp()) {
-                this.load_EEW();
+                this.load_EEW(false);
                 sender.sendMessage("§a[MCEEW] Configuration reload successfully.");
                 return true;
             }
         } else if (args[0].equalsIgnoreCase("final")) {
-            this.Final_Command(sender);
+            Final_Command(sender);
             return true;
         } else if (args[0].equalsIgnoreCase("test")) {
             if (sender.isOp()) {
                 if (args.length == 2) {
                     if (args[1].equalsIgnoreCase("forecast")) {
-                        this.EEW_Test(0);
+                        EEW_Test(0);
                         return true;
                     } else if (args[1].equalsIgnoreCase("alert")) {
-                        this.EEW_Test(1);
+                        EEW_Test(1);
                         return true;
                     } else if (args[1].equalsIgnoreCase("final")) {
-                        this.EEW_Test(2);
+                        EEW_Test(2);
                         return true;
                     } else if (args[1].equalsIgnoreCase("sc")) {
-                        this.EEW_Test(3);
+                        EEW_Test(3);
                         return true;
                     }
                 } else {
@@ -715,31 +615,23 @@ public final class MCEEW extends JavaPlugin {
     }
 
     private void Check_Config() {
-        boolean need_update = true;
-        if (this.getConfig().getBoolean("Version.2.0.0")) {
-            need_update = false;
-        }
+        boolean need_update = !this.getConfig().getBoolean("Version.2.0.0");
         if (need_update) {
             Bukkit.getLogger().warning("[MCEEW] If you are upgrading from v1.1.6 and below, please manually delete the 'plugins/MCEEW' directory, and you can turn off this notification in the configuration when you follow the above actions.");
         }
     }
 
-    private void load_EEW() {
+    private void load_EEW(boolean first) {
         Bukkit.getScheduler().cancelTasks(this);
         this.saveDefaultConfig();
         this.reloadConfig();
         this.Check_Config();
-        EEW_bool = this.getConfig().getBoolean("EEW");
-        enable_jma_bool = this.getConfig().getBoolean("enable_jma");
-        enable_sc_bool = this.getConfig().getBoolean("enable_sc");
         time_format = this.getConfig().getString("time_format");
         time_format_final = this.getConfig().getString("time_format_final");
         broadcast_bool = this.getConfig().getBoolean("Action.broadcast");
         title_bool = this.getConfig().getBoolean("Action.title");
         alert_bool = this.getConfig().getBoolean("Action.alert");
-        final_bool = this.getConfig().getBoolean("Action.final");
-        notification_bool = this.getConfig().getBoolean("Action.notification");
-        updater_bool = this.getConfig().getBoolean("Updater");
+        boolean notification_bool = this.getConfig().getBoolean("Action.notification");
         alert_broadcast_message = ChatColor.translateAlternateColorCodes('&', Objects.requireNonNull(this.getConfig().getString("Message.Alert.broadcast")));
         alert_title_message = ChatColor.translateAlternateColorCodes('&', Objects.requireNonNull(this.getConfig().getString("Message.Alert.title")));
         alert_subtitle_message = ChatColor.translateAlternateColorCodes('&', Objects.requireNonNull(this.getConfig().getString("Message.Alert.subtitle")));
@@ -761,9 +653,18 @@ public final class MCEEW extends JavaPlugin {
         sc_alert_sound_type = this.getConfig().getString("Sound.Alert.type");
         sc_alert_sound_volume = this.getConfig().getDouble("Sound.Alert.volume");
         sc_alert_sound_pitch = this.getConfig().getDouble("Sound.Alert.pitch");
-        this.EEW_Update();
-        this.Final_Update();
-        this.SC_EEW_Update();
+        if (this.getConfig().getBoolean("EEW")) {
+            this.EEW_Update(this.getConfig().getBoolean("enable_jma"), notification_bool);
+            if (this.getConfig().getBoolean("Action.final")) {
+                this.Final_Update(notification_bool);
+            }
+            if (this.getConfig().getBoolean("enable_sc")) {
+                this.SC_EEW_Update(notification_bool);
+            }
+        }
+        if (first && this.getConfig().getBoolean("Updater")) {
+            this.Updater();
+        }
     }
 
     @Override
