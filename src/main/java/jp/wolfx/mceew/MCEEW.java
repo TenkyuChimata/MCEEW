@@ -28,6 +28,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Objects;
+import java.util.function.Supplier;
 
 public final class MCEEW extends JavaPlugin {
     private static boolean broadcast_bool;
@@ -81,39 +82,27 @@ public final class MCEEW extends JavaPlugin {
         String data = null;
         HttpGet request;
         HttpResponse response;
-        CloseableHttpClient httpclient = HttpClients.custom()
+        try (CloseableHttpClient httpclient = HttpClients.custom()
                 .setDefaultRequestConfig(httpclient_config)
-                .build();
-        if (source == 0) {
-            request = new HttpGet("https://api.wolfx.jp/jma_eew.json");
-        } else if (source == 1) {
-            request = new HttpGet("https://api.wolfx.jp/nied_eew.json");
-        } else if (source == 2) {
-            request = new HttpGet("https://api.wolfx.jp/jma_eqlist.json");
-        } else if (source == 3) {
-            request = new HttpGet("https://api.wolfx.jp/sc_eew.json");
-        } else {
-            request = new HttpGet("https://tenkyuchimata.github.io/MCEEW/version.json");
-        }
-        try {
-            try {
-                response = httpclient.execute(request);
-                if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
-                    data = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
-                }
-            } catch (SocketException e) {
-                if (notification_bool) {
-                    Bukkit.getLogger().warning("API connection failed, retrying...");
-                }
+                .build()) {
+            if (source == 0) {
+                request = new HttpGet("https://api.wolfx.jp/jma_eew.json");
+            } else if (source == 1) {
+                request = new HttpGet("https://api.wolfx.jp/nied_eew.json");
+            } else if (source == 2) {
+                request = new HttpGet("https://api.wolfx.jp/jma_eqlist.json");
+            } else if (source == 3) {
+                request = new HttpGet("https://api.wolfx.jp/sc_eew.json");
+            } else {
+                request = new HttpGet("https://tenkyuchimata.github.io/MCEEW/version.json");
             }
-        } catch (IllegalStateException | IOException e) {
+            response = httpclient.execute(request);
+            if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
+                data = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
+            }
+        } catch (Exception e) {
             if (notification_bool) {
                 Bukkit.getLogger().warning("API connection failed, retrying...");
-            }
-        } finally {
-            try {
-                httpclient.close();
-            } catch (IOException e) {
                 Bukkit.getLogger().warning(String.valueOf(e));
             }
         }
