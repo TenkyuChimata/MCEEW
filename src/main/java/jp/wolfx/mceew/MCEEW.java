@@ -21,6 +21,7 @@ import org.bstats.bukkit.Metrics;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
+import java.net.SocketException;
 import java.nio.charset.StandardCharsets;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -78,10 +79,11 @@ public final class MCEEW extends JavaPlugin {
 
     private static String Get_API(RequestConfig httpclient_config, boolean notification_bool, int source) {
         String data = null;
+        HttpGet request;
+        HttpResponse response;
         CloseableHttpClient httpclient = HttpClients.custom()
                 .setDefaultRequestConfig(httpclient_config)
                 .build();
-        HttpGet request;
         if (source == 0) {
             request = new HttpGet("https://api.wolfx.jp/jma_eew.json");
         } else if (source == 1) {
@@ -94,9 +96,15 @@ public final class MCEEW extends JavaPlugin {
             request = new HttpGet("https://tenkyuchimata.github.io/MCEEW/version.json");
         }
         try {
-            HttpResponse response = httpclient.execute(request);
-            if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
-                data = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
+            try {
+                response = httpclient.execute(request);
+                if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
+                    data = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
+                }
+            } catch (SocketException e) {
+                if (notification_bool) {
+                    Bukkit.getLogger().warning("API connection failed, retrying...");
+                }
             }
         } catch (IllegalStateException | IOException e) {
             if (notification_bool) {
