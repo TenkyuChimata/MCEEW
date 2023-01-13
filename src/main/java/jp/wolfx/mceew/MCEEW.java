@@ -351,6 +351,7 @@ public final class MCEEW extends JavaPlugin {
             String origin_time = Get_Date("yyyyMMddHHmmss", time_format, "Asia/Tokyo", origin_time_str);
             EEW_Action(flags, report_time, origin_time, num, lat, lon, region, mag, depth, shindo, type);
         }
+        Bukkit.broadcastMessage("§eWarning: This is a Earthquake Early Warning issued test.");
     }
 
     private static void EEW_Action(String flag, String report_time, String origin_time, String num, String lat, String lon, String region, String mag, String depth, String shindo, String type) {
