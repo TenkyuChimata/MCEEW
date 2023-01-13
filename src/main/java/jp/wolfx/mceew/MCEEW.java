@@ -78,7 +78,6 @@ public final class MCEEW extends JavaPlugin {
     private static String Get_API(RequestConfig httpclient_config, boolean notification_bool, int source) {
         String data = null;
         HttpGet request;
-        HttpResponse response;
         try (CloseableHttpClient httpclient = HttpClients.custom()
                 .setDefaultRequestConfig(httpclient_config)
                 .build()) {
@@ -93,7 +92,7 @@ public final class MCEEW extends JavaPlugin {
             } else {
                 request = new HttpGet("https://tenkyuchimata.github.io/MCEEW/version.json");
             }
-            response = httpclient.execute(request);
+            HttpResponse response = httpclient.execute(request);
             if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
                 data = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
             }
