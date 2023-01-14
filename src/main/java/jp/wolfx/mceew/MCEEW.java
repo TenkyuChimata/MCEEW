@@ -20,6 +20,7 @@ import org.bukkit.scheduler.BukkitRunnable;
 import org.bstats.bukkit.Metrics;
 import org.jetbrains.annotations.NotNull;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -96,7 +97,7 @@ public final class MCEEW extends JavaPlugin {
             if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
                 data = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
             }
-        } catch (Exception e) {
+        } catch (IOException e) {
             if (notification_bool) {
                 Bukkit.getLogger().warning("API connection failed, retrying...");
                 Bukkit.getLogger().warning(String.valueOf(e));
