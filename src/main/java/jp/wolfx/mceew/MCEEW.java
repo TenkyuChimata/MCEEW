@@ -157,6 +157,9 @@ public final class MCEEW extends JavaPlugin {
                             String depth = json.get("Depth").getAsString() + "km";
                             String shindo = json.get("MaxIntensity").getAsString();
                             String origin_time = Get_Date("yyyy/MM/dd HH:mm:ss", time_format, "Asia/Tokyo", json.get("OriginTime").getAsString());
+                            if (json.get("isFinal").getAsBoolean()) {
+                                type = "最終報";
+                            }
                             if (json.get("isAssumption").getAsBoolean()) {
                                 if (json.get("isFinal").getAsBoolean()) {
                                     type = "訓練 (最終報)";
@@ -164,8 +167,8 @@ public final class MCEEW extends JavaPlugin {
                                     type = "訓練";
                                 }
                             }
-                            if (json.get("isFinal").getAsBoolean()) {
-                                type = "最終報";
+                            if (json.get("isCancel").getAsBoolean()) {
+                                type = "取消";
                             }
                             if (notification_bool) {
                                 Bukkit.getLogger().info("[MCEEW] JMA EEW detected.");
@@ -196,8 +199,8 @@ public final class MCEEW extends JavaPlugin {
                             String depth = json.get("depth").getAsString();
                             String shindo = json.get("calcintensity").getAsString();
                             String origin_time = Get_Date("yyyyMMddHHmmss", time_format, "Asia/Tokyo", json.get("origin_time").getAsString());
-                            if (json.get("is_cancel").getAsBoolean()) {
-                                type = "取消";
+                            if (json.get("is_final").getAsBoolean()) {
+                                type = "最終報";
                             }
                             if (json.get("is_training").getAsBoolean()) {
                                 if (json.get("is_final").getAsBoolean()) {
@@ -206,8 +209,8 @@ public final class MCEEW extends JavaPlugin {
                                     type = "訓練";
                                 }
                             }
-                            if (json.get("is_final").getAsBoolean()) {
-                                type = "最終報";
+                            if (json.get("is_cancel").getAsBoolean()) {
+                                type = "取消";
                             }
                             if (notification_bool) {
                                 Bukkit.getLogger().info("[MCEEW] NIED EEW detected.");
