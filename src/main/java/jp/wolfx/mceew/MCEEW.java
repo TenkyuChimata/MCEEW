@@ -324,9 +324,9 @@ public final class MCEEW extends JavaPlugin {
             String mag = "4.2";
             String depth = "70km";
             String shindo = "2";
-            String info = "\n                \n    \n    \n      この地震による津波の心配はありません。\n    \n  \n                \n              ";
+            String info = "この地震による津波の心配はありません。";
             String origin_time = Get_Date("yyyy/MM/dd HH:mm", time_format_final, "Asia/Tokyo", origin_time_str);
-            Final_Action(origin_time, region, mag, depth, shindo, info.replace("\n", "").trim());
+            Final_Action(origin_time, region, mag, depth, shindo, info);
         } else if (flag == 3) {
             String origin_time_str = "2023-01-01 21:08:30";
             String report_time = "2023-01-01 21:08:39";
