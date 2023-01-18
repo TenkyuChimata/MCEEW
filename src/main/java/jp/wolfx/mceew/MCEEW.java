@@ -237,13 +237,13 @@ public final class MCEEW extends JavaPlugin {
                 String responseData = Get_API(httpclient_config, notification_bool, 2);
                 if (responseData != null) {
                     JsonObject json = JsonParser.parseString(responseData).getAsJsonObject().get("No1").getAsJsonObject();
-                    if (!(json.get("time").getAsString() + json.get("location").getAsString() + json.get("magnitude").getAsString() + json.get("depth").getAsString() + json.get("shindo").getAsString() + json.get("info").getAsString().replace("\n", "").trim()).equals(final_md5)) {
+                    if (!(json.get("time").getAsString() + json.get("location").getAsString() + json.get("magnitude").getAsString() + json.get("depth").getAsString() + json.get("shindo").getAsString() + json.get("info").getAsString()).equals(final_md5)) {
                         String time_str = json.get("time").getAsString();
                         String region = json.get("location").getAsString();
                         String mag = json.get("magnitude").getAsString();
                         String depth = json.get("depth").getAsString();
                         String shindo = json.get("shindo").getAsString();
-                        String info = json.get("info").getAsString().replace("\n", "").trim();
+                        String info = json.get("info").getAsString();
                         String origin_time = Get_Date("yyyy/MM/dd HH:mm", time_format_final, "Asia/Tokyo", time_str);
                         if (notification_bool) {
                             Bukkit.getLogger().info("[MCEEW] Final report updated.");
