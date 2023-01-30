@@ -645,12 +645,12 @@ public final class MCEEW extends JavaPlugin {
         alert_alert_sound_type = this.getConfig().getString("Sound.Alert.type");
         alert_alert_sound_volume = this.getConfig().getDouble("Sound.Alert.volume");
         alert_alert_sound_pitch = this.getConfig().getDouble("Sound.Alert.pitch");
-        forecast_alert_sound_type = this.getConfig().getString("Sound.Alert.type");
-        forecast_alert_sound_volume = this.getConfig().getDouble("Sound.Alert.volume");
-        forecast_alert_sound_pitch = this.getConfig().getDouble("Sound.Alert.pitch");
-        sc_alert_sound_type = this.getConfig().getString("Sound.Alert.type");
-        sc_alert_sound_volume = this.getConfig().getDouble("Sound.Alert.volume");
-        sc_alert_sound_pitch = this.getConfig().getDouble("Sound.Alert.pitch");
+        forecast_alert_sound_type = this.getConfig().getString("Sound.Forecast.type");
+        forecast_alert_sound_volume = this.getConfig().getDouble("Sound.Forecast.volume");
+        forecast_alert_sound_pitch = this.getConfig().getDouble("Sound.Forecast.pitch");
+        sc_alert_sound_type = this.getConfig().getString("Sound.Sichuan.type");
+        sc_alert_sound_volume = this.getConfig().getDouble("Sound.Sichuan.volume");
+        sc_alert_sound_pitch = this.getConfig().getDouble("Sound.Sichuan.pitch");
         if (this.getConfig().getBoolean("EEW")) {
             this.EEW_Update(this.getConfig().getBoolean("enable_jma"), notification_bool);
             if (this.getConfig().getBoolean("Action.final")) {
