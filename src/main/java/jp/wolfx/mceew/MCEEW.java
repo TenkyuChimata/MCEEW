@@ -660,7 +660,7 @@ public final class MCEEW extends JavaPlugin {
                 this.SC_EEW_Update(notification_bool);
             }
         }
-        if (first && this.getConfig().getBoolean("Updater")) {
+        if (first) {
             this.Updater();
         }
     }
