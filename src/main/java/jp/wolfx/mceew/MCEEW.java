@@ -547,13 +547,13 @@ public final class MCEEW extends JavaPlugin {
             shindo = ChatColor.translateAlternateColorCodes('&', shindo_color[3]) + shindo;
         } else if (Objects.equals(shindo, "4")) {
             shindo = ChatColor.translateAlternateColorCodes('&', shindo_color[4]) + shindo;
-        } else if (Objects.equals(shindo, "5-") || Objects.equals(shindo, "5弱")) {
+        } else if (Objects.equals(shindo, "5弱")) {
             shindo = ChatColor.translateAlternateColorCodes('&', shindo_color[5]) + shindo;
-        } else if (Objects.equals(shindo, "5+") || Objects.equals(shindo, "5強")) {
+        } else if (Objects.equals(shindo, "5強")) {
             shindo = ChatColor.translateAlternateColorCodes('&', shindo_color[6]) + shindo;
-        } else if (Objects.equals(shindo, "6-") || Objects.equals(shindo, "6弱")) {
+        } else if (Objects.equals(shindo, "6弱")) {
             shindo = ChatColor.translateAlternateColorCodes('&', shindo_color[7]) + shindo;
-        } else if (Objects.equals(shindo, "6+") || Objects.equals(shindo, "6強")) {
+        } else if (Objects.equals(shindo, "6強")) {
             shindo = ChatColor.translateAlternateColorCodes('&', shindo_color[8]) + shindo;
         } else if (Objects.equals(shindo, "7")) {
             shindo = ChatColor.translateAlternateColorCodes('&', shindo_color[9]) + shindo;
