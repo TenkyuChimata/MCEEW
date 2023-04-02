@@ -2,7 +2,7 @@
 A real-time Japan/China Earthquake Early Warning(EEW) plugin for Spigot/Paper.
 
 ## Features
-* **Support Spigot/Paper 1.18+.**
+* **Support Spigot/Paper 1.13+.**
 * **Support for receiving EEW from NIED/JMA.**
 * **Support for receiving EEW from Sichuan China.**
 * **Support for broadcast messages to chat.**
