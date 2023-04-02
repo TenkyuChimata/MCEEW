@@ -2,13 +2,6 @@ package jp.wolfx.mceew;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import org.apache.http.HttpResponse;
-import org.apache.http.HttpStatus;
-import org.apache.http.client.config.RequestConfig;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.util.EntityUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Sound;
@@ -20,7 +13,11 @@ import org.bukkit.scheduler.BukkitRunnable;
 import org.bstats.bukkit.Metrics;
 import org.jetbrains.annotations.NotNull;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -68,34 +65,34 @@ public final class MCEEW extends JavaPlugin {
         new Metrics(this, 17261);
     }
 
-    private static RequestConfig Get_RequestConfig(int timeout) {
-        return RequestConfig.custom()
-                .setConnectTimeout(timeout)
-                .setConnectionRequestTimeout(timeout)
-                .setSocketTimeout(timeout)
-                .build();
-    }
-
-    private static String Get_API(RequestConfig httpclient_config, boolean notification_bool, int source) {
+    private static String Get_API(int timeout, boolean notification_bool, int source) {
         String data = null;
-        HttpGet request;
-        try (CloseableHttpClient httpclient = HttpClients.custom()
-                .setDefaultRequestConfig(httpclient_config)
-                .build()) {
+        URL url;
+        StringBuilder raw_data = new StringBuilder();
+        try {
             if (source == 0) {
-                request = new HttpGet("https://api.wolfx.jp/jma_eew.json");
+                url = new URL("https://api.wolfx.jp/jma_eew.json");
             } else if (source == 1) {
-                request = new HttpGet("https://api.wolfx.jp/nied_eew.json");
+                url = new URL("https://api.wolfx.jp/nied_eew.json");
             } else if (source == 2) {
-                request = new HttpGet("https://api.wolfx.jp/jma_eqlist.json");
+                url = new URL("https://api.wolfx.jp/jma_eqlist.json");
             } else if (source == 3) {
-                request = new HttpGet("https://api.wolfx.jp/sc_eew.json");
+                url = new URL("https://api.wolfx.jp/sc_eew.json");
             } else {
-                request = new HttpGet("https://tenkyuchimata.github.io/MCEEW/version.json");
+                url = new URL("https://tenkyuchimata.github.io/MCEEW/version.json");
             }
-            HttpResponse response = httpclient.execute(request);
-            if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
-                data = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
+            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+            connection.setConnectTimeout(timeout);
+            connection.setReadTimeout(timeout);
+            if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) {
+                throw new IOException();
+            }
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    raw_data.append(line);
+                }
+                data = raw_data.toString();
             }
         } catch (IOException e) {
             if (notification_bool) {
@@ -107,10 +104,9 @@ public final class MCEEW extends JavaPlugin {
     }
 
     private void Updater() {
-        RequestConfig httpclient_config = Get_RequestConfig(5000);
         new BukkitRunnable() {
             public void run() {
-                String responseData = Get_API(httpclient_config, true, -1);
+                String responseData = Get_API(5000, true, -1);
                 if (responseData != null) {
                     JsonObject json = JsonParser.parseString(responseData).getAsJsonObject();
                     String api_version = json.get("version").getAsString();
@@ -138,11 +134,10 @@ public final class MCEEW extends JavaPlugin {
     }
 
     private void EEW_Update(boolean enable_jma_bool, boolean notification_bool) {
-        RequestConfig httpclient_config = Get_RequestConfig(1500);
         new BukkitRunnable() {
             public void run() {
                 if (enable_jma_bool) {
-                    String responseData = Get_API(httpclient_config, notification_bool, 0);
+                    String responseData = Get_API(1500, notification_bool, 0);
                     if (responseData != null) {
                         JsonObject json = JsonParser.parseString(responseData).getAsJsonObject();
                         if (!Objects.equals(json.get("OriginalText").getAsString(), OriginalText)) {
@@ -184,7 +179,7 @@ public final class MCEEW extends JavaPlugin {
                         }
                     }
                 } else {
-                    String responseData = Get_API(httpclient_config, notification_bool, 1);
+                    String responseData = Get_API(1500, notification_bool, 1);
                     if (responseData != null) {
                         JsonObject json = JsonParser.parseString(responseData).getAsJsonObject();
                         if (!Objects.equals(json.get("report_time").getAsString(), update_report)) {
@@ -231,10 +226,9 @@ public final class MCEEW extends JavaPlugin {
     }
 
     private void Final_Update(boolean notification_bool) {
-        RequestConfig httpclient_config = Get_RequestConfig(5000);
         new BukkitRunnable() {
             public void run() {
-                String responseData = Get_API(httpclient_config, notification_bool, 2);
+                String responseData = Get_API(5000, notification_bool, 2);
                 if (responseData != null) {
                     JsonObject json = JsonParser.parseString(responseData).getAsJsonObject().get("No1").getAsJsonObject();
                     if (!(json.get("time").getAsString() + json.get("location").getAsString() + json.get("magnitude").getAsString() + json.get("depth").getAsString() + json.get("shindo").getAsString() + json.get("info").getAsString()).equals(final_md5)) {
@@ -270,10 +264,9 @@ public final class MCEEW extends JavaPlugin {
     }
 
     private void SC_EEW_Update(boolean notification_bool) {
-        RequestConfig httpclient_config = Get_RequestConfig(1500);
         new BukkitRunnable() {
             public void run() {
-                String responseData = Get_API(httpclient_config, notification_bool, 3);
+                String responseData = Get_API(1500, notification_bool, 3);
                 if (responseData != null) {
                     JsonObject json = JsonParser.parseString(responseData).getAsJsonObject();
                     if (!Objects.equals(json.get("EventID").getAsString(), EventID)) {
