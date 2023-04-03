@@ -8,6 +8,7 @@ import org.bukkit.Sound;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bstats.bukkit.Metrics;
 import org.jetbrains.annotations.NotNull;
@@ -23,6 +24,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 
 public final class MCEEW extends JavaPlugin {
     private static boolean broadcast_bool;
@@ -57,13 +59,56 @@ public final class MCEEW extends JavaPlugin {
     private static String OriginalText = null;
     private static String final_md5 = null;
     private static String EventID = null;
-    private final String version = this.getDescription().getVersion().replaceAll("-b", "");
     private static final ArrayList<String> final_info = new ArrayList<>();
+    private final String version = this.getDescription().getVersion().replaceAll("-b", "");
+    private static final boolean folia = isFolia();
 
     @Override
     public void onEnable() {
         this.loadEew(true);
         new Metrics(this, 17261);
+    }
+
+    private static boolean isFolia() {
+        try {
+            Class.forName("io.papermc.paper.threadedregions.RegionizedServer");
+            return true;
+        } catch (ClassNotFoundException e) {
+            return false;
+        }
+    }
+
+    private void mceewScheduler(boolean eewBoolean, boolean finalBoolean, boolean scEewBoolean, boolean updaterBoolean) {
+        if (!folia) {
+            if (eewBoolean) {
+                Bukkit.getScheduler().runTaskTimerAsynchronously(this, this::eewChecker, 20L, 20L);
+                if (finalBoolean) {
+                    Bukkit.getScheduler().runTaskTimerAsynchronously(this, this::finalChecker, 20L, 100L);
+                }
+                if (scEewBoolean) {
+                    Bukkit.getScheduler().runTaskTimerAsynchronously(this, this::scEewChecker, 20L, 20L);
+                }
+            }
+            if (updaterBoolean) {
+                Bukkit.getScheduler().runTaskAsynchronously(this, this::updater);
+            }
+        } else {
+            Plugin plugin = this;
+            Bukkit.getGlobalRegionScheduler().run(this, task -> {
+                if (eewBoolean) {
+                    Bukkit.getAsyncScheduler().runAtFixedRate(plugin, task14 -> eewChecker(), 1L, 1L, TimeUnit.SECONDS);
+                    if (finalBoolean) {
+                        Bukkit.getAsyncScheduler().runAtFixedRate(plugin, task13 -> finalChecker(), 1L, 5L, TimeUnit.SECONDS);
+                    }
+                    if (scEewBoolean) {
+                        Bukkit.getAsyncScheduler().runAtFixedRate(plugin, task1 -> scEewChecker(), 1L, 1L, TimeUnit.SECONDS);
+                    }
+                }
+                if (updaterBoolean) {
+                    Bukkit.getAsyncScheduler().runNow(plugin, task12 -> updater());
+                }
+            });
+        }
     }
 
     private static String getAPI(int timeout, int source) {
@@ -586,7 +631,11 @@ public final class MCEEW extends JavaPlugin {
     }
 
     private void loadEew(boolean first) {
-        Bukkit.getScheduler().cancelTasks(this);
+        if (!folia) {
+            Bukkit.getScheduler().cancelTasks(this);
+        } else {
+            Bukkit.getGlobalRegionScheduler().cancelTasks(this);
+        }
         this.saveDefaultConfig();
         this.reloadConfig();
         this.checkConfig();
@@ -618,22 +667,15 @@ public final class MCEEW extends JavaPlugin {
         sc_alert_sound_type = this.getConfig().getString("Sound.Sichuan.type");
         sc_alert_sound_volume = this.getConfig().getDouble("Sound.Sichuan.volume");
         sc_alert_sound_pitch = this.getConfig().getDouble("Sound.Sichuan.pitch");
-        if (this.getConfig().getBoolean("EEW")) {
-            Bukkit.getScheduler().runTaskTimerAsynchronously(this, this::eewChecker, 20L, 20L);
-            if (this.getConfig().getBoolean("Action.final")) {
-                Bukkit.getScheduler().runTaskTimerAsynchronously(this, this::finalChecker, 20L, 100L);
-            }
-            if (this.getConfig().getBoolean("enable_sc")) {
-                Bukkit.getScheduler().runTaskTimerAsynchronously(this, this::scEewChecker, 20L, 20L);
-            }
-        }
-        if (first) {
-            Bukkit.getScheduler().runTaskAsynchronously(this, this::updater);
-        }
+        this.mceewScheduler(this.getConfig().getBoolean("EEW"), this.getConfig().getBoolean("Action.final"), this.getConfig().getBoolean("enable_sc"), first);
     }
 
     @Override
     public void onDisable() {
-        Bukkit.getScheduler().cancelTasks(this);
+        if (!folia) {
+            Bukkit.getScheduler().cancelTasks(this);
+        } else {
+            Bukkit.getGlobalRegionScheduler().cancelTasks(this);
+        }
     }
 }

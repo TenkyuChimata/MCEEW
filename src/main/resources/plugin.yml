@@ -2,7 +2,7 @@ name: MCEEW
 version: ${project.version}
 main: jp.wolfx.mceew.MCEEW
 api-version: 1.13
-folia-supported: false
+folia-supported: true
 
 commands:
   eew:
