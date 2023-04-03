@@ -57,7 +57,7 @@ public final class MCEEW extends JavaPlugin {
     private static String OriginalText = null;
     private static String final_md5 = null;
     private static String EventID = null;
-    private final String version = this.getDescription().getVersion();
+    private final String version = this.getDescription().getVersion().replaceAll("-b", "");
     private static final ArrayList<String> final_info = new ArrayList<>();
 
     @Override
@@ -109,7 +109,7 @@ public final class MCEEW extends JavaPlugin {
         if (responseData != null) {
             JsonObject json = JsonParser.parseString(responseData).getAsJsonObject();
             String api_version = json.get("version").getAsString();
-            if (!version.equals(api_version)) {
+            if (Integer.parseInt(api_version.replaceAll("\\.", "")) > Integer.parseInt(version.replaceAll("\\.", ""))) {
                 Bukkit.getLogger().warning("[MCEEW] New plugin version v" + api_version + " detected, Please download a new version from https://acg.kr/mceew");
             } else {
                 Bukkit.getLogger().info("[MCEEW] You are running the latest version.");
