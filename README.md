@@ -1,10 +1,10 @@
 # MCEEW
 
-A real-time Japan/China Earthquake Early Warning(EEW) plugin for Spigot/Paper.
+A real-time Japan/China Earthquake Early Warning(EEW) plugin for Minecraft Server.
 
 ## Features
 
-*   **Support Spigot/Paper 1.13+.**
+*   **Support Spigot/Paper/Folia 1.13+.**
 *   **Support for receiving EEW from NIED/JMA.**
 *   **Support for receiving EEW from Sichuan China.**
 *   **Support for broadcast messages to chat.**
