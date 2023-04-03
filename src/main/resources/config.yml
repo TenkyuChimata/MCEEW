@@ -1,6 +1,6 @@
 #
 #  MCEEW configuration
-#  Last updated on 2.0.6
+#  Last updated on 2.1.1
 #  Last necessary updated on 2.0.0
 #
 #  API Source: https://api.wolfx.jp
@@ -83,10 +83,10 @@ Message:
 Color:
   # Set the Japan Intensity color
   # 0 1 2 3 4 5- 5+ 6- 6+ 7
-  Shindo: ["&f", "&7", "&b", "&9", "&a", "&e", "&6", "&c", "&4", "&d"]
+  Shindo: [ "&f", "&7", "&b", "&9", "&a", "&e", "&6", "&c", "&4", "&d" ]
   # Set the China Intensity color
   # 0 1 2 3 4 5 6 7 8 9 10 11 12
-  Intensity: ["&f", "&7", "&b", "&3", "&9", "&a", "&2", "&e", "&6", "&c", "&4", "&d", "&5"]
+  Intensity: [ "&f", "&7", "&b", "&3", "&9", "&a", "&2", "&e", "&6", "&c", "&4", "&d", "&5" ]
 
 Sound:
   # Set the alert report alert sound
