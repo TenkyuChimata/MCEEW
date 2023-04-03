@@ -553,28 +553,26 @@ public final class MCEEW extends JavaPlugin {
             }
             return true;
         } else if (args[0].equalsIgnoreCase("test")) {
-            if (sender.isOp()) {
-                if (args.length == 2) {
-                    if (args[1].equalsIgnoreCase("forecast")) {
-                        eewTest(0);
-                        return true;
-                    } else if (args[1].equalsIgnoreCase("alert")) {
-                        eewTest(1);
-                        return true;
-                    } else if (args[1].equalsIgnoreCase("final")) {
-                        eewTest(2);
-                        return true;
-                    } else if (args[1].equalsIgnoreCase("sc")) {
-                        eewTest(3);
-                        return true;
-                    }
-                } else {
-                    sender.sendMessage("§a[MCEEW] §3/eew test alert§a - Run Alert EEW test.");
-                    sender.sendMessage("§a[MCEEW] §3/eew test forecast§a - Run Forecast EEW test.");
-                    sender.sendMessage("§a[MCEEW] §3/eew test final§a - Run Final Report test.");
-                    sender.sendMessage("§a[MCEEW] §3/eew test sc§a - Run Sichuan EEW test.");
+            if (sender.isOp() && args.length == 2) {
+                if (args[1].equalsIgnoreCase("forecast")) {
+                    eewTest(0);
+                    return true;
+                } else if (args[1].equalsIgnoreCase("alert")) {
+                    eewTest(1);
+                    return true;
+                } else if (args[1].equalsIgnoreCase("final")) {
+                    eewTest(2);
+                    return true;
+                } else if (args[1].equalsIgnoreCase("sc")) {
+                    eewTest(3);
                     return true;
                 }
+            } else {
+                sender.sendMessage("§a[MCEEW] §3/eew test alert§a - Run Alert EEW test.");
+                sender.sendMessage("§a[MCEEW] §3/eew test forecast§a - Run Forecast EEW test.");
+                sender.sendMessage("§a[MCEEW] §3/eew test final§a - Run Final Report test.");
+                sender.sendMessage("§a[MCEEW] §3/eew test sc§a - Run Sichuan EEW test.");
+                return true;
             }
         }
         return false;
