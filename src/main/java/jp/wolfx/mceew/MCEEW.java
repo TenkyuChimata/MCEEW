@@ -197,9 +197,9 @@ public final class MCEEW extends JavaPlugin {
                     }
                     if (json.get("isAssumption").getAsBoolean()) {
                         if (json.get("isFinal").getAsBoolean()) {
-                            type = "訓練 (最終報)";
+                            type = "仮定 (最終報)";
                         } else {
-                            type = "訓練";
+                            type = "仮定";
                         }
                     }
                     if (json.get("isCancel").getAsBoolean()) {
