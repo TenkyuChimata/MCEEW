@@ -192,14 +192,16 @@ public final class MCEEW extends JavaPlugin {
                     String depth = json.get("Depth").getAsString() + "km";
                     String shindo = json.get("MaxIntensity").getAsString();
                     String origin_time = getDate("yyyy/MM/dd HH:mm:ss", time_format, "Asia/Tokyo", json.get("OriginTime").getAsString());
-                    if (json.get("isFinal").getAsBoolean()) {
-                        type = "最終報";
+                    if (json.get("isTraining").getAsBoolean()) {
+                        type = "訓練";
+                    } else if (json.get("isAssumption").getAsBoolean()) {
+                        type = "仮定震源";
                     }
-                    if (json.get("isAssumption").getAsBoolean()) {
-                        if (json.get("isFinal").getAsBoolean()) {
-                            type = "仮定 (最終報)";
+                    if (json.get("isFinal").getAsBoolean()) {
+                        if (!type.equals("")) {
+                            type = type + " (最終報)";
                         } else {
-                            type = "仮定";
+                            type = "最終報";
                         }
                     }
                     if (json.get("isCancel").getAsBoolean()) {
@@ -234,14 +236,14 @@ public final class MCEEW extends JavaPlugin {
                     String depth = json.get("depth").getAsString();
                     String shindo = json.get("calcintensity").getAsString();
                     String origin_time = getDate("yyyyMMddHHmmss", time_format, "Asia/Tokyo", json.get("origin_time").getAsString());
-                    if (json.get("is_final").getAsBoolean()) {
-                        type = "最終報";
-                    }
                     if (json.get("is_training").getAsBoolean()) {
-                        if (json.get("is_final").getAsBoolean()) {
-                            type = "訓練 (最終報)";
+                        type = "訓練";
+                    }
+                    if (json.get("is_final").getAsBoolean()) {
+                        if (!type.equals("")) {
+                            type = type + " (最終報)";
                         } else {
-                            type = "訓練";
+                            type = "最終報";
                         }
                     }
                     if (json.get("is_cancel").getAsBoolean()) {
@@ -261,6 +263,7 @@ public final class MCEEW extends JavaPlugin {
                 }
             }
         }
+
     }
 
     private void finalChecker() {
