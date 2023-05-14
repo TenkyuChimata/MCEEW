@@ -1,7 +1,6 @@
 #
 #  MCEEW configuration
-#  Last updated on 2.1.1
-#  Last necessary updated on 2.0.0
+#  Last updated on 2.1.5
 #
 #  API Source: https://api.wolfx.jp
 #  Plugin Page: https://acg.kr/mceew
@@ -114,6 +113,5 @@ Sound:
     # Set the alert sound pitch
     pitch: 1.0
 
-Version:
-  # Set to true if you are a new user or have manually deleted the "plugins/MCEEW" directory
-  2.0.0: false
+# Do not change this
+config-version: 1

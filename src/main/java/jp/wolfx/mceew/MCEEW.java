@@ -626,13 +626,6 @@ public final class MCEEW extends JavaPlugin {
         return false;
     }
 
-    private void checkConfig() {
-        boolean need_update = !this.getConfig().getBoolean("Version.2.0.0");
-        if (need_update) {
-            Bukkit.getLogger().warning("[MCEEW] If you are upgrading from v1.1.6 and below, please manually delete the 'plugins/MCEEW' directory, and you can turn off this notification in the configuration when you follow the above actions.");
-        }
-    }
-
     private void loadEew(boolean first) {
         if (!folia) {
             Bukkit.getScheduler().cancelTasks(this);
@@ -641,7 +634,6 @@ public final class MCEEW extends JavaPlugin {
         }
         this.saveDefaultConfig();
         this.reloadConfig();
-        this.checkConfig();
         time_format = this.getConfig().getString("time_format");
         time_format_final = this.getConfig().getString("time_format_final");
         broadcast_bool = this.getConfig().getBoolean("Action.broadcast");
