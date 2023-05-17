@@ -635,6 +635,7 @@ public final class MCEEW extends JavaPlugin {
             Bukkit.getScheduler().cancelTasks(this);
         } else {
             Bukkit.getGlobalRegionScheduler().cancelTasks(this);
+            Bukkit.getAsyncScheduler().cancelTasks(this);
         }
         this.saveDefaultConfig();
         this.reloadConfig();

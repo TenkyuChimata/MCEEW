@@ -49,7 +49,7 @@ Action:
   alert: true
   # Enable final report broadcast
   final: true
-  # Broadcast a notification to the console every time the API is updated
+  # Broadcast debug message to console
   notification: false
 
 Message:
