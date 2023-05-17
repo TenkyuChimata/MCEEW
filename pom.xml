@@ -6,7 +6,7 @@
 
     <groupId>jp.wolfx</groupId>
     <artifactId>MCEEW</artifactId>
-    <version>2.1.5-b1</version>
+    <version>2.1.5-b2</version>
     <packaging>jar</packaging>
 
     <name>MCEEW</name>

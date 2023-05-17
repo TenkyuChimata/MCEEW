@@ -24,8 +24,11 @@
 # \n Change to next line
 ########################
 
-# Enable EEW
+# Enable all EEW (China EEW and Japan EEW)
 EEW: true
+
+# Enable all Japan EEW (JMA EEW and NIED EEW)
+enable_jp: true
 
 # Enable JMA EEW source (set to false will use NIED EEW source)
 enable_jma: true

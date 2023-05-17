@@ -78,10 +78,12 @@ public final class MCEEW extends JavaPlugin {
         }
     }
 
-    private void mceewScheduler(boolean eewBoolean, boolean finalBoolean, boolean scEewBoolean, boolean updaterBoolean) {
+    private void mceewScheduler(boolean eewBoolean, boolean jpEewBoolean, boolean finalBoolean, boolean scEewBoolean, boolean updaterBoolean) {
         if (!folia) {
             if (eewBoolean) {
-                Bukkit.getScheduler().runTaskTimerAsynchronously(this, this::eewChecker, 20L, 20L);
+                if (jpEewBoolean) {
+                    Bukkit.getScheduler().runTaskTimerAsynchronously(this, this::eewChecker, 20L, 20L);
+                }
                 if (finalBoolean) {
                     Bukkit.getScheduler().runTaskTimerAsynchronously(this, this::finalChecker, 20L, 100L);
                 }
@@ -96,7 +98,9 @@ public final class MCEEW extends JavaPlugin {
             Plugin plugin = this;
             Bukkit.getGlobalRegionScheduler().run(this, task -> {
                 if (eewBoolean) {
-                    Bukkit.getAsyncScheduler().runAtFixedRate(plugin, task14 -> eewChecker(), 1L, 1L, TimeUnit.SECONDS);
+                    if (jpEewBoolean) {
+                        Bukkit.getAsyncScheduler().runAtFixedRate(plugin, task14 -> eewChecker(), 1L, 1L, TimeUnit.SECONDS);
+                    }
                     if (finalBoolean) {
                         Bukkit.getAsyncScheduler().runAtFixedRate(plugin, task13 -> finalChecker(), 1L, 5L, TimeUnit.SECONDS);
                     }
@@ -662,7 +666,7 @@ public final class MCEEW extends JavaPlugin {
         sc_alert_sound_type = this.getConfig().getString("Sound.Sichuan.type");
         sc_alert_sound_volume = this.getConfig().getDouble("Sound.Sichuan.volume");
         sc_alert_sound_pitch = this.getConfig().getDouble("Sound.Sichuan.pitch");
-        this.mceewScheduler(this.getConfig().getBoolean("EEW"), this.getConfig().getBoolean("Action.final"), this.getConfig().getBoolean("enable_sc"), first);
+        this.mceewScheduler(this.getConfig().getBoolean("EEW"), this.getConfig().getBoolean("enable_jp"), this.getConfig().getBoolean("Action.final"), this.getConfig().getBoolean("enable_sc"), first);
     }
 
     @Override
