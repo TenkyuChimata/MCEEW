@@ -115,6 +115,15 @@ public final class MCEEW extends JavaPlugin {
         }
     }
 
+    private void cancelScheduler() {
+        if (!folia) {
+            Bukkit.getScheduler().cancelTasks(this);
+        } else {
+            Bukkit.getGlobalRegionScheduler().cancelTasks(this);
+            Bukkit.getAsyncScheduler().cancelTasks(this);
+        }
+    }
+
     private static String getAPI(int timeout, int source) {
         String data = null;
         URL url;
@@ -631,12 +640,7 @@ public final class MCEEW extends JavaPlugin {
     }
 
     private void loadEew(boolean first) {
-        if (!folia) {
-            Bukkit.getScheduler().cancelTasks(this);
-        } else {
-            Bukkit.getGlobalRegionScheduler().cancelTasks(this);
-            Bukkit.getAsyncScheduler().cancelTasks(this);
-        }
+        this.cancelScheduler();
         this.saveDefaultConfig();
         this.reloadConfig();
         time_format = this.getConfig().getString("time_format");
@@ -672,10 +676,6 @@ public final class MCEEW extends JavaPlugin {
 
     @Override
     public void onDisable() {
-        if (!folia) {
-            Bukkit.getScheduler().cancelTasks(this);
-        } else {
-            Bukkit.getGlobalRegionScheduler().cancelTasks(this);
-        }
+        this.cancelScheduler();
     }
 }
