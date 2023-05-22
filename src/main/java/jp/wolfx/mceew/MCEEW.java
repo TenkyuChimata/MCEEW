@@ -324,7 +324,7 @@ public final class MCEEW extends JavaPlugin {
                 String lon = json.get("Longitude").getAsString();
                 String region = json.get("HypoCenter").getAsString();
                 String mag = json.get("Magunitude").getAsString();
-                String depth = "10km";
+                String depth = "10";
                 if (!json.get("Depth").isJsonNull()) {
                     depth = json.get("Depth").getAsString();
                 }
@@ -334,7 +334,7 @@ public final class MCEEW extends JavaPlugin {
                     Bukkit.getLogger().info("[MCEEW] Sichuan EEW detected.");
                 }
                 if (EventID != null) {
-                    scEewAction(report_time, origin_time, num, lat, lon, region, mag, depth, intensity);
+                    scEewAction(report_time, origin_time, num, lat, lon, region, mag, depth + "km", intensity);
                 }
                 EventID = json.get("EventID").getAsString();
             } else {
