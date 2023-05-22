@@ -325,6 +325,9 @@ public final class MCEEW extends JavaPlugin {
                 String region = json.get("HypoCenter").getAsString();
                 String mag = json.get("Magunitude").getAsString();
                 String depth = "10km";
+                if (!json.get("Depth").isJsonNull()) {
+                    depth = json.get("Depth").getAsString();
+                }
                 String intensity = String.valueOf(Math.round(Float.parseFloat(json.get("MaxIntensity").getAsString())));
                 String origin_time = getDate("yyyy-MM-dd HH:mm:ss", time_format, "Asia/Shanghai", json.get("OriginTime").getAsString());
                 if (notification_bool) {
