@@ -220,10 +220,10 @@ public final class MCEEW extends JavaPlugin {
                     if (json.get("isCancel").getAsBoolean()) {
                         type = "取消";
                     }
-                    if (notification_bool) {
-                        Bukkit.getLogger().info("[MCEEW] JMA EEW detected.");
-                    }
                     if (OriginalText != null) {
+                        if (notification_bool) {
+                            Bukkit.getLogger().info("[MCEEW] JMA EEW detected.");
+                        }
                         eewAction(flag, report_time, origin_time, num, lat, lon, region, mag, depth, shindo, type);
                     }
                     OriginalText = json.get("OriginalText").getAsString();
@@ -262,10 +262,10 @@ public final class MCEEW extends JavaPlugin {
                     if (json.get("is_cancel").getAsBoolean()) {
                         type = "取消";
                     }
-                    if (notification_bool) {
-                        Bukkit.getLogger().info("[MCEEW] NIED EEW detected.");
-                    }
                     if (update_report != null) {
+                        if (notification_bool) {
+                            Bukkit.getLogger().info("[MCEEW] NIED EEW detected.");
+                        }
                         eewAction(flag, report_time, origin_time, num, lat, lon, region, mag, depth, shindo, type);
                     }
                     update_report = report_time;
@@ -291,10 +291,10 @@ public final class MCEEW extends JavaPlugin {
                 String shindo = json.get("shindo").getAsString();
                 String info = json.get("info").getAsString();
                 String origin_time = getDate("yyyy/MM/dd HH:mm", time_format_final, "Asia/Tokyo", time_str);
-                if (notification_bool) {
-                    Bukkit.getLogger().info("[MCEEW] Final report updated.");
-                }
                 if (final_md5 != null) {
+                    if (notification_bool) {
+                        Bukkit.getLogger().info("[MCEEW] Final report updated.");
+                    }
                     finalAction(origin_time, region, mag, depth, shindo, info);
                 }
                 final_md5 = time_str + region + mag + depth + shindo + info;
@@ -330,10 +330,10 @@ public final class MCEEW extends JavaPlugin {
                 }
                 String intensity = String.valueOf(Math.round(Float.parseFloat(json.get("MaxIntensity").getAsString())));
                 String origin_time = getDate("yyyy-MM-dd HH:mm:ss", time_format, "Asia/Shanghai", json.get("OriginTime").getAsString());
-                if (notification_bool) {
-                    Bukkit.getLogger().info("[MCEEW] Sichuan EEW detected.");
-                }
                 if (EventID != null) {
+                    if (notification_bool) {
+                        Bukkit.getLogger().info("[MCEEW] Sichuan EEW detected.");
+                    }
                     scEewAction(report_time, origin_time, num, lat, lon, region, mag, depth + "km", intensity);
                 }
                 EventID = json.get("EventID").getAsString();
