@@ -96,22 +96,20 @@ public final class MCEEW extends JavaPlugin {
             }
         } else {
             Plugin plugin = this;
-            Bukkit.getGlobalRegionScheduler().run(this, task -> {
-                if (eewBoolean) {
-                    if (jpEewBoolean) {
-                        Bukkit.getAsyncScheduler().runAtFixedRate(plugin, task14 -> eewChecker(), 1L, 1L, TimeUnit.SECONDS);
-                    }
-                    if (finalBoolean) {
-                        Bukkit.getAsyncScheduler().runAtFixedRate(plugin, task13 -> finalChecker(), 1L, 5L, TimeUnit.SECONDS);
-                    }
-                    if (scEewBoolean) {
-                        Bukkit.getAsyncScheduler().runAtFixedRate(plugin, task1 -> scEewChecker(), 1L, 1L, TimeUnit.SECONDS);
-                    }
+            if (eewBoolean) {
+                if (jpEewBoolean) {
+                    Bukkit.getAsyncScheduler().runAtFixedRate(plugin, task14 -> eewChecker(), 1L, 1L, TimeUnit.SECONDS);
                 }
-                if (updaterBoolean) {
-                    Bukkit.getAsyncScheduler().runNow(plugin, task12 -> updater());
+                if (finalBoolean) {
+                    Bukkit.getAsyncScheduler().runAtFixedRate(plugin, task13 -> finalChecker(), 1L, 5L, TimeUnit.SECONDS);
                 }
-            });
+                if (scEewBoolean) {
+                    Bukkit.getAsyncScheduler().runAtFixedRate(plugin, task1 -> scEewChecker(), 1L, 1L, TimeUnit.SECONDS);
+                }
+            }
+            if (updaterBoolean) {
+                Bukkit.getAsyncScheduler().runNow(plugin, task12 -> updater());
+            }
         }
     }
 
@@ -119,7 +117,6 @@ public final class MCEEW extends JavaPlugin {
         if (!folia) {
             Bukkit.getScheduler().cancelTasks(this);
         } else {
-            Bukkit.getGlobalRegionScheduler().cancelTasks(this);
             Bukkit.getAsyncScheduler().cancelTasks(this);
         }
     }
