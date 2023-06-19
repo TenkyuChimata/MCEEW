@@ -71,7 +71,7 @@ public final class MCEEW extends JavaPlugin {
 
     private static boolean isFolia() {
         try {
-            Class.forName("io.papermc.paper.threadedregions.RegionizedServer");
+            Class.forName("io.papermc.paper.threadedregions.scheduler.AsyncScheduler");
             return true;
         } catch (ClassNotFoundException e) {
             return false;
