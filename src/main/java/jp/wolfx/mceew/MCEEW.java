@@ -80,6 +80,7 @@ public final class MCEEW extends JavaPlugin {
 
     private void mceewScheduler(boolean eewBoolean, boolean jpEewBoolean, boolean finalBoolean, boolean scEewBoolean, boolean updaterBoolean) {
         if (!folia) {
+            Bukkit.getLogger().info("[MCEEW] Using Bukkit API for Scheduler");
             if (eewBoolean) {
                 if (jpEewBoolean) {
                     Bukkit.getScheduler().runTaskTimerAsynchronously(this, this::eewChecker, 20L, 20L);
@@ -95,6 +96,7 @@ public final class MCEEW extends JavaPlugin {
                 Bukkit.getScheduler().runTaskAsynchronously(this, this::updater);
             }
         } else {
+            Bukkit.getLogger().info("[MCEEW] Using Folia API for Scheduler");
             Plugin plugin = this;
             if (eewBoolean) {
                 if (jpEewBoolean) {
@@ -152,7 +154,7 @@ public final class MCEEW extends JavaPlugin {
             }
         } catch (IOException e) {
             if (notification_bool) {
-                Bukkit.getLogger().warning("API connection failed, retrying...");
+                Bukkit.getLogger().warning("[MCEEW] API connection failed, retrying...");
                 Bukkit.getLogger().warning(String.valueOf(e));
             }
         }
