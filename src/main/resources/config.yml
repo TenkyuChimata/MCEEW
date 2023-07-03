@@ -1,6 +1,6 @@
 #
 #  MCEEW configuration
-#  Last updated on 2.1.5
+#  Last updated on 2.2.0
 #
 #  API Source: https://api.wolfx.jp
 #  Plugin Page: https://acg.kr/mceew
@@ -27,11 +27,8 @@
 # Enable all EEW (China EEW and Japan EEW)
 EEW: true
 
-# Enable all Japan EEW (JMA EEW and NIED EEW)
+# Enable Japan EEW (JMA EEW)
 enable_jp: true
-
-# Enable JMA EEW source (set to false will use NIED EEW source)
-enable_jma: true
 
 # Enable Sichuan China EEW
 enable_sc: true

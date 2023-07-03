@@ -5,7 +5,8 @@ A real-time Japan/China Earthquake Early Warning(EEW) plugin for Minecraft Serve
 ## Features
 
 *   **Support Spigot/Paper/Folia 1.13+.**
-*   **Support for receiving EEW from NIED/JMA.**
+*   **Support for receiving EEW from JMA.**
+*   **Support for receiving final report from JMA.**
 *   **Support for receiving EEW from Sichuan China.**
 *   **Support for broadcast messages to chat.**
 *   **Support for broadcast messages to title.**
@@ -20,8 +21,8 @@ A real-time Japan/China Earthquake Early Warning(EEW) plugin for Minecraft Serve
 
 *   List commands /eew
 *   Get the final report /eew final
-*   Run EEW test /eew test (need OP)
-*   Reload configuration /eew reload (need OP)
+*   Run EEW test /eew test (need admin)
+*   Reload configuration /eew reload (need admin)
 
 ## Downloads
 
