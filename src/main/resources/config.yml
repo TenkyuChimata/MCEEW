@@ -12,15 +12,15 @@
 # %flag% 予報 or 警報
 # %report_time% EEW report time
 # %origin_time% Time of Earthquake
-# %num% Number of reports
+# %num% Number of EEW reports
 # %lat% Latitude of the epicenter
 # %lon% Longitude of the epicenter
 # %region% Name of the epicenter
 # %mag% Magnitude of earthquake
 # %depth% Depth of earthquake
-# %shindo% Shindo of earthquake
-# %type% 最終報 or 訓練 or 訓練 (最終報) or 取消
-# %info% Tsunami information (only valid for final report)
+# %shindo% Intensity of earthquake
+# %type% 仮定震源 or 最終報 or 訓練 or 仮定震源 (最終報) or 訓練 (最終報) or 取消
+# %info% Tsunami information
 # \n Change to next line
 ########################
 
@@ -30,7 +30,7 @@ EEW: true
 # Enable Japan JMA EEW
 enable_jp: true
 
-# Enable Sichuan China EEW
+# Enable Sichuan EEW
 enable_sc: true
 
 # Enable Taiwan CWB EEW
@@ -47,46 +47,37 @@ Action:
   title: true
   # Enable sound alert
   alert: true
-  # Enable final report broadcast
+  # Enable Japan final report broadcast
   final: true
   # Broadcast debug message to console
-  notification: false
+  debug: false
 
 Message:
-  # Set the alert report messages
+  # Set the Japan EEW alert report message format
   Alert:
-    # Set the message to be broadcast to chat
+    # Set the chat message format
     broadcast: "&c緊急地震速報 (%flag%) | 第%num%報 %type%\n &e%origin_time% &f発生\n &f震央: &e%region% (北緯: &e%lat%度 東経: &e%lon%度)\n &fマグニチュード: &e%mag%\n &f深さ: &e%depth%\n &f最大震度: &e%shindo%\n &f更新時間: &e%report_time%"
-    # Set the message to be broadcast to title
+    # Set the title message format
     title: "&c緊急地震速報 (%flag%)"
-    # Set the message to be broadcast to subtitle
+    # Set the subtitle message format
     subtitle: "&e%region%で震度%shindo%&eの地震"
-  # Set the forecast report messages
+  # Set the Japan EEW forecast report message format
   Forecast:
-    # Set the message to be broadcast to chat
     broadcast: "&e緊急地震速報 (%flag%) | 第%num%報 %type%\n &e%origin_time% &f発生\n &f震央: &e%region% (北緯: &e%lat%度 東経: &e%lon%度)\n &fマグニチュード: &e%mag%\n &f深さ: &e%depth%\n &f最大震度: &e%shindo%\n &f更新時間: &e%report_time%"
-    # Set the message to be broadcast to title
     title: "&e緊急地震速報 (%flag%)"
-    # Set the message to be broadcast to subtitle
     subtitle: "&e%region%で震度%shindo%&eの地震"
-  # Set the final report messages
+  # Set the Japan final report message format
   Final:
-    # Set the message to be broadcast to chat
     broadcast: "&e地震情報\n &e%origin_time% &f発生\n &f震央: &e%region%\n &fマグニチュード: &e%mag%\n &f深さ: &e%depth%\n &f最大震度: &e%shindo%\n &f津波情報: &e%info%"
-  # Set the Sichuan China EEW messages
+  # Set the Sichuan EEW message format
   Sichuan:
-    # Set the message to be broadcast to chat
     broadcast: "&c四川地震预警 | 第%num%报\n &e%origin_time% &f发生\n &f震中: &e%region% (北纬: &e%lat%度 东经: &e%lon%度)\n &f震级: &e%mag%\n &f深度: &e%depth%\n &f最大烈度: &e%shindo%\n &f更新时间: &e%report_time%"
-    # Set the message to be broadcast to title
     title: "&c四川地震预警"
-    # Set the message to be broadcast to subtitle
     subtitle: "&e%region%发生烈度%shindo%&e的地震"
+  # Set the Taiwan EEW message format
   Taiwan:
-    # Set the message to be broadcast to chat
     broadcast: "&c台灣地震預警 | 第%num%報\n &e%origin_time% &f發生\n &f震央: &e%region% (北緯: &e%lat%度 東經: &e%lon%度)\n &f規模: &e%mag%\n &f深度: &e%depth%\n &f更新時間: &e%report_time%"
-    # Set the message to be broadcast to title
     title: "&c台灣地震預警"
-    # Set the message to be broadcast to subtitle
     subtitle: "&e%region%发生芮氏規模%mag%地震"
 
 Color:
@@ -98,7 +89,7 @@ Color:
   Intensity: [ "&f", "&7", "&b", "&3", "&9", "&a", "&2", "&e", "&6", "&c", "&4", "&d", "&5" ]
 
 Sound:
-  # Set the alert report alert sound
+  # Set the Japan EEW alert report alert
   Alert:
     # Set the alert sound type
     type: "BLOCK_NOTE_BLOCK_PLING"
@@ -106,28 +97,20 @@ Sound:
     volume: 1000.0
     # Set the alert sound pitch
     pitch: 1.0
-  # Set the forecast report alert sound
+  # Set the Japan EEW forecast report alert
   Forecast:
-    # Set the alert sound type
     type: "BLOCK_NOTE_BLOCK_PLING"
-    # Set the alert sound volume
     volume: 1000.0
-    # Set the alert sound pitch
     pitch: 1.0
-  # Set the Sichuan China EEW alert sound
+  # Set the Sichuan EEW alert
   Sichuan:
-    # Set the alert sound type
     type: "BLOCK_NOTE_BLOCK_PLING"
-    # Set the alert sound volume
     volume: 1000.0
-    # Set the alert sound pitch
     pitch: 1.0
+  # Set the Taiwan EEW alert
   Taiwan:
-    # Set the alert sound type
     type: "BLOCK_NOTE_BLOCK_PLING"
-    # Set the alert sound volume
     volume: 1000.0
-    # Set the alert sound pitch
     pitch: 1.0
 
 # Do not change this

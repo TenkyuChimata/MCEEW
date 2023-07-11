@@ -30,7 +30,7 @@ public final class MCEEW extends JavaPlugin {
     private static boolean broadcast_bool;
     private static boolean title_bool;
     private static boolean alert_bool;
-    private static boolean notification_bool;
+    private static boolean debug_bool;
     private static String time_format;
     private static String time_format_final;
     private static String alert_broadcast_message;
@@ -123,7 +123,7 @@ public final class MCEEW extends JavaPlugin {
                 }
             }
             if (updaterBoolean) {
-                Bukkit.getAsyncScheduler().runNow(plugin, task12 -> updater());
+                Bukkit.getAsyncScheduler().runNow(plugin, task5 -> updater());
             }
         }
     }
@@ -166,7 +166,7 @@ public final class MCEEW extends JavaPlugin {
                 data = raw_data.toString();
             }
         } catch (IOException e) {
-            if (notification_bool) {
+            if (debug_bool) {
                 Bukkit.getLogger().warning("[MCEEW] API connection failed, retrying...");
                 Bukkit.getLogger().warning(String.valueOf(e));
             }
@@ -232,14 +232,14 @@ public final class MCEEW extends JavaPlugin {
                     type = "取消";
                 }
                 if (OriginalText != null) {
-                    if (notification_bool) {
+                    if (debug_bool) {
                         Bukkit.getLogger().info("[MCEEW] Japan EEW detected.");
                     }
                     eewAction(flag, report_time, origin_time, num, lat, lon, region, mag, depth, shindo, type);
                 }
                 OriginalText = json.get("OriginalText").getAsString();
             } else {
-                if (notification_bool) {
+                if (debug_bool) {
                     Bukkit.getLogger().info("[MCEEW] No Japan EEW issued.");
                 }
             }
@@ -259,8 +259,8 @@ public final class MCEEW extends JavaPlugin {
                 String info = json.get("info").getAsString();
                 String origin_time = getDate("yyyy/MM/dd HH:mm", time_format_final, "Asia/Tokyo", time_str);
                 if (final_md5 != null) {
-                    if (notification_bool) {
-                        Bukkit.getLogger().info("[MCEEW] Final report updated.");
+                    if (debug_bool) {
+                        Bukkit.getLogger().info("[MCEEW] Japan final report updated.");
                     }
                     Bukkit.broadcastMessage(
                             final_broadcast_message.
@@ -281,8 +281,8 @@ public final class MCEEW extends JavaPlugin {
                 final_info.add(shindo);
                 final_info.add(info);
             } else {
-                if (notification_bool) {
-                    Bukkit.getLogger().info("[MCEEW] No final report update.");
+                if (debug_bool) {
+                    Bukkit.getLogger().info("[MCEEW] No Japan final report update.");
                 }
             }
         }
@@ -306,7 +306,7 @@ public final class MCEEW extends JavaPlugin {
                 String intensity = String.valueOf(Math.round(Float.parseFloat(json.get("MaxIntensity").getAsString())));
                 String origin_time = getDate("yyyy-MM-dd HH:mm:ss", time_format, "Asia/Shanghai", json.get("OriginTime").getAsString());
                 if (EventID != null) {
-                    if (notification_bool) {
+                    if (debug_bool) {
                         Bukkit.getLogger().info("[MCEEW] Sichuan EEW detected.");
                     }
                     scEewAction(report_time, origin_time, num, lat, lon, region, mag, depth + "km", intensity);
@@ -323,7 +323,7 @@ public final class MCEEW extends JavaPlugin {
                 sc_info.add(depth);
                 sc_info.add(intensity);
             } else {
-                if (notification_bool) {
+                if (debug_bool) {
                     Bukkit.getLogger().info("[MCEEW] No Sichuan EEW issued.");
                 }
             }
@@ -344,7 +344,7 @@ public final class MCEEW extends JavaPlugin {
                 String depth = json.get("Depth").getAsString() + "km";
                 String origin_time = getDate("yyyy-MM-dd HH:mm:ss", time_format, "Asia/Shanghai", json.get("OriginTime").getAsString());
                 if (cwbTS != null) {
-                    if (notification_bool) {
+                    if (debug_bool) {
                         Bukkit.getLogger().info("[MCEEW] Taiwan EEW detected.");
                     }
                     cwbEewAction(report_time, origin_time, num, lat, lon, region, mag, depth);
@@ -360,7 +360,7 @@ public final class MCEEW extends JavaPlugin {
                 cwb_info.add(mag);
                 cwb_info.add(depth);
             } else {
-                if (notification_bool) {
+                if (debug_bool) {
                     Bukkit.getLogger().info("[MCEEW] No Taiwan EEW issued.");
                 }
             }
@@ -696,7 +696,7 @@ public final class MCEEW extends JavaPlugin {
 
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
         if (args.length == 0) {
-            sender.sendMessage("§a[MCEEW] Version: v" + version);
+            sender.sendMessage("§a[MCEEW] Plugin Version: v" + version);
             sender.sendMessage("§a[MCEEW] §3/eew§a - List commands.");
             sender.sendMessage("§a[MCEEW] §3/eew test§a - Run EEW send test.");
             sender.sendMessage("§a[MCEEW] §3/eew info§a - Get earthquake information.");
@@ -759,7 +759,7 @@ public final class MCEEW extends JavaPlugin {
         broadcast_bool = this.getConfig().getBoolean("Action.broadcast");
         title_bool = this.getConfig().getBoolean("Action.title");
         alert_bool = this.getConfig().getBoolean("Action.alert");
-        notification_bool = this.getConfig().getBoolean("Action.notification");
+        debug_bool = this.getConfig().getBoolean("Action.debug");
         alert_broadcast_message = ChatColor.translateAlternateColorCodes('&', Objects.requireNonNull(this.getConfig().getString("Message.Alert.broadcast")));
         alert_title_message = ChatColor.translateAlternateColorCodes('&', Objects.requireNonNull(this.getConfig().getString("Message.Alert.title")));
         alert_subtitle_message = ChatColor.translateAlternateColorCodes('&', Objects.requireNonNull(this.getConfig().getString("Message.Alert.subtitle")));
