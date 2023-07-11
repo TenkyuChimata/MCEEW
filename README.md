@@ -11,7 +11,7 @@ A real-time Japan/China Earthquake Early Warning(EEW) plugin for Minecraft Serve
 *   **Support for broadcast messages to chat.**
 *   **Support for broadcast messages to title.**
 *   **Support for alert when earthquake is detected.**
-*   **Support manual get the latest final reports.**
+*   **Support manual get latest earthquake information.**
 *   **Support for custom broadcast messages.**
 *   **Support for custom intensity colors.**
 *   **Support for custom alert sounds.**
@@ -20,8 +20,8 @@ A real-time Japan/China Earthquake Early Warning(EEW) plugin for Minecraft Serve
 ## Commands
 
 *   List commands /eew
-*   Get the final report /eew final
-*   Run EEW test /eew test (need admin)
+*   Get earthquake information /eew info
+*   Run EEW send test /eew test (need admin)
 *   Reload configuration /eew reload (need admin)
 
 ## Downloads

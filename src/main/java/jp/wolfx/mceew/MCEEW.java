@@ -58,6 +58,8 @@ public final class MCEEW extends JavaPlugin {
     private static String final_md5 = null;
     private static String EventID = null;
     private static final ArrayList<String> final_info = new ArrayList<>();
+    private static final ArrayList<String> sc_info = new ArrayList<>();
+    private static final ArrayList<String> cwb_info = new ArrayList<>();
     private final String version = this.getDescription().getVersion().replaceAll("-b", "");
     private static final boolean folia = isFolia();
 
@@ -245,7 +247,15 @@ public final class MCEEW extends JavaPlugin {
                     if (notification_bool) {
                         Bukkit.getLogger().info("[MCEEW] Final report updated.");
                     }
-                    finalAction(origin_time, region, mag, depth, shindo, info);
+                    Bukkit.broadcastMessage(
+                            final_broadcast_message.
+                                    replaceAll("%origin_time%", origin_time).
+                                    replaceAll("%region%", region).
+                                    replaceAll("%mag%", mag).
+                                    replaceAll("%depth%", depth).
+                                    replaceAll("%shindo%", getShindoColor(shindo)).
+                                    replaceAll("%info%", info)
+                    );
                 }
                 final_md5 = time_str + region + mag + depth + shindo + info;
                 final_info.clear();
@@ -287,10 +297,53 @@ public final class MCEEW extends JavaPlugin {
                     scEewAction(report_time, origin_time, num, lat, lon, region, mag, depth + "km", intensity);
                 }
                 EventID = json.get("EventID").getAsString();
+                sc_info.clear();
+                sc_info.add(report_time);
+                sc_info.add(origin_time);
+                sc_info.add(num);
+                sc_info.add(lat);
+                sc_info.add(lon);
+                sc_info.add(region);
+                sc_info.add(mag);
+                sc_info.add(depth);
+                sc_info.add(intensity);
             } else {
                 if (notification_bool) {
                     Bukkit.getLogger().info("[MCEEW] No Sichuan EEW issued.");
                 }
+            }
+        }
+    }
+
+    private static void getEewInfo(int flag, CommandSender sender) {
+        if (flag == 1) {
+            if (EventID != null) {
+                sender.sendMessage(
+                        sichuan_broadcast_message.
+                                replaceAll("%report_time%", sc_info.get(0)).
+                                replaceAll("%origin_time%", sc_info.get(1)).
+                                replaceAll("%num%", sc_info.get(2)).
+                                replaceAll("%lat%", sc_info.get(3)).
+                                replaceAll("%lon%", sc_info.get(4)).
+                                replaceAll("%region%", sc_info.get(5)).
+                                replaceAll("%mag%", sc_info.get(6)).
+                                replaceAll("%depth%", sc_info.get(7)).
+                                replaceAll("%shindo%", getIntensityColor(sc_info.get(8)))
+                );
+            }
+        } else if (flag == 2) {
+            //
+        } else {
+            if (final_md5 != null) {
+                sender.sendMessage(
+                        final_broadcast_message.
+                                replaceAll("%origin_time%", final_info.get(0)).
+                                replaceAll("%region%", final_info.get(1)).
+                                replaceAll("%mag%", final_info.get(2)).
+                                replaceAll("%depth%", final_info.get(3)).
+                                replaceAll("%shindo%", getShindoColor(final_info.get(4))).
+                                replaceAll("%info%", final_info.get(5))
+                );
             }
         }
     }
@@ -311,15 +364,6 @@ public final class MCEEW extends JavaPlugin {
             String origin_time = getDate("yyyy/MM/dd HH:mm:ss", time_format, "Asia/Tokyo", origin_time_str);
             eewAction(flags, report_time, origin_time, num, lat, lon, region, mag, depth, shindo, type);
         } else if (flag == 2) {
-            String origin_time_str = "2023/01/02 14:20";
-            String region = "浦河沖";
-            String mag = "4.2";
-            String depth = "70km";
-            String shindo = "2";
-            String info = "この地震による津波の心配はありません。";
-            String origin_time = getDate("yyyy/MM/dd HH:mm", time_format_final, "Asia/Tokyo", origin_time_str);
-            finalAction(origin_time, region, mag, depth, shindo, info);
-        } else if (flag == 3) {
             String origin_time_str = "2023-01-01 21:08:30";
             String report_time = "2023-01-01 21:08:39";
             String num = "1";
@@ -455,7 +499,7 @@ public final class MCEEW extends JavaPlugin {
     }
 
     private static void scEewAction(String report_time, String origin_time, String num, String lat, String lon, String region, String mag, String depth, String intensity) {
-        intensity = ChatColor.translateAlternateColorCodes('&', intensity_color[Integer.parseInt(intensity)]) + intensity;
+        intensity = getIntensityColor(intensity);
         if (broadcast_bool) {
             Bukkit.broadcastMessage(
                     sichuan_broadcast_message.
@@ -502,18 +546,6 @@ public final class MCEEW extends JavaPlugin {
         }
     }
 
-    private static void finalAction(String origin_time, String region, String mag, String depth, String shindo, String info) {
-        Bukkit.broadcastMessage(
-                final_broadcast_message.
-                        replaceAll("%origin_time%", origin_time).
-                        replaceAll("%region%", region).
-                        replaceAll("%mag%", mag).
-                        replaceAll("%depth%", depth).
-                        replaceAll("%shindo%", getShindoColor(shindo)).
-                        replaceAll("%info%", info)
-        );
-    }
-
     private static String getShindoColor(String shindo) {
         if (Objects.equals(shindo, "1")) {
             shindo = ChatColor.translateAlternateColorCodes('&', shindo_color[1]) + shindo;
@@ -539,52 +571,55 @@ public final class MCEEW extends JavaPlugin {
         return shindo;
     }
 
+    private static String getIntensityColor(String intensity) {
+        return ChatColor.translateAlternateColorCodes('&', intensity_color[Integer.parseInt(intensity)]) + intensity;
+    }
+
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
         if (args.length == 0) {
             sender.sendMessage("§a[MCEEW] Version: v" + version);
             sender.sendMessage("§a[MCEEW] §3/eew§a - List commands.");
-            sender.sendMessage("§a[MCEEW] §3/eew test§a - Run EEW test.");
-            sender.sendMessage("§a[MCEEW] §3/eew final§a - Get the final report.");
+            sender.sendMessage("§a[MCEEW] §3/eew test§a - Run EEW send test.");
+            sender.sendMessage("§a[MCEEW] §3/eew info§a - Get earthquake information.");
             sender.sendMessage("§a[MCEEW] §3/eew reload§a - Reload configuration.");
             return true;
-        } else if (args[0].equalsIgnoreCase("reload")) {
-            if (sender.isOp()) {
-                this.loadEew(false);
-                sender.sendMessage("§a[MCEEW] Configuration reload successfully.");
+        } else if (args[0].equalsIgnoreCase("reload") && sender.isOp()) {
+            this.loadEew(false);
+            sender.sendMessage("§a[MCEEW] Configuration reload successfully.");
+            return true;
+        } else if (args[0].equalsIgnoreCase("info")) {
+            if (args.length == 2) {
+                if (args[1].equalsIgnoreCase("jma")) {
+                    getEewInfo(0, sender);
+                    return true;
+                } else if (args[1].equalsIgnoreCase("sc")) {
+                    getEewInfo(1, sender);
+                    return true;
+                } else if (args[1].equalsIgnoreCase("cwb")) {
+                    getEewInfo(2, sender);
+                    return true;
+                }
+            } else {
+                sender.sendMessage("§a[MCEEW] §3/eew info jma§a - Get JMA earthquake information.");
+                sender.sendMessage("§a[MCEEW] §3/eew info sc§a - Get Sichuan earthquake information.");
+                sender.sendMessage("§a[MCEEW] §3/eew info cwb§a - Get CWB earthquake information.");
                 return true;
             }
-        } else if (args[0].equalsIgnoreCase("final")) {
-            if (final_md5 != null) {
-                sender.sendMessage(
-                        final_broadcast_message.
-                                replaceAll("%origin_time%", final_info.get(0)).
-                                replaceAll("%region%", final_info.get(1)).
-                                replaceAll("%mag%", final_info.get(2)).
-                                replaceAll("%depth%", final_info.get(3)).
-                                replaceAll("%shindo%", getShindoColor(final_info.get(4))).
-                                replaceAll("%info%", final_info.get(5))
-                );
-            }
-            return true;
-        } else if (args[0].equalsIgnoreCase("test")) {
-            if (sender.isOp() && args.length == 2) {
+        } else if (args[0].equalsIgnoreCase("test") && sender.isOp()) {
+            if (args.length == 2) {
                 if (args[1].equalsIgnoreCase("forecast")) {
                     eewTest(0);
                     return true;
                 } else if (args[1].equalsIgnoreCase("alert")) {
                     eewTest(1);
                     return true;
-                } else if (args[1].equalsIgnoreCase("final")) {
-                    eewTest(2);
-                    return true;
                 } else if (args[1].equalsIgnoreCase("sc")) {
-                    eewTest(3);
+                    eewTest(2);
                     return true;
                 }
             } else {
                 sender.sendMessage("§a[MCEEW] §3/eew test forecast§a - Run Forecast EEW test.");
                 sender.sendMessage("§a[MCEEW] §3/eew test alert§a - Run Alert EEW test.");
-                sender.sendMessage("§a[MCEEW] §3/eew test final§a - Run Final Report test.");
                 sender.sendMessage("§a[MCEEW] §3/eew test sc§a - Run Sichuan EEW test.");
                 return true;
             }
