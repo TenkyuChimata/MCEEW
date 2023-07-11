@@ -24,14 +24,17 @@
 # \n Change to next line
 ########################
 
-# Enable all EEW (China EEW and Japan EEW)
+# Enable all EEW
 EEW: true
 
-# Enable Japan EEW (JMA EEW)
+# Enable Japan JMA EEW
 enable_jp: true
 
 # Enable Sichuan China EEW
 enable_sc: true
+
+# Enable Taiwan CWB EEW
+enable_cwb: true
 
 # Set the time format
 time_format: "yyyy年MM月dd日 HH時mm分ss秒"
@@ -78,6 +81,13 @@ Message:
     title: "&c四川地震预警"
     # Set the message to be broadcast to subtitle
     subtitle: "&e%region%发生烈度%shindo%&e的地震"
+  Taiwan:
+    # Set the message to be broadcast to chat
+    broadcast: "&c台灣地震預警 | 第%num%報\n &e%origin_time% &f發生\n &f震央: &e%region% (北緯: &e%lat%度 東經: &e%lon%度)\n &f規模: &e%mag%\n &f深度: &e%depth%\n &f更新時間: &e%report_time%"
+    # Set the message to be broadcast to title
+    title: "&c台灣地震預警"
+    # Set the message to be broadcast to subtitle
+    subtitle: "&e%region%发生芮氏規模%mag%地震"
 
 Color:
   # Set the Japan Intensity color
@@ -112,6 +122,13 @@ Sound:
     volume: 1000.0
     # Set the alert sound pitch
     pitch: 1.0
+  Taiwan:
+    # Set the alert sound type
+    type: "BLOCK_NOTE_BLOCK_PLING"
+    # Set the alert sound volume
+    volume: 1000.0
+    # Set the alert sound pitch
+    pitch: 1.0
 
 # Do not change this
-config-version: 1
+config-version: 2

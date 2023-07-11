@@ -1,28 +1,29 @@
 # MCEEW
 
-A real-time Japan/China Earthquake Early Warning(EEW) plugin for Minecraft Server.
+A real-time Earthquake Early Warning(EEW) plugin for Minecraft Server.
 
 ## Features
 
-*   **Support Spigot/Paper/Folia 1.13+.**
-*   **Support for receiving EEW from JMA.**
-*   **Support for receiving final report from JMA.**
-*   **Support for receiving EEW from Sichuan China.**
-*   **Support for broadcast messages to chat.**
-*   **Support for broadcast messages to title.**
-*   **Support for alert when earthquake is detected.**
-*   **Support manual get latest earthquake information.**
-*   **Support for custom broadcast messages.**
-*   **Support for custom intensity colors.**
-*   **Support for custom alert sounds.**
-*   **Support for EEW test.**
+*   **Supports Spigot/Paper/Folia 1.13+.**
+*   **Receives Japan JMA EEW.**
+*   **Receives JMA final reports.**
+*   **Receives Sichuan China EEW.**
+*   **Receives Taiwan CWB EEW.**
+*   **Broadcast messages to chat.**
+*   **Broadcast messages to title.**
+*   **Alerts when an earthquake is detected.**
+*   **Allows manual get latest earthquake information.**
+*   **Customizable broadcast messages.**
+*   **Customizable intensity colors.**
+*   **Customizable alert sounds.**
+*   **Supports EEW send testing.**
 
 ## Commands
 
-*   List commands /eew
-*   Get earthquake information /eew info
-*   Run EEW send test /eew test (need admin)
-*   Reload configuration /eew reload (need admin)
+*   List available commands: /eew
+*   Get earthquake information: /eew info
+*   Run EEW send test: /eew test (need admin)
+*   Reload configuration: /eew reload (need admin)
 
 ## Downloads
 

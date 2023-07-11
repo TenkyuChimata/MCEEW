@@ -43,6 +43,9 @@ public final class MCEEW extends JavaPlugin {
     private static String sichuan_broadcast_message;
     private static String sichuan_title_message;
     private static String sichuan_subtitle_message;
+    private static String cwb_broadcast_message;
+    private static String cwb_title_message;
+    private static String cwb_subtitle_message;
     private static String alert_alert_sound_type;
     private static double alert_alert_sound_volume;
     private static double alert_alert_sound_pitch;
@@ -52,11 +55,15 @@ public final class MCEEW extends JavaPlugin {
     private static String sc_alert_sound_type;
     private static double sc_alert_sound_volume;
     private static double sc_alert_sound_pitch;
+    private static String cwb_alert_sound_type;
+    private static double cwb_alert_sound_volume;
+    private static double cwb_alert_sound_pitch;
     private static String[] shindo_color;
     private static String[] intensity_color;
     private static String OriginalText = null;
     private static String final_md5 = null;
     private static String EventID = null;
+    private static String cwbTS = null;
     private static final ArrayList<String> final_info = new ArrayList<>();
     private static final ArrayList<String> sc_info = new ArrayList<>();
     private static final ArrayList<String> cwb_info = new ArrayList<>();
@@ -78,7 +85,7 @@ public final class MCEEW extends JavaPlugin {
         }
     }
 
-    private void mceewScheduler(boolean eewBoolean, boolean jpEewBoolean, boolean finalBoolean, boolean scEewBoolean, boolean updaterBoolean) {
+    private void mceewScheduler(boolean eewBoolean, boolean jpEewBoolean, boolean finalBoolean, boolean scEewBoolean, boolean cwbEewBoolean, boolean updaterBoolean) {
         if (!folia) {
             Bukkit.getLogger().info("[MCEEW] Using Bukkit API for Scheduler");
             if (eewBoolean) {
@@ -91,6 +98,9 @@ public final class MCEEW extends JavaPlugin {
                 if (scEewBoolean) {
                     Bukkit.getScheduler().runTaskTimerAsynchronously(this, this::scEewChecker, 20L, 20L);
                 }
+                if (cwbEewBoolean) {
+                    Bukkit.getScheduler().runTaskTimerAsynchronously(this, this::cwbEewChecker, 20L, 20L);
+                }
             }
             if (updaterBoolean) {
                 Bukkit.getScheduler().runTaskAsynchronously(this, this::updater);
@@ -100,13 +110,16 @@ public final class MCEEW extends JavaPlugin {
             Plugin plugin = this;
             if (eewBoolean) {
                 if (jpEewBoolean) {
-                    Bukkit.getAsyncScheduler().runAtFixedRate(plugin, task14 -> eewChecker(), 1L, 1L, TimeUnit.SECONDS);
+                    Bukkit.getAsyncScheduler().runAtFixedRate(plugin, task1 -> eewChecker(), 1L, 1L, TimeUnit.SECONDS);
                 }
                 if (finalBoolean) {
-                    Bukkit.getAsyncScheduler().runAtFixedRate(plugin, task13 -> finalChecker(), 1L, 5L, TimeUnit.SECONDS);
+                    Bukkit.getAsyncScheduler().runAtFixedRate(plugin, task2 -> finalChecker(), 1L, 5L, TimeUnit.SECONDS);
                 }
                 if (scEewBoolean) {
-                    Bukkit.getAsyncScheduler().runAtFixedRate(plugin, task1 -> scEewChecker(), 1L, 1L, TimeUnit.SECONDS);
+                    Bukkit.getAsyncScheduler().runAtFixedRate(plugin, task3 -> scEewChecker(), 1L, 1L, TimeUnit.SECONDS);
+                }
+                if (cwbEewBoolean) {
+                    Bukkit.getAsyncScheduler().runAtFixedRate(plugin, task4 -> cwbEewChecker(), 1L, 1L, TimeUnit.SECONDS);
                 }
             }
             if (updaterBoolean) {
@@ -134,6 +147,8 @@ public final class MCEEW extends JavaPlugin {
                 url = new URL("https://api.wolfx.jp/jma_eqlist.json");
             } else if (source == 2) {
                 url = new URL("https://api.wolfx.jp/sc_eew.json");
+            } else if (source == 3) {
+                url = new URL("https://api.wolfx.jp/cwb_eew.json");
             } else {
                 url = new URL("https://tenkyuchimata.github.io/MCEEW/version.json");
             }
@@ -218,14 +233,14 @@ public final class MCEEW extends JavaPlugin {
                 }
                 if (OriginalText != null) {
                     if (notification_bool) {
-                        Bukkit.getLogger().info("[MCEEW] JMA EEW detected.");
+                        Bukkit.getLogger().info("[MCEEW] Japan EEW detected.");
                     }
                     eewAction(flag, report_time, origin_time, num, lat, lon, region, mag, depth, shindo, type);
                 }
                 OriginalText = json.get("OriginalText").getAsString();
             } else {
                 if (notification_bool) {
-                    Bukkit.getLogger().info("[MCEEW] No JMA EEW issued.");
+                    Bukkit.getLogger().info("[MCEEW] No Japan EEW issued.");
                 }
             }
         }
@@ -315,6 +330,43 @@ public final class MCEEW extends JavaPlugin {
         }
     }
 
+    private void cwbEewChecker() {
+        String responseData = getAPI(1500, 3);
+        if (responseData != null) {
+            JsonObject json = JsonParser.parseString(responseData).getAsJsonObject();
+            if (!Objects.equals(json.get("ReportTime").getAsString(), cwbTS)) {
+                String report_time = json.get("ReportTime").getAsString();
+                String num = json.get("ReportNum").getAsString();
+                String lat = json.get("Latitude").getAsString();
+                String lon = json.get("Longitude").getAsString();
+                String region = json.get("HypoCenter").getAsString();
+                String mag = json.get("Magunitude").getAsString();
+                String depth = json.get("Depth").getAsString() + "km";
+                String origin_time = getDate("yyyy-MM-dd HH:mm:ss", time_format, "Asia/Shanghai", json.get("OriginTime").getAsString());
+                if (cwbTS != null) {
+                    if (notification_bool) {
+                        Bukkit.getLogger().info("[MCEEW] Taiwan EEW detected.");
+                    }
+                    cwbEewAction(report_time, origin_time, num, lat, lon, region, mag, depth);
+                }
+                cwbTS = json.get("ReportTime").getAsString();
+                cwb_info.clear();
+                cwb_info.add(report_time);
+                cwb_info.add(origin_time);
+                cwb_info.add(num);
+                cwb_info.add(lat);
+                cwb_info.add(lon);
+                cwb_info.add(region);
+                cwb_info.add(mag);
+                cwb_info.add(depth);
+            } else {
+                if (notification_bool) {
+                    Bukkit.getLogger().info("[MCEEW] No Taiwan EEW issued.");
+                }
+            }
+        }
+    }
+
     private static void getEewInfo(int flag, CommandSender sender) {
         if (flag == 1) {
             if (EventID != null) {
@@ -332,7 +384,19 @@ public final class MCEEW extends JavaPlugin {
                 );
             }
         } else if (flag == 2) {
-            //
+            if (cwbTS != null) {
+                sender.sendMessage(
+                        cwb_broadcast_message.
+                                replaceAll("%report_time%", cwb_info.get(0)).
+                                replaceAll("%origin_time%", cwb_info.get(1)).
+                                replaceAll("%num%", cwb_info.get(2)).
+                                replaceAll("%lat%", cwb_info.get(3)).
+                                replaceAll("%lon%", cwb_info.get(4)).
+                                replaceAll("%region%", cwb_info.get(5)).
+                                replaceAll("%mag%", cwb_info.get(6)).
+                                replaceAll("%depth%", cwb_info.get(7))
+                );
+            }
         } else {
             if (final_md5 != null) {
                 sender.sendMessage(
@@ -375,6 +439,17 @@ public final class MCEEW extends JavaPlugin {
             String intensity = "5";
             String origin_time = getDate("yyyy-MM-dd HH:mm:ss", time_format, "Asia/Shanghai", origin_time_str);
             scEewAction(report_time, origin_time, num, lat, lon, region, mag, depth, intensity);
+        } else if (flag == 3) {
+            String origin_time_str = "2023-06-23 03:45:34";
+            String report_time = "2023-06-23 03:45:54";
+            String num = "1";
+            String lat = "24.64";
+            String lon = "121.57";
+            String region = "宜蘭縣三星鄉";
+            String mag = "4.5";
+            String depth = "40km";
+            String origin_time = getDate("yyyy-MM-dd HH:mm:ss", time_format, "Asia/Shanghai", origin_time_str);
+            cwbEewAction(report_time, origin_time, num, lat, lon, region, mag, depth);
         } else {
             String flags = "予報";
             String origin_time_str = "2023/07/01 23:38:53";
@@ -546,6 +621,50 @@ public final class MCEEW extends JavaPlugin {
         }
     }
 
+    private static void cwbEewAction(String report_time, String origin_time, String num, String lat, String lon, String region, String mag, String depth) {
+        if (broadcast_bool) {
+            Bukkit.broadcastMessage(
+                    cwb_broadcast_message.
+                            replaceAll("%report_time%", report_time).
+                            replaceAll("%origin_time%", origin_time).
+                            replaceAll("%num%", num).
+                            replaceAll("%lat%", lat).
+                            replaceAll("%lon%", lon).
+                            replaceAll("%region%", region).
+                            replaceAll("%mag%", mag).
+                            replaceAll("%depth%", depth)
+            );
+        }
+        if (title_bool) {
+            for (Player player : Bukkit.getServer().getOnlinePlayers()) {
+                player.sendTitle(
+                        cwb_title_message.
+                                replaceAll("%report_time%", report_time).
+                                replaceAll("%origin_time%", origin_time).
+                                replaceAll("%num%", num).
+                                replaceAll("%lat%", lat).
+                                replaceAll("%lon%", lon).
+                                replaceAll("%region%", region).
+                                replaceAll("%mag%", mag).
+                                replaceAll("%depth%", depth),
+                        cwb_subtitle_message.
+                                replaceAll("%report_time%", report_time).
+                                replaceAll("%origin_time%", origin_time).
+                                replaceAll("%num%", num).
+                                replaceAll("%lat%", lat).
+                                replaceAll("%lon%", lon).
+                                replaceAll("%region%", region).
+                                replaceAll("%mag%", mag).
+                                replaceAll("%depth%", depth),
+                        -1, -1, -1
+                );
+            }
+        }
+        if (alert_bool) {
+            playSound(cwb_alert_sound_type, cwb_alert_sound_volume, cwb_alert_sound_pitch);
+        }
+    }
+
     private static String getShindoColor(String shindo) {
         if (Objects.equals(shindo, "1")) {
             shindo = ChatColor.translateAlternateColorCodes('&', shindo_color[1]) + shindo;
@@ -600,9 +719,9 @@ public final class MCEEW extends JavaPlugin {
                     return true;
                 }
             } else {
-                sender.sendMessage("§a[MCEEW] §3/eew info jma§a - Get JMA earthquake information.");
+                sender.sendMessage("§a[MCEEW] §3/eew info jma§a - Get Japan earthquake information.");
                 sender.sendMessage("§a[MCEEW] §3/eew info sc§a - Get Sichuan earthquake information.");
-                sender.sendMessage("§a[MCEEW] §3/eew info cwb§a - Get CWB earthquake information.");
+                sender.sendMessage("§a[MCEEW] §3/eew info cwb§a - Get Taiwan earthquake information.");
                 return true;
             }
         } else if (args[0].equalsIgnoreCase("test") && sender.isOp()) {
@@ -616,11 +735,15 @@ public final class MCEEW extends JavaPlugin {
                 } else if (args[1].equalsIgnoreCase("sc")) {
                     eewTest(2);
                     return true;
+                } else if (args[1].equalsIgnoreCase("cwb")) {
+                    eewTest(3);
+                    return true;
                 }
             } else {
                 sender.sendMessage("§a[MCEEW] §3/eew test forecast§a - Run Forecast EEW test.");
                 sender.sendMessage("§a[MCEEW] §3/eew test alert§a - Run Alert EEW test.");
                 sender.sendMessage("§a[MCEEW] §3/eew test sc§a - Run Sichuan EEW test.");
+                sender.sendMessage("§a[MCEEW] §3/eew test cwb§a - Run Taiwan EEW test.");
                 return true;
             }
         }
@@ -647,6 +770,9 @@ public final class MCEEW extends JavaPlugin {
         sichuan_broadcast_message = ChatColor.translateAlternateColorCodes('&', Objects.requireNonNull(this.getConfig().getString("Message.Sichuan.broadcast")));
         sichuan_title_message = ChatColor.translateAlternateColorCodes('&', Objects.requireNonNull(this.getConfig().getString("Message.Sichuan.title")));
         sichuan_subtitle_message = ChatColor.translateAlternateColorCodes('&', Objects.requireNonNull(this.getConfig().getString("Message.Sichuan.subtitle")));
+        cwb_broadcast_message = ChatColor.translateAlternateColorCodes('&', Objects.requireNonNull(this.getConfig().getString("Message.Taiwan.broadcast")));
+        cwb_title_message = ChatColor.translateAlternateColorCodes('&', Objects.requireNonNull(this.getConfig().getString("Message.Taiwan.title")));
+        cwb_subtitle_message = ChatColor.translateAlternateColorCodes('&', Objects.requireNonNull(this.getConfig().getString("Message.Taiwan.subtitle")));
         shindo_color = this.getConfig().getStringList("Color.Shindo").toArray(new String[0]);
         intensity_color = this.getConfig().getStringList("Color.Intensity").toArray(new String[0]);
         alert_alert_sound_type = this.getConfig().getString("Sound.Alert.type");
@@ -658,7 +784,10 @@ public final class MCEEW extends JavaPlugin {
         sc_alert_sound_type = this.getConfig().getString("Sound.Sichuan.type");
         sc_alert_sound_volume = this.getConfig().getDouble("Sound.Sichuan.volume");
         sc_alert_sound_pitch = this.getConfig().getDouble("Sound.Sichuan.pitch");
-        this.mceewScheduler(this.getConfig().getBoolean("EEW"), this.getConfig().getBoolean("enable_jp"), this.getConfig().getBoolean("Action.final"), this.getConfig().getBoolean("enable_sc"), first);
+        cwb_alert_sound_type = this.getConfig().getString("Sound.Taiwan.type");
+        cwb_alert_sound_volume = this.getConfig().getDouble("Sound.Taiwan.volume");
+        cwb_alert_sound_pitch = this.getConfig().getDouble("Sound.Taiwan.pitch");
+        this.mceewScheduler(this.getConfig().getBoolean("EEW"), this.getConfig().getBoolean("enable_jp"), this.getConfig().getBoolean("Action.final"), this.getConfig().getBoolean("enable_sc"), this.getConfig().getBoolean("enable_cwb"), first);
     }
 
     @Override
