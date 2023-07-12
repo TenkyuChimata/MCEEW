@@ -233,7 +233,7 @@ public final class MCEEW extends JavaPlugin {
                 if (debug_bool) {
                     Bukkit.getLogger().info("[MCEEW] Japan EEW detected.");
                 }
-                eewAction(flag, report_time, origin_time, num, lat, lon, region, mag, depth, shindo, type);
+                eewAction(flag, report_time, origin_time, num, lat, lon, region, mag, depth, getShindoColor(shindo), type);
             }
             OriginalText = jmaEewData.get("OriginalText").getAsString();
         } else {
@@ -299,7 +299,7 @@ public final class MCEEW extends JavaPlugin {
                 if (debug_bool) {
                     Bukkit.getLogger().info("[MCEEW] Sichuan EEW detected.");
                 }
-                scEewAction(report_time, origin_time, num, lat, lon, region, mag, depth + "km", intensity);
+                scEewAction(report_time, origin_time, num, lat, lon, region, mag, depth + "km", getIntensityColor(intensity));
             }
             EventID = scEewData.get("EventID").getAsString();
             sc_info.clear();
@@ -454,7 +454,6 @@ public final class MCEEW extends JavaPlugin {
     }
 
     private static void eewAction(String flag, String report_time, String origin_time, String num, String lat, String lon, String region, String mag, String depth, String shindo, String type) {
-        shindo = getShindoColor(shindo);
         if (broadcast_bool) {
             if (Objects.equals(flag, "警報")) {
                 Bukkit.broadcastMessage(
@@ -559,7 +558,6 @@ public final class MCEEW extends JavaPlugin {
     }
 
     private static void scEewAction(String report_time, String origin_time, String num, String lat, String lon, String region, String mag, String depth, String intensity) {
-        intensity = getIntensityColor(intensity);
         if (broadcast_bool) {
             Bukkit.broadcastMessage(
                     sichuan_broadcast_message.
@@ -653,27 +651,26 @@ public final class MCEEW extends JavaPlugin {
     private static String getShindoColor(String shindo) {
         String[] shindo_color = new String[]{"§f", "§7", "§b", "§9", "§a", "§e", "§6", "§c", "§4", "§d"};
         if (Objects.equals(shindo, "1")) {
-            shindo = shindo_color[1] + shindo;
+            return shindo_color[1] + shindo;
         } else if (Objects.equals(shindo, "2")) {
-            shindo = shindo_color[2] + shindo;
+            return shindo_color[2] + shindo;
         } else if (Objects.equals(shindo, "3")) {
-            shindo = shindo_color[3] + shindo;
+            return shindo_color[3] + shindo;
         } else if (Objects.equals(shindo, "4")) {
-            shindo = shindo_color[4] + shindo;
+            return shindo_color[4] + shindo;
         } else if (Objects.equals(shindo, "5弱")) {
-            shindo = shindo_color[5] + shindo;
+            return shindo_color[5] + shindo;
         } else if (Objects.equals(shindo, "5強")) {
-            shindo = shindo_color[6] + shindo;
+            return shindo_color[6] + shindo;
         } else if (Objects.equals(shindo, "6弱")) {
-            shindo = shindo_color[7] + shindo;
+            return shindo_color[7] + shindo;
         } else if (Objects.equals(shindo, "6強")) {
-            shindo = shindo_color[8] + shindo;
+            return shindo_color[8] + shindo;
         } else if (Objects.equals(shindo, "7")) {
-            shindo = shindo_color[9] + shindo;
+            return shindo_color[9] + shindo;
         } else {
-            shindo = shindo_color[0] + shindo;
+            return shindo_color[0] + shindo;
         }
-        return shindo;
     }
 
     private static String getIntensityColor(String intensity) {
