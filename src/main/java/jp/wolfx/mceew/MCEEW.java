@@ -411,7 +411,7 @@ public final class MCEEW extends JavaPlugin {
             String shindo = "5弱";
             String type = "最終報";
             String origin_time = getDate("yyyy/MM/dd HH:mm:ss", time_format, "Asia/Tokyo", origin_time_str);
-            eewAction(flags, report_time, origin_time, num, lat, lon, region, mag, depth, shindo, type);
+            eewAction(flags, report_time, origin_time, num, lat, lon, region, mag, depth, getShindoColor(shindo), type);
         } else if (flag == 2) {
             String origin_time_str = "2023-01-01 21:08:30";
             String report_time = "2023-01-01 21:08:39";
@@ -423,7 +423,7 @@ public final class MCEEW extends JavaPlugin {
             String depth = "10km";
             String intensity = "5";
             String origin_time = getDate("yyyy-MM-dd HH:mm:ss", time_format, "Asia/Shanghai", origin_time_str);
-            scEewAction(report_time, origin_time, num, lat, lon, region, mag, depth, intensity);
+            scEewAction(report_time, origin_time, num, lat, lon, region, mag, depth, getIntensityColor(intensity));
         } else if (flag == 3) {
             String origin_time_str = "2023-06-23 03:45:34";
             String report_time = "2023-06-23 03:45:54";
@@ -448,7 +448,7 @@ public final class MCEEW extends JavaPlugin {
             String shindo = "3";
             String type = "";
             String origin_time = getDate("yyyy/MM/dd HH:mm:ss", time_format, "Asia/Tokyo", origin_time_str);
-            eewAction(flags, report_time, origin_time, num, lat, lon, region, mag, depth, shindo, type);
+            eewAction(flags, report_time, origin_time, num, lat, lon, region, mag, depth, getShindoColor(shindo), type);
         }
         Bukkit.broadcastMessage("§eWarning: This is a Earthquake Early Warning issued test.");
     }
