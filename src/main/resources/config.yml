@@ -24,16 +24,13 @@
 # \n Change to next line
 ########################
 
-# Enable all EEW
-EEW: true
-
-# Enable Japan JMA EEW
+# Enable Japan JMA EEW broadcast
 enable_jp: true
 
-# Enable Sichuan EEW
+# Enable Sichuan EEW broadcast
 enable_sc: true
 
-# Enable Taiwan CWB EEW
+# Enable Taiwan CWB EEW broadcast
 enable_cwb: true
 
 # Set the time format
