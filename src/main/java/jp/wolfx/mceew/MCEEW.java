@@ -3,7 +3,6 @@ package jp.wolfx.mceew;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Sound;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
@@ -58,8 +57,6 @@ public final class MCEEW extends JavaPlugin {
     private static String cwb_alert_sound_type;
     private static double cwb_alert_sound_volume;
     private static double cwb_alert_sound_pitch;
-    private static String[] shindo_color;
-    private static String[] intensity_color;
     private static String OriginalText = null;
     private static String final_md5 = null;
     private static String EventID = null;
@@ -72,7 +69,7 @@ public final class MCEEW extends JavaPlugin {
     private static final ArrayList<String> final_info = new ArrayList<>();
     private static final ArrayList<String> sc_info = new ArrayList<>();
     private static final ArrayList<String> cwb_info = new ArrayList<>();
-    private final String version = this.getDescription().getVersion().replaceAll("-b", "");
+    private final String version = this.getDescription().getVersion().replace("-b", "");
     private static final boolean folia = isFolia();
 
     @Override
@@ -191,150 +188,166 @@ public final class MCEEW extends JavaPlugin {
 
     private void eewChecker(boolean jpEewBoolean, boolean finalBoolean, boolean scEewBoolean, boolean cwbEewBoolean) {
         if (jpEewBoolean && jmaEewData != null) {
-            if (!Objects.equals(jmaEewData.get("OriginalText").getAsString(), OriginalText)) {
-                String type = "";
-                String flag = jmaEewData.get("Title").getAsString().substring(7, 9);
-                String report_time = jmaEewData.get("AnnouncedTime").getAsString();
-                String num = jmaEewData.get("Serial").getAsString();
-                String lat = jmaEewData.get("Latitude").getAsString();
-                String lon = jmaEewData.get("Longitude").getAsString();
-                String region = jmaEewData.get("Hypocenter").getAsString();
-                String mag = jmaEewData.get("Magunitude").getAsString();
-                String depth = jmaEewData.get("Depth").getAsString() + "km";
-                String shindo = jmaEewData.get("MaxIntensity").getAsString();
-                String origin_time = getDate("yyyy/MM/dd HH:mm:ss", time_format, "Asia/Tokyo", jmaEewData.get("OriginTime").getAsString());
-                if (jmaEewData.get("isTraining").getAsBoolean()) {
-                    type = "訓練";
-                } else if (jmaEewData.get("isAssumption").getAsBoolean()) {
-                    type = "仮定震源";
-                }
-                if (jmaEewData.get("isFinal").getAsBoolean()) {
-                    if (!type.equals("")) {
-                        type = type + " (最終報)";
-                    } else {
-                        type = "最終報";
-                    }
-                }
-                if (jmaEewData.get("isCancel").getAsBoolean()) {
-                    type = "取消";
-                }
-                if (OriginalText != null) {
-                    if (debug_bool) {
-                        Bukkit.getLogger().info("[MCEEW] Japan EEW detected.");
-                    }
-                    eewAction(flag, report_time, origin_time, num, lat, lon, region, mag, depth, shindo, type);
-                }
-                OriginalText = jmaEewData.get("OriginalText").getAsString();
-            } else {
-                if (debug_bool) {
-                    Bukkit.getLogger().info("[MCEEW] No Japan EEW issued.");
-                }
-            }
+            jmaEewExecute();
         }
         if (finalBoolean && jmaEqlistData != null) {
-            if (!Objects.equals(jmaEqlistData.get("md5").getAsString(), final_md5)) {
-                String time_str = jmaEqlistData.get("No1").getAsJsonObject().get("time").getAsString();
-                String region = jmaEqlistData.get("No1").getAsJsonObject().get("location").getAsString();
-                String mag = jmaEqlistData.get("No1").getAsJsonObject().get("magnitude").getAsString();
-                String depth = jmaEqlistData.get("No1").getAsJsonObject().get("depth").getAsString();
-                String shindo = jmaEqlistData.get("No1").getAsJsonObject().get("shindo").getAsString();
-                String info = jmaEqlistData.get("No1").getAsJsonObject().get("info").getAsString();
-                String origin_time = getDate("yyyy/MM/dd HH:mm", time_format_final, "Asia/Tokyo", time_str);
-                if (final_md5 != null) {
-                    if (debug_bool) {
-                        Bukkit.getLogger().info("[MCEEW] Japan final report updated.");
-                    }
-                    Bukkit.broadcastMessage(
-                            final_broadcast_message.
-                                    replaceAll("%origin_time%", origin_time).
-                                    replaceAll("%region%", region).
-                                    replaceAll("%mag%", mag).
-                                    replaceAll("%depth%", depth).
-                                    replaceAll("%shindo%", getShindoColor(shindo)).
-                                    replaceAll("%info%", info)
-                    );
-                }
-                final_md5 = jmaEqlistData.get("md5").getAsString();
-                final_info.clear();
-                final_info.add(origin_time);
-                final_info.add(region);
-                final_info.add(mag);
-                final_info.add(depth);
-                final_info.add(shindo);
-                final_info.add(info);
-            } else {
-                if (debug_bool) {
-                    Bukkit.getLogger().info("[MCEEW] No Japan final report update.");
-                }
-            }
+            jmaEqlistExecute();
         }
         if (scEewBoolean && scEewData != null) {
-            if (!Objects.equals(scEewData.get("EventID").getAsString(), EventID)) {
-                String report_time = scEewData.get("ReportTime").getAsString();
-                String num = scEewData.get("ReportNum").getAsString();
-                String lat = scEewData.get("Latitude").getAsString();
-                String lon = scEewData.get("Longitude").getAsString();
-                String region = scEewData.get("HypoCenter").getAsString();
-                String mag = scEewData.get("Magunitude").getAsString();
-                String depth = "10";
-                if (!scEewData.get("Depth").isJsonNull()) {
-                    depth = scEewData.get("Depth").getAsString();
-                }
-                String intensity = String.valueOf(Math.round(Float.parseFloat(scEewData.get("MaxIntensity").getAsString())));
-                String origin_time = getDate("yyyy-MM-dd HH:mm:ss", time_format, "Asia/Shanghai", scEewData.get("OriginTime").getAsString());
-                if (EventID != null) {
-                    if (debug_bool) {
-                        Bukkit.getLogger().info("[MCEEW] Sichuan EEW detected.");
-                    }
-                    scEewAction(report_time, origin_time, num, lat, lon, region, mag, depth + "km", intensity);
-                }
-                EventID = scEewData.get("EventID").getAsString();
-                sc_info.clear();
-                sc_info.add(report_time);
-                sc_info.add(origin_time);
-                sc_info.add(num);
-                sc_info.add(lat);
-                sc_info.add(lon);
-                sc_info.add(region);
-                sc_info.add(mag);
-                sc_info.add(depth);
-                sc_info.add(intensity);
-            } else {
-                if (debug_bool) {
-                    Bukkit.getLogger().info("[MCEEW] No Sichuan EEW issued.");
-                }
-            }
+            scEewExecute();
         }
         if (cwbEewBoolean && cwbEewData != null) {
-            if (!Objects.equals(cwbEewData.get("ReportTime").getAsString(), cwbTS)) {
-                String report_time = cwbEewData.get("ReportTime").getAsString();
-                String num = cwbEewData.get("ReportNum").getAsString();
-                String lat = cwbEewData.get("Latitude").getAsString();
-                String lon = cwbEewData.get("Longitude").getAsString();
-                String region = cwbEewData.get("HypoCenter").getAsString();
-                String mag = cwbEewData.get("Magunitude").getAsString();
-                String depth = cwbEewData.get("Depth").getAsString() + "km";
-                String origin_time = getDate("yyyy-MM-dd HH:mm:ss", time_format, "Asia/Shanghai", cwbEewData.get("OriginTime").getAsString());
-                if (cwbTS != null) {
-                    if (debug_bool) {
-                        Bukkit.getLogger().info("[MCEEW] Taiwan EEW detected.");
-                    }
-                    cwbEewAction(report_time, origin_time, num, lat, lon, region, mag, depth);
+            cwbEewExecute();
+        }
+    }
+
+    private static void jmaEewExecute() {
+        if (!Objects.equals(jmaEewData.get("OriginalText").getAsString(), OriginalText)) {
+            String type = "";
+            String flag = jmaEewData.get("Title").getAsString().substring(7, 9);
+            String report_time = jmaEewData.get("AnnouncedTime").getAsString();
+            String num = jmaEewData.get("Serial").getAsString();
+            String lat = jmaEewData.get("Latitude").getAsString();
+            String lon = jmaEewData.get("Longitude").getAsString();
+            String region = jmaEewData.get("Hypocenter").getAsString();
+            String mag = jmaEewData.get("Magunitude").getAsString();
+            String depth = jmaEewData.get("Depth").getAsString() + "km";
+            String shindo = jmaEewData.get("MaxIntensity").getAsString();
+            String origin_time = getDate("yyyy/MM/dd HH:mm:ss", time_format, "Asia/Tokyo", jmaEewData.get("OriginTime").getAsString());
+            if (jmaEewData.get("isTraining").getAsBoolean()) {
+                type = "訓練";
+            } else if (jmaEewData.get("isAssumption").getAsBoolean()) {
+                type = "仮定震源";
+            }
+            if (jmaEewData.get("isFinal").getAsBoolean()) {
+                if (!type.equals("")) {
+                    type = type + " (最終報)";
+                } else {
+                    type = "最終報";
                 }
-                cwbTS = cwbEewData.get("ReportTime").getAsString();
-                cwb_info.clear();
-                cwb_info.add(report_time);
-                cwb_info.add(origin_time);
-                cwb_info.add(num);
-                cwb_info.add(lat);
-                cwb_info.add(lon);
-                cwb_info.add(region);
-                cwb_info.add(mag);
-                cwb_info.add(depth);
-            } else {
+            }
+            if (jmaEewData.get("isCancel").getAsBoolean()) {
+                type = "取消";
+            }
+            if (OriginalText != null) {
                 if (debug_bool) {
-                    Bukkit.getLogger().info("[MCEEW] No Taiwan EEW issued.");
+                    Bukkit.getLogger().info("[MCEEW] Japan EEW detected.");
                 }
+                eewAction(flag, report_time, origin_time, num, lat, lon, region, mag, depth, shindo, type);
+            }
+            OriginalText = jmaEewData.get("OriginalText").getAsString();
+        } else {
+            if (debug_bool) {
+                Bukkit.getLogger().info("[MCEEW] No Japan EEW issued.");
+            }
+        }
+    }
+
+    private static void jmaEqlistExecute() {
+        if (!Objects.equals(jmaEqlistData.get("md5").getAsString(), final_md5)) {
+            String time_str = jmaEqlistData.get("No1").getAsJsonObject().get("time").getAsString();
+            String region = jmaEqlistData.get("No1").getAsJsonObject().get("location").getAsString();
+            String mag = jmaEqlistData.get("No1").getAsJsonObject().get("magnitude").getAsString();
+            String depth = jmaEqlistData.get("No1").getAsJsonObject().get("depth").getAsString();
+            String shindo = jmaEqlistData.get("No1").getAsJsonObject().get("shindo").getAsString();
+            String info = jmaEqlistData.get("No1").getAsJsonObject().get("info").getAsString();
+            String origin_time = getDate("yyyy/MM/dd HH:mm", time_format_final, "Asia/Tokyo", time_str);
+            if (final_md5 != null) {
+                if (debug_bool) {
+                    Bukkit.getLogger().info("[MCEEW] Japan final report updated.");
+                }
+                Bukkit.broadcastMessage(
+                        final_broadcast_message.
+                                replaceAll("%origin_time%", origin_time).
+                                replaceAll("%region%", region).
+                                replaceAll("%mag%", mag).
+                                replaceAll("%depth%", depth).
+                                replaceAll("%shindo%", getShindoColor(shindo)).
+                                replaceAll("%info%", info)
+                );
+            }
+            final_md5 = jmaEqlistData.get("md5").getAsString();
+            final_info.clear();
+            final_info.add(origin_time);
+            final_info.add(region);
+            final_info.add(mag);
+            final_info.add(depth);
+            final_info.add(shindo);
+            final_info.add(info);
+        } else {
+            if (debug_bool) {
+                Bukkit.getLogger().info("[MCEEW] No Japan final report update.");
+            }
+        }
+    }
+
+    private static void scEewExecute() {
+        if (!Objects.equals(scEewData.get("EventID").getAsString(), EventID)) {
+            String report_time = scEewData.get("ReportTime").getAsString();
+            String num = scEewData.get("ReportNum").getAsString();
+            String lat = scEewData.get("Latitude").getAsString();
+            String lon = scEewData.get("Longitude").getAsString();
+            String region = scEewData.get("HypoCenter").getAsString();
+            String mag = scEewData.get("Magunitude").getAsString();
+            String depth = "10";
+            if (!scEewData.get("Depth").isJsonNull()) {
+                depth = scEewData.get("Depth").getAsString();
+            }
+            String intensity = String.valueOf(Math.round(Float.parseFloat(scEewData.get("MaxIntensity").getAsString())));
+            String origin_time = getDate("yyyy-MM-dd HH:mm:ss", time_format, "Asia/Shanghai", scEewData.get("OriginTime").getAsString());
+            if (EventID != null) {
+                if (debug_bool) {
+                    Bukkit.getLogger().info("[MCEEW] Sichuan EEW detected.");
+                }
+                scEewAction(report_time, origin_time, num, lat, lon, region, mag, depth + "km", intensity);
+            }
+            EventID = scEewData.get("EventID").getAsString();
+            sc_info.clear();
+            sc_info.add(report_time);
+            sc_info.add(origin_time);
+            sc_info.add(num);
+            sc_info.add(lat);
+            sc_info.add(lon);
+            sc_info.add(region);
+            sc_info.add(mag);
+            sc_info.add(depth);
+            sc_info.add(intensity);
+        } else {
+            if (debug_bool) {
+                Bukkit.getLogger().info("[MCEEW] No Sichuan EEW issued.");
+            }
+        }
+    }
+
+    private static void cwbEewExecute() {
+        if (!Objects.equals(cwbEewData.get("ReportTime").getAsString(), cwbTS)) {
+            String report_time = cwbEewData.get("ReportTime").getAsString();
+            String num = cwbEewData.get("ReportNum").getAsString();
+            String lat = cwbEewData.get("Latitude").getAsString();
+            String lon = cwbEewData.get("Longitude").getAsString();
+            String region = cwbEewData.get("HypoCenter").getAsString();
+            String mag = cwbEewData.get("Magunitude").getAsString();
+            String depth = cwbEewData.get("Depth").getAsString() + "km";
+            String origin_time = getDate("yyyy-MM-dd HH:mm:ss", time_format, "Asia/Shanghai", cwbEewData.get("OriginTime").getAsString());
+            if (cwbTS != null) {
+                if (debug_bool) {
+                    Bukkit.getLogger().info("[MCEEW] Taiwan EEW detected.");
+                }
+                cwbEewAction(report_time, origin_time, num, lat, lon, region, mag, depth);
+            }
+            cwbTS = cwbEewData.get("ReportTime").getAsString();
+            cwb_info.clear();
+            cwb_info.add(report_time);
+            cwb_info.add(origin_time);
+            cwb_info.add(num);
+            cwb_info.add(lat);
+            cwb_info.add(lon);
+            cwb_info.add(region);
+            cwb_info.add(mag);
+            cwb_info.add(depth);
+        } else {
+            if (debug_bool) {
+                Bukkit.getLogger().info("[MCEEW] No Taiwan EEW issued.");
             }
         }
     }
@@ -638,32 +651,34 @@ public final class MCEEW extends JavaPlugin {
     }
 
     private static String getShindoColor(String shindo) {
+        String[] shindo_color = new String[]{"§f", "§7", "§b", "§9", "§a", "§e", "§6", "§c", "§4", "§d"};
         if (Objects.equals(shindo, "1")) {
-            shindo = ChatColor.translateAlternateColorCodes('&', shindo_color[1]) + shindo;
+            shindo = shindo_color[1] + shindo;
         } else if (Objects.equals(shindo, "2")) {
-            shindo = ChatColor.translateAlternateColorCodes('&', shindo_color[2]) + shindo;
+            shindo = shindo_color[2] + shindo;
         } else if (Objects.equals(shindo, "3")) {
-            shindo = ChatColor.translateAlternateColorCodes('&', shindo_color[3]) + shindo;
+            shindo = shindo_color[3] + shindo;
         } else if (Objects.equals(shindo, "4")) {
-            shindo = ChatColor.translateAlternateColorCodes('&', shindo_color[4]) + shindo;
+            shindo = shindo_color[4] + shindo;
         } else if (Objects.equals(shindo, "5弱")) {
-            shindo = ChatColor.translateAlternateColorCodes('&', shindo_color[5]) + shindo;
+            shindo = shindo_color[5] + shindo;
         } else if (Objects.equals(shindo, "5強")) {
-            shindo = ChatColor.translateAlternateColorCodes('&', shindo_color[6]) + shindo;
+            shindo = shindo_color[6] + shindo;
         } else if (Objects.equals(shindo, "6弱")) {
-            shindo = ChatColor.translateAlternateColorCodes('&', shindo_color[7]) + shindo;
+            shindo = shindo_color[7] + shindo;
         } else if (Objects.equals(shindo, "6強")) {
-            shindo = ChatColor.translateAlternateColorCodes('&', shindo_color[8]) + shindo;
+            shindo = shindo_color[8] + shindo;
         } else if (Objects.equals(shindo, "7")) {
-            shindo = ChatColor.translateAlternateColorCodes('&', shindo_color[9]) + shindo;
+            shindo = shindo_color[9] + shindo;
         } else {
-            shindo = ChatColor.translateAlternateColorCodes('&', shindo_color[0]) + shindo;
+            shindo = shindo_color[0] + shindo;
         }
         return shindo;
     }
 
     private static String getIntensityColor(String intensity) {
-        return ChatColor.translateAlternateColorCodes('&', intensity_color[Integer.parseInt(intensity)]) + intensity;
+        String[] intensity_color = new String[]{"§f", "§7", "§b", "§3", "§9", "§a", "§2", "§e", "§6", "§c", "§4", "§d", "§5"};
+        return intensity_color[Integer.parseInt(intensity)] + intensity;
     }
 
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
@@ -732,21 +747,19 @@ public final class MCEEW extends JavaPlugin {
         title_bool = this.getConfig().getBoolean("Action.title");
         alert_bool = this.getConfig().getBoolean("Action.alert");
         debug_bool = this.getConfig().getBoolean("Action.debug");
-        alert_broadcast_message = ChatColor.translateAlternateColorCodes('&', Objects.requireNonNull(this.getConfig().getString("Message.Alert.broadcast")));
-        alert_title_message = ChatColor.translateAlternateColorCodes('&', Objects.requireNonNull(this.getConfig().getString("Message.Alert.title")));
-        alert_subtitle_message = ChatColor.translateAlternateColorCodes('&', Objects.requireNonNull(this.getConfig().getString("Message.Alert.subtitle")));
-        forecast_broadcast_message = ChatColor.translateAlternateColorCodes('&', Objects.requireNonNull(this.getConfig().getString("Message.Forecast.broadcast")));
-        forecast_title_message = ChatColor.translateAlternateColorCodes('&', Objects.requireNonNull(this.getConfig().getString("Message.Forecast.title")));
-        forecast_subtitle_message = ChatColor.translateAlternateColorCodes('&', Objects.requireNonNull(this.getConfig().getString("Message.Forecast.subtitle")));
-        final_broadcast_message = ChatColor.translateAlternateColorCodes('&', Objects.requireNonNull(this.getConfig().getString("Message.Final.broadcast")));
-        sichuan_broadcast_message = ChatColor.translateAlternateColorCodes('&', Objects.requireNonNull(this.getConfig().getString("Message.Sichuan.broadcast")));
-        sichuan_title_message = ChatColor.translateAlternateColorCodes('&', Objects.requireNonNull(this.getConfig().getString("Message.Sichuan.title")));
-        sichuan_subtitle_message = ChatColor.translateAlternateColorCodes('&', Objects.requireNonNull(this.getConfig().getString("Message.Sichuan.subtitle")));
-        cwb_broadcast_message = ChatColor.translateAlternateColorCodes('&', Objects.requireNonNull(this.getConfig().getString("Message.Taiwan.broadcast")));
-        cwb_title_message = ChatColor.translateAlternateColorCodes('&', Objects.requireNonNull(this.getConfig().getString("Message.Taiwan.title")));
-        cwb_subtitle_message = ChatColor.translateAlternateColorCodes('&', Objects.requireNonNull(this.getConfig().getString("Message.Taiwan.subtitle")));
-        shindo_color = this.getConfig().getStringList("Color.Shindo").toArray(new String[0]);
-        intensity_color = this.getConfig().getStringList("Color.Intensity").toArray(new String[0]);
+        alert_broadcast_message = Objects.requireNonNull(this.getConfig().getString("Message.Alert.broadcast")).replace("&", "§");
+        alert_title_message = Objects.requireNonNull(this.getConfig().getString("Message.Alert.title")).replace("&", "§");
+        alert_subtitle_message = Objects.requireNonNull(this.getConfig().getString("Message.Alert.subtitle")).replace("&", "§");
+        forecast_broadcast_message = Objects.requireNonNull(this.getConfig().getString("Message.Forecast.broadcast")).replace("&", "§");
+        forecast_title_message = Objects.requireNonNull(this.getConfig().getString("Message.Forecast.title")).replace("&", "§");
+        forecast_subtitle_message = Objects.requireNonNull(this.getConfig().getString("Message.Forecast.subtitle")).replace("&", "§");
+        final_broadcast_message = Objects.requireNonNull(this.getConfig().getString("Message.Final.broadcast")).replace("&", "§");
+        sichuan_broadcast_message = Objects.requireNonNull(this.getConfig().getString("Message.Sichuan.broadcast")).replace("&", "§");
+        sichuan_title_message = Objects.requireNonNull(this.getConfig().getString("Message.Sichuan.title")).replace("&", "§");
+        sichuan_subtitle_message = Objects.requireNonNull(this.getConfig().getString("Message.Sichuan.subtitle")).replace("&", "§");
+        cwb_broadcast_message = Objects.requireNonNull(this.getConfig().getString("Message.Taiwan.broadcast")).replace("&", "§");
+        cwb_title_message = Objects.requireNonNull(this.getConfig().getString("Message.Taiwan.title")).replace("&", "§");
+        cwb_subtitle_message = Objects.requireNonNull(this.getConfig().getString("Message.Taiwan.subtitle")).replace("&", "§");
         alert_alert_sound_type = this.getConfig().getString("Sound.Alert.type");
         alert_alert_sound_volume = this.getConfig().getDouble("Sound.Alert.volume");
         alert_alert_sound_pitch = this.getConfig().getDouble("Sound.Alert.pitch");

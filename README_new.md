@@ -14,7 +14,6 @@ A real-time Earthquake Early Warning(EEW) plugin for Minecraft Server.
 *   **Alerts when an earthquake is detected.**
 *   **Allows manual get earthquake information.**
 *   **Customizable broadcast messages.**
-*   **Customizable intensity colors.**
 *   **Customizable alert sounds.**
 *   **Customizable EEW switch.**
 *   **Supports EEW send test.**
