@@ -105,10 +105,10 @@ public final class MCEEW extends JavaPlugin {
             Plugin plugin = this;
             Bukkit.getAsyncScheduler().runAtFixedRate(plugin, task1 -> getEewData(), 1L, 1L, TimeUnit.SECONDS);
             if (eewBoolean) {
-                Bukkit.getAsyncScheduler().runAtFixedRate(plugin, task1 -> eewChecker(jpEewBoolean, finalBoolean, scEewBoolean, cwbEewBoolean), 1L, 1L, TimeUnit.SECONDS);
+                Bukkit.getAsyncScheduler().runAtFixedRate(plugin, task2 -> eewChecker(jpEewBoolean, finalBoolean, scEewBoolean, cwbEewBoolean), 1L, 1L, TimeUnit.SECONDS);
             }
             if (updaterBoolean) {
-                Bukkit.getAsyncScheduler().runNow(plugin, task2 -> updater());
+                Bukkit.getAsyncScheduler().runNow(plugin, task3 -> updater());
             }
         }
     }
