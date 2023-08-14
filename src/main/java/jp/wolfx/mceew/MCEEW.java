@@ -69,7 +69,7 @@ public final class MCEEW extends JavaPlugin {
     private static final ArrayList<String> final_info = new ArrayList<>();
     private static final ArrayList<String> sc_info = new ArrayList<>();
     private static final ArrayList<String> cwb_info = new ArrayList<>();
-    private final String version = this.getDescription().getVersion().replace("-b", "");
+    private final String version = this.getDescription().getVersion();
     private static final boolean folia = isFolia();
 
     @Override
@@ -146,7 +146,7 @@ public final class MCEEW extends JavaPlugin {
         if (responseData != null) {
             JsonObject json = JsonParser.parseString(responseData).getAsJsonObject();
             String api_version = json.get("version").getAsString();
-            if (Integer.parseInt(api_version.replaceAll("\\.", "")) > Integer.parseInt(version.replaceAll("\\.", ""))) {
+            if (Integer.parseInt(api_version.replaceAll("\\.", "")) > Integer.parseInt(version.replaceAll("-b.*", "").replaceAll("\\.", ""))) {
                 Bukkit.getLogger().warning("[MCEEW] New plugin version v" + api_version + " detected, Please download a new version from https://acg.kr/mceew");
             } else {
                 Bukkit.getLogger().info("[MCEEW] You are running the latest version.");
@@ -216,7 +216,7 @@ public final class MCEEW extends JavaPlugin {
                 type = "仮定震源";
             }
             if (jmaEewData.get("isFinal").getAsBoolean()) {
-                if (!type.equals("")) {
+                if (!type.isEmpty()) {
                     type = type + " (最終報)";
                 } else {
                     type = "最終報";
@@ -245,6 +245,8 @@ public final class MCEEW extends JavaPlugin {
             String region = jmaEqlistData.get("No1").getAsJsonObject().get("location").getAsString();
             String mag = jmaEqlistData.get("No1").getAsJsonObject().get("magnitude").getAsString();
             String depth = jmaEqlistData.get("No1").getAsJsonObject().get("depth").getAsString();
+            String latitude = jmaEqlistData.get("No1").getAsJsonObject().get("latitude").getAsString();
+            String longitude = jmaEqlistData.get("No1").getAsJsonObject().get("longitude").getAsString();
             String shindo = jmaEqlistData.get("No1").getAsJsonObject().get("shindo").getAsString();
             String info = jmaEqlistData.get("No1").getAsJsonObject().get("info").getAsString();
             String origin_time = getDate("yyyy/MM/dd HH:mm", time_format_final, "Asia/Tokyo", time_str);
@@ -259,6 +261,8 @@ public final class MCEEW extends JavaPlugin {
                                     replaceAll("%region%", region).
                                     replaceAll("%mag%", mag).
                                     replaceAll("%depth%", depth).
+                                    replaceAll("%lat%", latitude).
+                                    replaceAll("%lon%", longitude).
                                     replaceAll("%shindo%", getShindoColor(shindo)).
                                     replaceAll("%info%", info)
                     );
@@ -270,6 +274,8 @@ public final class MCEEW extends JavaPlugin {
             final_info.add(region);
             final_info.add(mag);
             final_info.add(depth);
+            final_info.add(latitude);
+            final_info.add(longitude);
             final_info.add(shindo);
             final_info.add(info);
         } else {
@@ -392,8 +398,10 @@ public final class MCEEW extends JavaPlugin {
                                 replaceAll("%region%", final_info.get(1)).
                                 replaceAll("%mag%", final_info.get(2)).
                                 replaceAll("%depth%", final_info.get(3)).
-                                replaceAll("%shindo%", getShindoColor(final_info.get(4))).
-                                replaceAll("%info%", final_info.get(5))
+                                replaceAll("%lat%", final_info.get(4)).
+                                replaceAll("%lon%", final_info.get(5)).
+                                replaceAll("%shindo%", getShindoColor(final_info.get(6))).
+                                replaceAll("%info%", final_info.get(7))
                 );
             }
         }

@@ -1,6 +1,6 @@
 #
 #  MCEEW configuration
-#  Last updated on 2.2.1
+#  Last updated on 2.2.2
 #
 #  API Source: https://api.wolfx.jp
 #  Plugin Page: https://acg.kr/mceew
@@ -65,7 +65,7 @@ Message:
     subtitle: "&e%region%で震度%shindo%&eの地震"
   # Set the Japan final report message format
   Final:
-    broadcast: "&e地震情報\n &e%origin_time% &f発生\n &f震央: &e%region%\n &fマグニチュード: &e%mag%\n &f深さ: &e%depth%\n &f最大震度: &e%shindo%\n &f津波情報: &e%info%"
+    broadcast: "&e地震情報\n &e%origin_time% &f発生\n &f震央: &e%region% (北緯: &e%lat%度 東経: &e%lon%度)\n &fマグニチュード: &e%mag%\n &f深さ: &e%depth%\n &f最大震度: &e%shindo%\n &f津波情報: &e%info%"
   # Set the Sichuan EEW message format
   Sichuan:
     broadcast: "&c四川地震预警 | 第%num%报\n &e%origin_time% &f发生\n &f震中: &e%region% (北纬: &e%lat%度 东经: &e%lon%度)\n &f震级: &e%mag%\n &f深度: &e%depth%\n &f最大烈度: &e%shindo%\n &f更新时间: &e%report_time%"
