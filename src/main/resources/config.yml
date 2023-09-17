@@ -1,6 +1,6 @@
 #
 #  MCEEW configuration
-#  Last updated on 2.2.2
+#  Last updated on 2.2.3
 #
 #  API Source: https://api.wolfx.jp
 #  Plugin Page: https://acg.kr/mceew
@@ -30,8 +30,8 @@ enable_jp: true
 # Enable Sichuan EEW broadcast
 enable_sc: true
 
-# Enable Taiwan CWB EEW broadcast
-enable_cwb: true
+# Enable Taiwan CWA EEW broadcast
+enable_cwa: true
 
 # Set the time format
 time_format: "yyyy年MM月dd日 HH時mm分ss秒"
