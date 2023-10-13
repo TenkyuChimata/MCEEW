@@ -176,7 +176,7 @@ public final class MCEEW extends JavaPlugin {
                 jmaEewData = json.get("jma_eew").getAsJsonObject();
                 jmaEqlistData = json.get("jma_eqlist").getAsJsonObject();
                 scEewData = json.get("sc_eew").getAsJsonObject();
-                cwaEewData = json.get("cwa_eew").getAsJsonObject();
+                cwaEewData = json.get("cwb_eew").getAsJsonObject();
                 EewDataTS = json.get("create_at").getAsString();
             }
         }
@@ -293,9 +293,11 @@ public final class MCEEW extends JavaPlugin {
             String lon = scEewData.get("Longitude").getAsString();
             String region = scEewData.get("HypoCenter").getAsString();
             String mag = scEewData.get("Magunitude").getAsString();
-            String depth = "10";
+            String depth;
             if (!scEewData.get("Depth").isJsonNull()) {
-                depth = scEewData.get("Depth").getAsString();
+                depth = scEewData.get("Depth").getAsString() + "km";
+            } else {
+                depth = "10km";
             }
             String intensity = String.valueOf(Math.round(Float.parseFloat(scEewData.get("MaxIntensity").getAsString())));
             String origin_time = getDate("yyyy-MM-dd HH:mm:ss", time_format, "Asia/Shanghai", scEewData.get("OriginTime").getAsString());
@@ -304,7 +306,7 @@ public final class MCEEW extends JavaPlugin {
                     Bukkit.getLogger().info("[MCEEW] Sichuan EEW detected.");
                 }
                 if (scEewBoolean) {
-                    scEewAction(report_time, origin_time, num, lat, lon, region, mag, depth + "km", getIntensityColor(intensity));
+                    scEewAction(report_time, origin_time, num, lat, lon, region, mag, depth, getIntensityColor(intensity));
                 }
             }
             EventID = scEewData.get("EventID").getAsString();
