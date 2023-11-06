@@ -781,7 +781,7 @@ public final class MCEEW extends JavaPlugin {
         cwa_alert_sound_type = this.getConfig().getString("Sound.Taiwan.type");
         cwa_alert_sound_volume = this.getConfig().getDouble("Sound.Taiwan.volume");
         cwa_alert_sound_pitch = this.getConfig().getDouble("Sound.Taiwan.pitch");
-        this.mceewScheduler(this.getConfig().getBoolean("enable_jp"), this.getConfig().getBoolean("Action.final"), this.getConfig().getBoolean("enable_sc"), this.getConfig().getBoolean("enable_cwa"), first);
+        this.mceewScheduler(this.getConfig().getBoolean("enable_jp"), this.getConfig().getBoolean("Action.final"), this.getConfig().getBoolean("enable_sc"), this.getConfig().getBoolean("enable_cwb"), first);
     }
 
     @Override
