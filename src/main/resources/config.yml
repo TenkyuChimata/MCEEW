@@ -44,7 +44,7 @@ Action:
   # Enable sound alert
   alert: true
   # Enable Japan JMA report broadcast
-  final: true
+  jma: true
   # Enable China CENC report broadcast
   cenc: true
 
@@ -63,7 +63,7 @@ Message:
     title: "&e緊急地震速報 (%flag%)"
     subtitle: "&e%region%で震度%shindo%&eの地震"
   # Set the Japan JMA report message format
-  Final:
+  Jma:
     broadcast: "&e地震情報\n &e%origin_time% &f発生\n &f震央: &e%region% (北緯: &e%lat%度 東経: &e%lon%度)\n &fマグニチュード: &e%mag%\n &f深さ: &e%depth%\n &f最大震度: &e%shindo%\n &f津波情報: &e%info%"
   # Set the China CENC report message format
   Cenc:
