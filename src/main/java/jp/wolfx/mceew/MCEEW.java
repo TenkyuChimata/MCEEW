@@ -266,20 +266,18 @@ public final class MCEEW extends JavaPlugin {
         String shindo = jmaEqlistData.get("No1").getAsJsonObject().get("shindo").getAsString();
         String info = jmaEqlistData.get("No1").getAsJsonObject().get("info").getAsString();
         String origin_time = getDate("yyyy/MM/dd HH:mm:ss", time_format, "Asia/Tokyo", time_str);
-        if (jma_md5 != null) {
-            if (jmaBoolean) {
-                Bukkit.broadcastMessage(
-                        jma_broadcast_message.
-                                replaceAll("%origin_time%", origin_time).
-                                replaceAll("%region%", region).
-                                replaceAll("%mag%", mag).
-                                replaceAll("%depth%", depth).
-                                replaceAll("%lat%", latitude).
-                                replaceAll("%lon%", longitude).
-                                replaceAll("%shindo%", getShindoColor(shindo)).
-                                replaceAll("%info%", info)
-                );
-            }
+        if (jma_md5 != null && jmaBoolean) {
+            Bukkit.broadcastMessage(
+                    jma_broadcast_message.
+                            replaceAll("%origin_time%", origin_time).
+                            replaceAll("%region%", region).
+                            replaceAll("%mag%", mag).
+                            replaceAll("%depth%", depth).
+                            replaceAll("%lat%", latitude).
+                            replaceAll("%lon%", longitude).
+                            replaceAll("%shindo%", getShindoColor(shindo)).
+                            replaceAll("%info%", info)
+            );
         }
         jma_md5 = jmaEqlistData.get("md5").getAsString();
         jma_info.clear();
