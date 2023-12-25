@@ -9,7 +9,7 @@
 # ####
 
 ########################
-# %flag% 予報 or 警報
+# %flag% 予報 or 警報 | 正式测定 or 自动测定
 # %report_time% EEW report time
 # %origin_time% Time of Earthquake
 # %num% Number of EEW reports
@@ -49,7 +49,7 @@ Action:
   cenc: true
 
 Message:
-  # Set the Japan EEW alert report message format
+  # Set the Japan JMA EEW alert report message format
   Alert:
     # Set the chat message format
     broadcast: "&c緊急地震速報 (%flag%) | 第%num%報 %type%\n &e%origin_time% &f発生\n &f震央: &e%region% (北緯: &e%lat%度 東経: &e%lon%度)\n &fマグニチュード: &e%mag%\n &f深さ: &e%depth%\n &f最大震度: &e%shindo%\n &f更新時間: &e%report_time%"
@@ -57,7 +57,7 @@ Message:
     title: "&c緊急地震速報 (%flag%)"
     # Set the subtitle message format
     subtitle: "&e%region%で震度%shindo%&eの地震"
-  # Set the Japan EEW forecast report message format
+  # Set the Japan JMA EEW forecast report message format
   Forecast:
     broadcast: "&e緊急地震速報 (%flag%) | 第%num%報 %type%\n &e%origin_time% &f発生\n &f震央: &e%region% (北緯: &e%lat%度 東経: &e%lon%度)\n &fマグニチュード: &e%mag%\n &f深さ: &e%depth%\n &f最大震度: &e%shindo%\n &f更新時間: &e%report_time%"
     title: "&e緊急地震速報 (%flag%)"
@@ -73,14 +73,14 @@ Message:
     broadcast: "&c四川地震预警 | 第%num%报\n &e%origin_time% &f发生\n &f震中: &e%region% (北纬: &e%lat%度 东经: &e%lon%度)\n &f震级: &e%mag%\n &f深度: &e%depth%\n &f最大烈度: &e%shindo%\n &f更新时间: &e%report_time%"
     title: "&c四川地震预警"
     subtitle: "&e%region%发生烈度%shindo%&e的地震"
-  # Set the Taiwan EEW message format
+  # Set the Taiwan CWA EEW message format
   Taiwan:
     broadcast: "&c台灣地震預警 | 第%num%報\n &e%origin_time% &f發生\n &f震央: &e%region% (北緯: &e%lat%度 東經: &e%lon%度)\n &f規模: &e%mag%\n &f深度: &e%depth%\n &f更新時間: &e%report_time%"
     title: "&c台灣地震預警"
     subtitle: "&e%region%发生芮氏規模%mag%地震"
 
 Sound:
-  # Set the Japan EEW alert report alert
+  # Set the Japan JMA EEW alert report alert
   Alert:
     # Set the alert sound type
     type: "BLOCK_NOTE_BLOCK_PLING"
@@ -88,7 +88,7 @@ Sound:
     volume: 1000.0
     # Set the alert sound pitch
     pitch: 1.0
-  # Set the Japan EEW forecast report alert
+  # Set the Japan JMA EEW forecast report alert
   Forecast:
     type: "BLOCK_NOTE_BLOCK_PLING"
     volume: 1000.0
@@ -98,7 +98,7 @@ Sound:
     type: "BLOCK_NOTE_BLOCK_PLING"
     volume: 1000.0
     pitch: 1.0
-  # Set the Taiwan EEW alert
+  # Set the Taiwan CWA EEW alert
   Taiwan:
     type: "BLOCK_NOTE_BLOCK_PLING"
     volume: 1000.0
