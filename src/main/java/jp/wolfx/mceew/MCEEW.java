@@ -30,6 +30,7 @@ import java.net.http.WebSocket;
 import java.util.concurrent.CompletionStage;
 
 public final class MCEEW extends JavaPlugin {
+    private static final int current_config = 2;
     private static boolean jpEewBoolean;
     private static boolean scEewBoolean;
     private static boolean cwaEewBoolean;
@@ -65,6 +66,7 @@ public final class MCEEW extends JavaPlugin {
     private static String cwa_alert_sound_type;
     private static double cwa_alert_sound_volume;
     private static double cwa_alert_sound_pitch;
+    private static int config_version;
     private static String jmaEqlist_md5 = null;
     private static String cencEqlist_md5 = null;
     private static JsonObject jmaEqlistData = null;
@@ -156,6 +158,12 @@ public final class MCEEW extends JavaPlugin {
         Sound alert_playedSound = Sound.valueOf(alert_sound_type);
         for (Player player : Bukkit.getServer().getOnlinePlayers()) {
             player.playSound(player.getLocation(), alert_playedSound, (float) alert_sound_volume, (float) alert_sound_pitch);
+        }
+    }
+
+    private static void checkConfig() {
+        if (current_config > config_version) {
+            Bukkit.getLogger().warning("[MCEEW] Configuration update detected, please delete the MCEEW configuration file to update it.");
         }
     }
 
@@ -367,7 +375,7 @@ public final class MCEEW extends JavaPlugin {
         if (cencEqlist_md5 != null && cencEqlistBoolean) {
             Bukkit.broadcastMessage(
                     cencEqlist_broadcast_message.
-                            replaceAll("%origin_time%", type).
+                            replaceAll("%flag%", type).
                             replaceAll("%origin_time%", origin_time).
                             replaceAll("%region%", region).
                             replaceAll("%mag%", mag).
@@ -764,6 +772,8 @@ public final class MCEEW extends JavaPlugin {
         cwa_alert_sound_type = this.getConfig().getString("Sound.Taiwan.type");
         cwa_alert_sound_volume = this.getConfig().getDouble("Sound.Taiwan.volume");
         cwa_alert_sound_pitch = this.getConfig().getDouble("Sound.Taiwan.pitch");
+        config_version = this.getConfig().getInt("config-version");
+        checkConfig();
         mceewScheduler(first);
     }
 
