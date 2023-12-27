@@ -145,7 +145,7 @@ public final class MCEEW extends JavaPlugin {
             String origin_time = getDate("yyyy/MM/dd HH:mm:ss", time_format, "Asia/Tokyo", origin_time_str);
             jmaEewAction(flags, report_time, origin_time, num, lat, lon, region, mag, depth, getShindoColor(shindo), type);
         }
-        Bukkit.broadcastMessage("§eWarning: This is a Earthquake Early Warning issued test.");
+        Bukkit.broadcastMessage("§eWarning: This is an Earthquake Early Warning test.");
     }
 
     private static String getDate(String pattern, String time_format, String timezone, String origin_time) {
@@ -161,9 +161,11 @@ public final class MCEEW extends JavaPlugin {
         }
     }
 
-    private static void checkConfig() {
-        if (current_config > config_version) {
-            Bukkit.getLogger().warning("[MCEEW] Configuration update detected, please delete the MCEEW configuration file to update it.");
+    private static void ThreadSleep() {
+        try {
+            TimeUnit.SECONDS.sleep(5);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
     }
 
@@ -209,23 +211,24 @@ public final class MCEEW extends JavaPlugin {
                 String api_version = json.get("version").getAsString();
                 if (Integer.parseInt(api_version.replaceAll("\\.", "")) > Integer.parseInt(version.replaceAll("-b.*", "").replaceAll("\\.", ""))) {
                     Bukkit.getLogger().warning("[MCEEW] New plugin version v" + api_version + " detected, Please download a new version from https://acg.kr/mceew");
+                    ThreadSleep();
                 } else {
-                    Bukkit.getLogger().info("[MCEEW] You are running the latest version.");
+                    Bukkit.getLogger().info("[MCEEW] You are running the latest plugin version.");
                 }
             }
         } catch (IOException e) {
             Bukkit.getLogger().warning("[MCEEW] Failed to check for plugin updates.");
             Bukkit.getLogger().warning(String.valueOf(e));
         }
+        if (current_config > config_version) {
+            Bukkit.getLogger().warning("[MCEEW] Configuration update detected, please delete the MCEEW configuration file to update it.");
+            ThreadSleep();
+        }
     }
 
     private static void wsReconnect() {
         Bukkit.getLogger().warning("[MCEEW] Trying to reconnect to Websocket API...");
-        try {
-            TimeUnit.SECONDS.sleep(5);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
+        ThreadSleep();
         wsClient(false);
     }
 
@@ -271,7 +274,7 @@ public final class MCEEW extends JavaPlugin {
 
             @Override
             public CompletionStage<?> onClose(WebSocket webSocket, int statusCode, String reason) {
-                Bukkit.getLogger().warning("Failed to connect to Websocket API.");
+                Bukkit.getLogger().warning("Websocket API connection closed unexpectedly.");
                 Bukkit.getLogger().warning(reason);
                 wsReconnect();
                 return null;
@@ -775,7 +778,6 @@ public final class MCEEW extends JavaPlugin {
         cwa_alert_sound_volume = this.getConfig().getDouble("Sound.Taiwan.volume");
         cwa_alert_sound_pitch = this.getConfig().getDouble("Sound.Taiwan.pitch");
         config_version = this.getConfig().getInt("config-version");
-        checkConfig();
         mceewScheduler(first);
     }
 
