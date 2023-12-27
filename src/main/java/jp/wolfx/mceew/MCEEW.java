@@ -161,14 +161,6 @@ public final class MCEEW extends JavaPlugin {
         }
     }
 
-    private static void ThreadSleep() {
-        try {
-            TimeUnit.SECONDS.sleep(5);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-    }
-
     private void cancelScheduler() {
         if (!folia) {
             Bukkit.getScheduler().cancelTasks(this);
@@ -211,7 +203,6 @@ public final class MCEEW extends JavaPlugin {
                 String api_version = json.get("version").getAsString();
                 if (Integer.parseInt(api_version.replaceAll("\\.", "")) > Integer.parseInt(version.replaceAll("-b.*", "").replaceAll("\\.", ""))) {
                     Bukkit.getLogger().warning("[MCEEW] New plugin version v" + api_version + " detected, Please download a new version from https://acg.kr/mceew");
-                    ThreadSleep();
                 } else {
                     Bukkit.getLogger().info("[MCEEW] You are running the latest plugin version.");
                 }
@@ -222,13 +213,16 @@ public final class MCEEW extends JavaPlugin {
         }
         if (current_config > config_version) {
             Bukkit.getLogger().warning("[MCEEW] Configuration update detected, please delete the MCEEW configuration file to update it.");
-            ThreadSleep();
         }
     }
 
     private static void wsReconnect() {
         Bukkit.getLogger().warning("[MCEEW] Trying to reconnect to Websocket API...");
-        ThreadSleep();
+        try {
+            TimeUnit.SECONDS.sleep(5);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
         wsClient(false);
     }
 
