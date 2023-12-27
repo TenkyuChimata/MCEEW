@@ -67,8 +67,8 @@ public final class MCEEW extends JavaPlugin {
     private static String cwa_alert_sound_type;
     private static double cwa_alert_sound_volume;
     private static double cwa_alert_sound_pitch;
-    private static String jmaEqlist_md5;
-    private static String cencEqlist_md5;
+    private static String jmaEqlist_md5 = null;
+    private static String cencEqlist_md5 = null;
     private static JsonObject jmaEqlistData = null;
     private static JsonObject cencEqlistData = null;
     private static final ArrayList<String> jmaEqlist_info = new ArrayList<>();
@@ -171,13 +171,13 @@ public final class MCEEW extends JavaPlugin {
 
     private void mceewScheduler(boolean updaterBoolean) {
         if (!folia) {
-            Bukkit.getScheduler().runTaskAsynchronously(this, () -> wsClient(true));
+            Bukkit.getScheduler().runTaskAsynchronously(this, () -> wsClient(updaterBoolean));
             if (updaterBoolean) {
                 Bukkit.getScheduler().runTaskAsynchronously(this, this::updater);
             }
         } else {
             Plugin plugin = this;
-            Bukkit.getAsyncScheduler().runNow(plugin, task1 -> wsClient(true));
+            Bukkit.getAsyncScheduler().runNow(plugin, task1 -> wsClient(updaterBoolean));
             if (updaterBoolean) {
                 Bukkit.getAsyncScheduler().runNow(plugin, task2 -> updater());
             }
@@ -734,8 +734,6 @@ public final class MCEEW extends JavaPlugin {
         this.cancelScheduler();
         this.saveDefaultConfig();
         this.reloadConfig();
-        jmaEqlist_md5 = null;
-        cencEqlist_md5 = null;
         jpEewBoolean = this.getConfig().getBoolean("enable_jp");
         scEewBoolean = this.getConfig().getBoolean("enable_sc");
         cwaEewBoolean = this.getConfig().getBoolean("enable_cwa");
