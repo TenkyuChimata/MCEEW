@@ -30,6 +30,7 @@ import java.net.http.WebSocket;
 import java.util.concurrent.CompletionStage;
 
 public final class MCEEW extends JavaPlugin {
+    private static int config_version;
     private static final int current_config = 2;
     private static boolean jpEewBoolean;
     private static boolean scEewBoolean;
@@ -66,16 +67,15 @@ public final class MCEEW extends JavaPlugin {
     private static String cwa_alert_sound_type;
     private static double cwa_alert_sound_volume;
     private static double cwa_alert_sound_pitch;
-    private static int config_version;
-    private static String jmaEqlist_md5 = null;
-    private static String cencEqlist_md5 = null;
+    private static String jmaEqlist_md5;
+    private static String cencEqlist_md5;
     private static JsonObject jmaEqlistData = null;
     private static JsonObject cencEqlistData = null;
     private static final ArrayList<String> jmaEqlist_info = new ArrayList<>();
     private static final ArrayList<String> cencEqlist_info = new ArrayList<>();
     private final String version = this.getDescription().getVersion();
-    private static final boolean folia = isFolia();
     private static final HttpClient client = HttpClient.newHttpClient();
+    private static final boolean folia = isFolia();
 
     @Override
     public void onEnable() {
@@ -737,6 +737,8 @@ public final class MCEEW extends JavaPlugin {
         this.cancelScheduler();
         this.saveDefaultConfig();
         this.reloadConfig();
+        jmaEqlist_md5 = null;
+        cencEqlist_md5 = null;
         jpEewBoolean = this.getConfig().getBoolean("enable_jp");
         scEewBoolean = this.getConfig().getBoolean("enable_sc");
         cwaEewBoolean = this.getConfig().getBoolean("enable_cwa");
