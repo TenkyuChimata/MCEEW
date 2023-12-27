@@ -37,7 +37,8 @@ A real-time Earthquake Early Warning(EEW) plugin for Minecraft Server.
 ![2.png](https://s2.loli.net/2023/07/12/eYKPO9SirQ53cdT.png)
 ![3.png](https://s2.loli.net/2023/07/12/eYApKT9JfoGBvjg.png)
 ![4.png](https://s2.loli.net/2023/07/12/UlAbnFifpDGmEBh.png)
-![5.png](https://s2.loli.net/2023/07/12/1UzvgTChweAK57Z.png)
+![jma.png](https://s2.loli.net/2023/12/27/yVSpoCnzYvcJD2G.png)
+![cenc.png](https://s2.loli.net/2023/12/27/dizpJ53BY2RgevS.png)
 
 ## Bstats
 
