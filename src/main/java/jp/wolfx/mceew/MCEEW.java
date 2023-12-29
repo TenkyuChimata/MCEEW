@@ -31,7 +31,7 @@ import java.util.concurrent.CompletionStage;
 
 public final class MCEEW extends JavaPlugin {
     private static int config_version;
-    private static final int current_config = 2;
+    private static final int current_config = 3;
     private static boolean jpEewBoolean;
     private static boolean scEewBoolean;
     private static boolean cwaEewBoolean;
@@ -161,6 +161,41 @@ public final class MCEEW extends JavaPlugin {
         }
     }
 
+    public static int calcMaxInt(double magnitude, double depth, String epicenter) {
+        double a, b, c, d;
+        if (epicenter == null) {
+            a = 3.944;
+            b = 1.071;
+            c = 1.2355678010148;
+            d = 7;
+
+            return (int) Math.floor(a + b * magnitude + 0 * magnitude * magnitude - c * Math.log(d * (depth + 25) / 40) + 0.2);
+        }
+        if (epicenter.contains("四川") || epicenter.contains("西藏") || epicenter.contains("青海")) {
+            a = 3.6113;
+            b = 1.4347;
+            c = 1.6710348780191;
+            d = 13;
+        } else if (epicenter.contains("新疆")) {
+            a = 3.3682;
+            b = 1.2746;
+            c = 1.4383398946154;
+            d = 9;
+        } else {
+            a = 3.944;
+            b = 1.071;
+            c = 1.2355678010148;
+            d = 7;
+        }
+        if (epicenter.contains("内江市") || epicenter.contains("宜宾市")) {
+            a = 3.6588;
+            b = 1.3626;
+            c = 1.5376630426267;
+            d = 13;
+        }
+        return (int) Math.floor(a + b * magnitude + 0 * magnitude * magnitude - c * Math.log(d * (depth + 25) / 40) + 0.2);
+    }
+
     private void cancelScheduler() {
         if (!folia) {
             Bukkit.getScheduler().cancelTasks(this);
@@ -216,74 +251,83 @@ public final class MCEEW extends JavaPlugin {
         }
     }
 
-    private static void wsReconnect() {
-        Bukkit.getLogger().warning("[MCEEW] Trying to reconnect to Websocket API...");
+    private void wsReconnect(Boolean type) {
+        Bukkit.getLogger().warning("[MCEEW] Trying to reconnect to WebSocket API...");
         try {
             TimeUnit.SECONDS.sleep(5);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
-        wsClient(false);
+        if (type) {
+            wsClient(false);
+        } else {
+            loadEew(false);
+        }
     }
 
-    private static void wsClient(Boolean first) {
-        WebSocket.Builder builder = client.newWebSocketBuilder();
-        WebSocket webSocket = builder.buildAsync(URI.create("wss://ws-api.wolfx.jp/all_eew"), new WebSocket.Listener() {
-            private final StringBuilder messageBuffer = new StringBuilder();
+    private void wsClient(Boolean first) {
+        try {
+            WebSocket.Builder builder = client.newWebSocketBuilder();
+            WebSocket webSocket = builder.buildAsync(URI.create("wss://ws-api.wolfx.jp/all_eew"), new WebSocket.Listener() {
+                private final StringBuilder messageBuffer = new StringBuilder();
 
-            public void onOpen(WebSocket webSocket) {
-                Bukkit.getLogger().info("[MCEEW] Connected to Websocket API.");
-                webSocket.request(1);
-            }
+                public void onOpen(WebSocket webSocket) {
+                    Bukkit.getLogger().info("[MCEEW] Connected to WebSocket API.");
+                    webSocket.request(1);
+                }
 
-            public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
-                messageBuffer.append(data);
-                if (last) {
-                    String completeMessage = messageBuffer.toString();
-                    messageBuffer.setLength(0);
-                    JsonObject json = JsonParser.parseString(completeMessage).getAsJsonObject();
-                    if (!Objects.equals(json.get("type").getAsString(), "heartbeat")) {
-                        if (Objects.equals(json.get("type").getAsString(), "jma_eew") && jpEewBoolean) {
-                            jmaEewExecute(json);
-                        }
-                        if (Objects.equals(json.get("type").getAsString(), "jma_eqlist")) {
-                            jmaEqlistData = json;
-                            jmaEqlistExecute(jmaEqlistBoolean);
-                        }
-                        if (Objects.equals(json.get("type").getAsString(), "sc_eew") && scEewBoolean) {
-                            scEewExecute(json);
-                        }
-                        if (Objects.equals(json.get("type").getAsString(), "cwa_eew") && cwaEewBoolean) {
-                            cwaEewExecute(json);
-                        }
-                        if (Objects.equals(json.get("type").getAsString(), "cenc_eqlist")) {
-                            cencEqlistData = json;
-                            cencEqlistExecute(cencEqlistBoolean);
+                public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
+                    messageBuffer.append(data);
+                    if (last) {
+                        String completeMessage = messageBuffer.toString();
+                        messageBuffer.setLength(0);
+                        JsonObject json = JsonParser.parseString(completeMessage).getAsJsonObject();
+                        if (!Objects.equals(json.get("type").getAsString(), "heartbeat")) {
+                            if (Objects.equals(json.get("type").getAsString(), "jma_eew") && jpEewBoolean) {
+                                jmaEewExecute(json);
+                            }
+                            if (Objects.equals(json.get("type").getAsString(), "jma_eqlist")) {
+                                jmaEqlistData = json;
+                                jmaEqlistExecute(jmaEqlistBoolean);
+                            }
+                            if (Objects.equals(json.get("type").getAsString(), "sc_eew") && scEewBoolean) {
+                                scEewExecute(json);
+                            }
+                            if (Objects.equals(json.get("type").getAsString(), "cwa_eew") && cwaEewBoolean) {
+                                cwaEewExecute(json);
+                            }
+                            if (Objects.equals(json.get("type").getAsString(), "cenc_eqlist")) {
+                                cencEqlistData = json;
+                                cencEqlistExecute(cencEqlistBoolean);
+                            }
                         }
                     }
+                    webSocket.request(1);
+                    return null;
                 }
-                webSocket.request(1);
-                return null;
-            }
 
-            @Override
-            public CompletionStage<?> onClose(WebSocket webSocket, int statusCode, String reason) {
-                Bukkit.getLogger().warning("Websocket API connection closed unexpectedly.");
-                Bukkit.getLogger().warning(reason);
-                wsReconnect();
-                return null;
-            }
+                @Override
+                public CompletionStage<?> onClose(WebSocket webSocket, int statusCode, String reason) {
+                    Bukkit.getLogger().warning("[MCEEW] WebSocket API connection closed unexpectedly.");
+                    Bukkit.getLogger().warning(reason);
+                    wsReconnect(true);
+                    return null;
+                }
 
-            @Override
-            public void onError(WebSocket webSocket, Throwable error) {
-                Bukkit.getLogger().warning("Failed to connect to WebSocket API.");
-                Bukkit.getLogger().warning(error.getMessage());
-                wsReconnect();
+                public void onError(WebSocket webSocket, Throwable error) {
+                    Bukkit.getLogger().warning("[MCEEW] Failed to connect to WebSocket API.");
+                    Bukkit.getLogger().warning(error.getMessage());
+                    wsReconnect(false);
+                }
+            }).join();
+            if (first) {
+                webSocket.sendText("query_jmaeqlist", true);
+                webSocket.sendText("query_cenceqlist", true);
             }
-        }).join();
-        if (first) {
-            webSocket.sendText("query_jmaeqlist", true);
-            webSocket.sendText("query_cenceqlist", true);
+        } catch (Exception e) {
+            Bukkit.getLogger().warning("[MCEEW] Failed to connect to WebSocket API.");
+            Bukkit.getLogger().warning(String.valueOf(e));
+            wsReconnect(false);
         }
     }
 
@@ -357,10 +401,12 @@ public final class MCEEW extends JavaPlugin {
         String time_str = cencEqlistData.get("No1").getAsJsonObject().get("time").getAsString();
         String region = cencEqlistData.get("No1").getAsJsonObject().get("location").getAsString();
         String mag = cencEqlistData.get("No1").getAsJsonObject().get("magnitude").getAsString();
-        String depth = cencEqlistData.get("No1").getAsJsonObject().get("depth").getAsString() + "km";
+        String depth = cencEqlistData.get("No1").getAsJsonObject().get("depth").getAsString();
         String latitude = cencEqlistData.get("No1").getAsJsonObject().get("latitude").getAsString();
         String longitude = cencEqlistData.get("No1").getAsJsonObject().get("longitude").getAsString();
         String origin_time = getDate("yyyy-MM-dd HH:mm:ss", time_format, "Asia/Shanghai", time_str);
+        String intensity = String.valueOf(calcMaxInt(Double.parseDouble(mag), Double.parseDouble(depth), region));
+        depth += "km";
         if (Objects.equals(type, "reviewed")) {
             type = "正式测定";
         } else {
@@ -378,7 +424,8 @@ public final class MCEEW extends JavaPlugin {
                             replaceAll("%mag%", mag).
                             replaceAll("%depth%", depth).
                             replaceAll("%lat%", latitude).
-                            replaceAll("%lon%", longitude)
+                            replaceAll("%lon%", longitude).
+                            replaceAll("%shindo%", getIntensityColor(intensity))
             );
         }
         cencEqlist_md5 = cencEqlistData.get("md5").getAsString();
@@ -390,6 +437,7 @@ public final class MCEEW extends JavaPlugin {
         cencEqlist_info.add(depth);
         cencEqlist_info.add(latitude);
         cencEqlist_info.add(longitude);
+        cencEqlist_info.add(intensity);
     }
 
     private static void scEewExecute(JsonObject scEewData) {
@@ -433,7 +481,8 @@ public final class MCEEW extends JavaPlugin {
                                 replaceAll("%mag%", cencEqlist_info.get(3)).
                                 replaceAll("%depth%", cencEqlist_info.get(4)).
                                 replaceAll("%lat%", cencEqlist_info.get(5)).
-                                replaceAll("%lon%", cencEqlist_info.get(6))
+                                replaceAll("%lon%", cencEqlist_info.get(6)).
+                                replaceAll("%shindo%", getIntensityColor(cencEqlist_info.get(7)))
                 );
             }
         } else {
