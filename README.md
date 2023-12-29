@@ -5,6 +5,7 @@ A real-time Earthquake Early Warning(EEW) plugin for Minecraft Server.
 ## Features
 
 *   **Supports Spigot/Paper/Folia 1.13+.**
+*   **Use WebSocket with low latency.**
 *   **Receives Japan JMA EEW.**
 *   **Receives JMA final reports.**
 *   **Receives CENC final reports.**
@@ -38,7 +39,7 @@ A real-time Earthquake Early Warning(EEW) plugin for Minecraft Server.
 ![3.png](https://s2.loli.net/2023/07/12/eYApKT9JfoGBvjg.png)
 ![4.png](https://s2.loli.net/2023/07/12/UlAbnFifpDGmEBh.png)
 ![jma.png](https://s2.loli.net/2023/12/27/yVSpoCnzYvcJD2G.png)
-![cenc.png](https://s2.loli.net/2023/12/27/dizpJ53BY2RgevS.png)
+![cenc.png](https://s2.loli.net/2023/12/29/bn58s7jCoQOYX1c.png)
 
 ## Bstats
 
