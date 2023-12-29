@@ -116,7 +116,7 @@ public final class MCEEW extends JavaPlugin {
             String region = "四川广元市青川县";
             String mag = "3.2";
             String depth = "10km";
-            String intensity = "5.0";
+            String intensity = "5";
             String origin_time = getDate("yyyy-MM-dd HH:mm:ss", time_format, "Asia/Shanghai", origin_time_str);
             scEewAction(report_time, origin_time, num, lat, lon, region, mag, depth, getIntensityColor(intensity));
         } else if (flag == 3) {
@@ -399,7 +399,7 @@ public final class MCEEW extends JavaPlugin {
         String lon = scEewData.get("Longitude").getAsString();
         String region = scEewData.get("HypoCenter").getAsString();
         String mag = scEewData.get("Magunitude").getAsString();
-        String intensity = scEewData.get("MaxIntensity").getAsString();
+        String intensity = String.valueOf(Math.round(Float.parseFloat(scEewData.get("MaxIntensity").getAsString())));
         String depth;
         if (!scEewData.get("Depth").isJsonNull()) {
             depth = scEewData.get("Depth").getAsString() + "km";
@@ -675,11 +675,7 @@ public final class MCEEW extends JavaPlugin {
 
     private static String getIntensityColor(String intensity) {
         String[] intensity_color = new String[]{"§f", "§7", "§b", "§3", "§9", "§a", "§2", "§e", "§6", "§c", "§4", "§d", "§5"};
-        int index = Math.round(Float.parseFloat(intensity));
-        if (index >= intensity_color.length) {
-            index = intensity_color.length - 1;
-        }
-        return intensity_color[index] + intensity;
+        return intensity_color[Integer.parseInt(intensity)] + intensity;
     }
 
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
