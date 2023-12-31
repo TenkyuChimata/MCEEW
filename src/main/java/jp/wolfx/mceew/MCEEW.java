@@ -168,7 +168,6 @@ public final class MCEEW extends JavaPlugin {
             b = 1.071;
             c = 1.2355678010148;
             d = 7;
-
             return (int) Math.floor(a + b * magnitude + 0 * magnitude * magnitude - c * Math.log(d * (depth + 25) / 40) + 0.2);
         }
         if (epicenter.contains("四川") || epicenter.contains("西藏") || epicenter.contains("青海")) {
