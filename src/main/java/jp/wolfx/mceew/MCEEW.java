@@ -95,26 +95,26 @@ public final class MCEEW extends JavaPlugin {
     private static void eewTest(int flag) {
         if (flag == 1) {
             String flags = "警報";
-            String origin_time_str = "2022/03/16 23:34:26";
-            String report_time = "2022/03/16 23:36:00";
-            String num = "17";
+            String origin_time_str = "2024/01/01 16:10:08";
+            String report_time = "2024/01/01 16:14:18";
+            String num = "46";
             String lat = "37.6";
-            String lon = "141.7";
-            String region = "福島県沖";
-            String mag = "6.0";
-            String depth = "60km";
-            String shindo = "5弱";
+            String lon = "137.2";
+            String region = "能登半島沖";
+            String mag = "7.4";
+            String depth = "10km";
+            String shindo = "7";
             String type = "最終報";
             String origin_time = getDate("yyyy/MM/dd HH:mm:ss", time_format, "Asia/Tokyo", origin_time_str);
             jmaEewAction(flags, report_time, origin_time, num, lat, lon, region, mag, depth, getShindoColor(shindo), type);
         } else if (flag == 2) {
-            String origin_time_str = "2023-01-01 21:08:30";
-            String report_time = "2023-01-01 21:08:39";
+            String origin_time_str = "2024-02-28 21:23:30";
+            String report_time = "2024-02-28 21:23:37";
             String num = "1";
-            String lat = "32.43";
-            String lon = "104.86";
-            String region = "四川广元市青川县";
-            String mag = "3.2";
+            String lat = "29.3";
+            String lon = "102.82";
+            String region = "四川雅安市汉源县";
+            String mag = "3.3";
             String depth = "10km";
             String intensity = "5";
             String origin_time = getDate("yyyy-MM-dd HH:mm:ss", time_format, "Asia/Shanghai", origin_time_str);
@@ -132,13 +132,13 @@ public final class MCEEW extends JavaPlugin {
             fjEewAction(report_time, origin_time, num, lat, lon, region, mag, type);
         } else {
             String flags = "予報";
-            String origin_time_str = "2023/07/01 23:38:53";
-            String report_time = "2023/07/01 23:39:50";
-            String num = "10";
-            String lat = "35.5";
-            String lon = "141.2";
+            String origin_time_str = "2024/02/29 18:35:38";
+            String report_time = "2024/02/29 18:36:36";
+            String num = "6";
+            String lat = "35.4";
+            String lon = "140.6";
             String region = "千葉県東方沖";
-            String mag = "5.0";
+            String mag = "4.7";
             String depth = "10km";
             String shindo = "3";
             String type = "";
