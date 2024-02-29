@@ -9,7 +9,7 @@ A real-time Earthquake Early Warning(EEW) plugin for Minecraft Server.
 *   **Receives Japan JMA EEW.**
 *   **Receives JMA final reports.**
 *   **Receives CENC final reports.**
-*   **Receives Taiwan CWA EEW.**
+*   **Receives Taiwan/Fujian EEW.**
 *   **Receives Sichuan China EEW.**
 *   **Broadcast messages to chat.**
 *   **Broadcast messages to title.**
