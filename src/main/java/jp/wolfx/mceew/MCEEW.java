@@ -161,40 +161,6 @@ public final class MCEEW extends JavaPlugin {
         }
     }
 
-    public static int calcMaxInt(double magnitude, double depth, String epicenter) {
-        double a, b, c, d;
-        if (epicenter == null) {
-            a = 3.944;
-            b = 1.071;
-            c = 1.2355678010148;
-            d = 7;
-            return (int) Math.floor(a + b * magnitude + 0 * magnitude * magnitude - c * Math.log(d * (depth + 25) / 40) + 0.2);
-        }
-        if (epicenter.contains("四川") || epicenter.contains("西藏") || epicenter.contains("青海")) {
-            a = 3.6113;
-            b = 1.4347;
-            c = 1.6710348780191;
-            d = 13;
-        } else if (epicenter.contains("新疆")) {
-            a = 3.3682;
-            b = 1.2746;
-            c = 1.4383398946154;
-            d = 9;
-        } else {
-            a = 3.944;
-            b = 1.071;
-            c = 1.2355678010148;
-            d = 7;
-        }
-        if (epicenter.contains("内江市") || epicenter.contains("宜宾市")) {
-            a = 3.6588;
-            b = 1.3626;
-            c = 1.5376630426267;
-            d = 13;
-        }
-        return (int) Math.floor(a + b * magnitude + 0 * magnitude * magnitude - c * Math.log(d * (depth + 25) / 40) + 0.2);
-    }
-
     private void cancelScheduler() {
         if (!folia) {
             Bukkit.getScheduler().cancelTasks(this);
@@ -404,15 +370,12 @@ public final class MCEEW extends JavaPlugin {
         String latitude = cencEqlistData.get("No1").getAsJsonObject().get("latitude").getAsString();
         String longitude = cencEqlistData.get("No1").getAsJsonObject().get("longitude").getAsString();
         String origin_time = getDate("yyyy-MM-dd HH:mm:ss", time_format, "Asia/Shanghai", time_str);
-        String intensity = String.valueOf(calcMaxInt(Double.parseDouble(mag), Double.parseDouble(depth), region));
+        String intensity = cencEqlistData.get("No1").getAsJsonObject().get("intensity").getAsString();
         depth += "km";
         if (Objects.equals(type, "reviewed")) {
             type = "正式测定";
         } else {
             type = "自动测定";
-        }
-        if (region.startsWith("中国")) {
-            region = region.replace("中国", "");
         }
         if (cencEqlist_md5 != null && cencEqlistBoolean) {
             Bukkit.broadcastMessage(
