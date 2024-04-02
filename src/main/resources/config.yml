@@ -1,6 +1,6 @@
 #
 #  MCEEW configuration
-#  Last updated on 2.4.0
+#  Last updated on 2.4.1
 #
 #  API Source: https://api.wolfx.jp
 #  Plugin Page: https://acg.kr/mceew
@@ -32,6 +32,9 @@ enable_sc: true
 
 # Enable Taiwan/Fujian EEW broadcast
 enable_fj: true
+
+# Enable Taiwan CWA EEW broadcast
+enable_cwa: true
 
 # Set the time format
 time_format: "yyyy年MM月dd日 HH時mm分ss秒"
@@ -78,6 +81,11 @@ Message:
     broadcast: "&c福建局地震預警 | 第%num%報 %type%\n &e%origin_time% &f發生\n &f震央: &e%region% (北緯: &e%lat%度 東經: &e%lon%度)\n &f規模: &e%mag%\n &f更新時間: &e%report_time%"
     title: "&c福建局地震預警"
     subtitle: "&e%region%发生芮氏規模%mag%地震"
+  # Set the Taiwan CWA EEW message format
+  Cwa:
+    broadcast: "&c台灣地震預警 | 第%num%報\n &e%origin_time% &f發生\n &f震央: &e%region% (北緯: &e%lat%度 東經: &e%lon%度)\n &f規模: &e%mag%\n &f深度: &e%depth%\n &f更新時間: &e%report_time%"
+    title: "&c台灣地震預警"
+    subtitle: "&e%region%发生芮氏規模%mag%地震"
 
 Sound:
   # Set the Japan JMA EEW alert report alert
@@ -103,6 +111,11 @@ Sound:
     type: "BLOCK_NOTE_BLOCK_PLING"
     volume: 1000.0
     pitch: 1.0
+  # Set the Taiwan CWA EEW alert
+  Cwa:
+    type: "BLOCK_NOTE_BLOCK_PLING"
+    volume: 1000.0
+    pitch: 1.0
 
 # Do not change this
-config-version: 4
+config-version: 5
