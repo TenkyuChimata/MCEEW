@@ -83,7 +83,7 @@ Message:
     subtitle: "&e%region%发生芮氏規模%mag%地震"
   # Set the Taiwan CWA EEW message format
   Cwa:
-    broadcast: "&c台灣地震預警 | 第%num%報\n &e%origin_time% &f發生\n &f震央: &e%region% (北緯: &e%lat%度 東經: &e%lon%度)\n &f規模: &e%mag%\n &f深度: &e%depth%\n &f更新時間: &e%report_time%"
+    broadcast: "&c台灣地震預警 | 第%num%報\n &e%origin_time% &f發生\n &f震央: &e%region% (北緯: &e%lat%度 東經: &e%lon%度)\n &f規模: &e%mag%\n &f深度: &e%depth%\n &f最大震度: &r%shindo%\n &f更新時間: &e%report_time%"
     title: "&c台灣地震預警"
     subtitle: "&e%region%发生芮氏規模%mag%地震"
 

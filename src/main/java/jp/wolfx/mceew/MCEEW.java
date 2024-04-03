@@ -146,8 +146,9 @@ public final class MCEEW extends JavaPlugin {
             String region = "花蓮縣壽豐鄉";
             String mag = "6.8";
             String depth = "20km";
+            String shindo = "6弱";
             String origin_time = getDate("yyyy-MM-dd HH:mm:ss", time_format, "Asia/Shanghai", origin_time_str);
-            cwaEewAction(report_time, origin_time, num, lat, lon, region, mag, depth);
+            cwaEewAction(report_time, origin_time, num, lat, lon, region, mag, depth, getShindoColor(shindo));
         } else {
             String flags = "予報";
             String origin_time_str = "2024/02/29 18:35:38";
@@ -464,8 +465,9 @@ public final class MCEEW extends JavaPlugin {
         String region = cwaEewData.get("HypoCenter").getAsString();
         String mag = cwaEewData.get("Magunitude").getAsString();
         String depth = cwaEewData.get("Depth").getAsString() + "km";
+        String shindo = cwaEewData.get("MaxIntensity").getAsString();
         String origin_time = getDate("yyyy-MM-dd HH:mm:ss", time_format, "Asia/Shanghai", cwaEewData.get("OriginTime").getAsString());
-        cwaEewAction(report_time, origin_time, num, lat, lon, region, mag, depth);
+        cwaEewAction(report_time, origin_time, num, lat, lon, region, mag, depth, getShindoColor(shindo));
     }
 
     private static void getEewInfo(Boolean flag, CommandSender sender) {
@@ -695,7 +697,7 @@ public final class MCEEW extends JavaPlugin {
         }
     }
 
-    private static void cwaEewAction(String report_time, String origin_time, String num, String lat, String lon, String region, String mag, String depth) {
+    private static void cwaEewAction(String report_time, String origin_time, String num, String lat, String lon, String region, String mag, String depth, String shindo) {
         if (broadcast_bool) {
             Bukkit.broadcastMessage(
                     cwa_broadcast_message.
@@ -706,7 +708,8 @@ public final class MCEEW extends JavaPlugin {
                             replaceAll("%lon%", lon).
                             replaceAll("%region%", region).
                             replaceAll("%mag%", mag).
-                            replaceAll("%depth%", depth)
+                            replaceAll("%depth%", depth).
+                            replaceAll("%shindo%", shindo)
             );
         }
         if (title_bool) {
@@ -720,7 +723,8 @@ public final class MCEEW extends JavaPlugin {
                                 replaceAll("%lon%", lon).
                                 replaceAll("%region%", region).
                                 replaceAll("%mag%", mag).
-                                replaceAll("%depth%", depth),
+                                replaceAll("%depth%", depth).
+                                replaceAll("%shindo%", shindo),
                         cwa_subtitle_message.
                                 replaceAll("%report_time%", report_time).
                                 replaceAll("%origin_time%", origin_time).
@@ -729,7 +733,8 @@ public final class MCEEW extends JavaPlugin {
                                 replaceAll("%lon%", lon).
                                 replaceAll("%region%", region).
                                 replaceAll("%mag%", mag).
-                                replaceAll("%depth%", depth),
+                                replaceAll("%depth%", depth).
+                                replaceAll("%shindo%", shindo),
                         -1, -1, -1
                 );
             }
