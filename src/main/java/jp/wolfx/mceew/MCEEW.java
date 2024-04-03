@@ -138,14 +138,14 @@ public final class MCEEW extends JavaPlugin {
             String origin_time = getDate("yyyy-MM-dd HH:mm:ss", time_format, "Asia/Shanghai", origin_time_str);
             fjEewAction(report_time, origin_time, num, lat, lon, region, mag, type);
         } else if (flag == 4) {
-            String origin_time_str = "2024-04-01 13:51:25";
-            String report_time = "2024-04-01 13:51:46";
-            String num = "1";
-            String lat = "23.36";
-            String lon = "120.2";
-            String region = "嘉義縣義竹鄉";
-            String mag = "4.8";
-            String depth = "10km";
+            String origin_time_str = "2024-04-03 07:58:10";
+            String report_time = "2024-04-03 07:58:27";
+            String num = "2";
+            String lat = "23.89";
+            String lon = "121.56";
+            String region = "花蓮縣壽豐鄉";
+            String mag = "6.8";
+            String depth = "20km";
             String origin_time = getDate("yyyy-MM-dd HH:mm:ss", time_format, "Asia/Shanghai", origin_time_str);
             cwaEewAction(report_time, origin_time, num, lat, lon, region, mag, depth);
         } else {
