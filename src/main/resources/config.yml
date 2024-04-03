@@ -1,6 +1,6 @@
 #
 #  MCEEW configuration
-#  Last updated on 2.4.1
+#  Last updated on 2.4.2
 #
 #  API Source: https://api.wolfx.jp
 #  Plugin Page: https://acg.kr/mceew
@@ -118,4 +118,4 @@ Sound:
     pitch: 1.0
 
 # Do not change this
-config-version: 5
+config-version: 6

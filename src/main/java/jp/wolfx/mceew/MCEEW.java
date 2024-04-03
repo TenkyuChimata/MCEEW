@@ -31,7 +31,7 @@ import java.util.concurrent.CompletionStage;
 
 public final class MCEEW extends JavaPlugin {
     private static int config_version;
-    private static final int current_config = 5;
+    private static final int current_config = 6;
     private static boolean jpEewBoolean;
     private static boolean scEewBoolean;
     private static boolean fjEewBoolean;
