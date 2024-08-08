@@ -192,12 +192,14 @@ public final class MCEEW extends JavaPlugin {
         if (!folia) {
             Bukkit.getScheduler().runTaskAsynchronously(this, () -> wsClient(first));
             if (first) {
+                Bukkit.getLogger().info("[MCEEW] Using Bukkit API for scheduler.");
                 Bukkit.getScheduler().runTaskAsynchronously(this, this::updater);
             }
         } else {
             Plugin plugin = this;
             Bukkit.getAsyncScheduler().runNow(plugin, task1 -> wsClient(first));
             if (first) {
+                Bukkit.getLogger().info("[MCEEW] Using Folia API for scheduler.");
                 Bukkit.getAsyncScheduler().runNow(plugin, task2 -> updater());
             }
         }
