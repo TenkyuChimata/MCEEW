@@ -287,10 +287,6 @@ public final class MCEEW extends JavaPlugin {
                                 cencEqlistData = json;
                                 cencEqlistExecute(cencEqlistBoolean);
                             }
-                        } else {
-                            if (!first) {
-                                webSocket.sendText("ping", true);
-                            }
                         }
                     }
                     webSocket.request(1);
