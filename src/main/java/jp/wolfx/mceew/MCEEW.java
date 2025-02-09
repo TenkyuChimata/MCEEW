@@ -30,56 +30,56 @@ import java.net.http.WebSocket;
 import java.util.concurrent.CompletionStage;
 
 public final class MCEEW extends JavaPlugin {
-    private int config_version;
-    private final int current_config = 6;
+    private int configVersion;
+    private final int currentConfig = 6;
     private boolean jpEewBoolean;
     private boolean scEewBoolean;
     private boolean fjEewBoolean;
     private boolean cwaEewBoolean;
-    private boolean broadcast_bool;
-    private boolean title_bool;
-    private boolean alert_bool;
+    private boolean broadcastBool;
+    private boolean titleBool;
+    private boolean alertBool;
     private boolean jmaEqlistBoolean;
     private boolean cencEqlistBoolean;
-    private String time_format;
-    private String alert_broadcast_message;
-    private String alert_title_message;
-    private String alert_subtitle_message;
-    private String forecast_broadcast_message;
-    private String forecast_title_message;
-    private String forecast_subtitle_message;
-    private String jmaEqlist_broadcast_message;
-    private String cencEqlist_broadcast_message;
-    private String sichuan_broadcast_message;
-    private String sichuan_title_message;
-    private String sichuan_subtitle_message;
-    private String fj_broadcast_message;
-    private String fj_title_message;
-    private String fj_subtitle_message;
-    private String cwa_broadcast_message;
-    private String cwa_title_message;
-    private String cwa_subtitle_message;
-    private String alert_alert_sound_type;
-    private double alert_alert_sound_volume;
-    private double alert_alert_sound_pitch;
-    private String forecast_alert_sound_type;
-    private double forecast_alert_sound_volume;
-    private double forecast_alert_sound_pitch;
-    private String sc_alert_sound_type;
-    private double sc_alert_sound_volume;
-    private double sc_alert_sound_pitch;
-    private String fj_alert_sound_type;
-    private double fj_alert_sound_volume;
-    private double fj_alert_sound_pitch;
-    private String cwa_alert_sound_type;
-    private double cwa_alert_sound_volume;
-    private double cwa_alert_sound_pitch;
-    private String jmaEqlist_md5 = null;
-    private String cencEqlist_md5 = null;
+    private String timeFormat;
+    private String alertBroadcastMessage;
+    private String alertTitleMessage;
+    private String alertSubtitleMessage;
+    private String forecastBroadcastMessage;
+    private String forecastTitleMessage;
+    private String forecastSubtitleMessage;
+    private String jmaEqlistBroadcastMessage;
+    private String cencEqlistBroadcastMessage;
+    private String sichuanBroadcastMessage;
+    private String sichuanTitleMessage;
+    private String sichuanSubtitleMessage;
+    private String fjBroadcastMessage;
+    private String fjTitleMessage;
+    private String fjSubtitleMessage;
+    private String cwaBroadcastMessage;
+    private String cwaTitleMessage;
+    private String cwaSubtitleMessage;
+    private String alertAlertSoundType;
+    private double alertAlertSoundVolume;
+    private double alertAlertSoundPitch;
+    private String forecastAlertSoundType;
+    private double forecastAlertSoundVolume;
+    private double forecastAlertSoundPitch;
+    private String scAlertSoundType;
+    private double scAlertSoundVolume;
+    private double scAlertSoundPitch;
+    private String fjAlertSoundType;
+    private double fjAlertSoundVolume;
+    private double fjAlertSoundPitch;
+    private String cwaAlertSoundType;
+    private double cwaAlertSoundVolume;
+    private double cwaAlertSoundPitch;
+    private String jmaEqlistMd5 = null;
+    private String cencEqlistMd5 = null;
     private JsonObject jmaEqlistData = null;
     private JsonObject cencEqlistData = null;
-    private final ArrayList<String> jmaEqlist_info = new ArrayList<>();
-    private final ArrayList<String> cencEqlist_info = new ArrayList<>();
+    private final ArrayList<String> jmaEqlistInfo = new ArrayList<>();
+    private final ArrayList<String> cencEqlistInfo = new ArrayList<>();
     private final String version = getDescription().getVersion();
     private final HttpClient client = HttpClient.newHttpClient();
     private final boolean folia = isFolia();
@@ -102,8 +102,8 @@ public final class MCEEW extends JavaPlugin {
     private void eewTest(int flag) {
         if (flag == 1) {
             String flags = "警報";
-            String origin_time_str = "2024/01/01 16:10:08";
-            String report_time = "2024/01/01 16:14:18";
+            String originTimeStr = "2024/01/01 16:10:08";
+            String reportTime = "2024/01/01 16:14:18";
             String num = "46";
             String lat = "37.6";
             String lon = "137.2";
@@ -112,11 +112,11 @@ public final class MCEEW extends JavaPlugin {
             String depth = "10km";
             String shindo = "7";
             String type = "最終報";
-            String origin_time = getDate("yyyy/MM/dd HH:mm:ss", time_format, "Asia/Tokyo", origin_time_str);
-            jmaEewAction(flags, report_time, origin_time, num, lat, lon, region, mag, depth, getShindoColor(shindo), type);
+            String originTime = getDate("yyyy/MM/dd HH:mm:ss", timeFormat, "Asia/Tokyo", originTimeStr);
+            jmaEewAction(flags, reportTime, originTime, num, lat, lon, region, mag, depth, getShindoColor(shindo), type);
         } else if (flag == 2) {
-            String origin_time_str = "2024-02-28 21:23:30";
-            String report_time = "2024-02-28 21:23:37";
+            String originTimeStr = "2024-02-28 21:23:30";
+            String reportTime = "2024-02-28 21:23:37";
             String num = "1";
             String lat = "29.3";
             String lon = "102.82";
@@ -124,22 +124,22 @@ public final class MCEEW extends JavaPlugin {
             String mag = "3.3";
             String depth = "10km";
             String intensity = "5";
-            String origin_time = getDate("yyyy-MM-dd HH:mm:ss", time_format, "Asia/Shanghai", origin_time_str);
-            scEewAction(report_time, origin_time, num, lat, lon, region, mag, depth, getIntensityColor(intensity));
+            String originTime = getDate("yyyy-MM-dd HH:mm:ss", timeFormat, "Asia/Shanghai", originTimeStr);
+            scEewAction(reportTime, originTime, num, lat, lon, region, mag, depth, getIntensityColor(intensity));
         } else if (flag == 3) {
-            String origin_time_str = "2024-02-29 13:26:28";
-            String report_time = "2024-02-29 13:27:40";
+            String originTimeStr = "2024-02-29 13:26:28";
+            String reportTime = "2024-02-29 13:27:40";
             String num = "4";
             String lat = "23.47";
             String lon = "120.26";
             String region = "台湾嘉义县";
             String mag = "4.4";
             String type = "最終報";
-            String origin_time = getDate("yyyy-MM-dd HH:mm:ss", time_format, "Asia/Shanghai", origin_time_str);
-            fjEewAction(report_time, origin_time, num, lat, lon, region, mag, type);
+            String originTime = getDate("yyyy-MM-dd HH:mm:ss", timeFormat, "Asia/Shanghai", originTimeStr);
+            fjEewAction(reportTime, originTime, num, lat, lon, region, mag, type);
         } else if (flag == 4) {
-            String origin_time_str = "2024-04-03 07:58:10";
-            String report_time = "2024-04-03 07:58:27";
+            String originTimeStr = "2024-04-03 07:58:10";
+            String reportTime = "2024-04-03 07:58:27";
             String num = "2";
             String lat = "23.89";
             String lon = "121.56";
@@ -147,12 +147,12 @@ public final class MCEEW extends JavaPlugin {
             String mag = "6.8";
             String depth = "20km";
             String shindo = "6弱";
-            String origin_time = getDate("yyyy-MM-dd HH:mm:ss", time_format, "Asia/Shanghai", origin_time_str);
-            cwaEewAction(report_time, origin_time, num, lat, lon, region, mag, depth, getShindoColor(shindo));
+            String originTime = getDate("yyyy-MM-dd HH:mm:ss", timeFormat, "Asia/Shanghai", originTimeStr);
+            cwaEewAction(reportTime, originTime, num, lat, lon, region, mag, depth, getShindoColor(shindo));
         } else {
             String flags = "予報";
-            String origin_time_str = "2024/02/29 18:35:38";
-            String report_time = "2024/02/29 18:36:36";
+            String originTimeStr = "2024/02/29 18:35:38";
+            String reportTime = "2024/02/29 18:36:36";
             String num = "6";
             String lat = "35.4";
             String lon = "140.6";
@@ -161,22 +161,22 @@ public final class MCEEW extends JavaPlugin {
             String depth = "10km";
             String shindo = "3";
             String type = "";
-            String origin_time = getDate("yyyy/MM/dd HH:mm:ss", time_format, "Asia/Tokyo", origin_time_str);
-            jmaEewAction(flags, report_time, origin_time, num, lat, lon, region, mag, depth, getShindoColor(shindo), type);
+            String originTime = getDate("yyyy/MM/dd HH:mm:ss", timeFormat, "Asia/Tokyo", originTimeStr);
+            jmaEewAction(flags, reportTime, originTime, num, lat, lon, region, mag, depth, getShindoColor(shindo), type);
         }
         Bukkit.broadcastMessage("§eWarning: This is an Earthquake Early Warning test.");
     }
 
-    private String getDate(String pattern, String time_format, String timezone, String origin_time) {
-        DateTimeFormatter origin_time1 = DateTimeFormatter.ofPattern(pattern);
-        ZonedDateTime origin_time2 = ZonedDateTime.parse(origin_time, origin_time1.withZone(ZoneId.of(timezone)));
-        return origin_time2.format(DateTimeFormatter.ofPattern(time_format));
+    private String getDate(String pattern, String timeFormat, String timezone, String originTime) {
+        DateTimeFormatter originTime1 = DateTimeFormatter.ofPattern(pattern);
+        ZonedDateTime originTime2 = ZonedDateTime.parse(originTime, originTime1.withZone(ZoneId.of(timezone)));
+        return originTime2.format(DateTimeFormatter.ofPattern(timeFormat));
     }
 
-    private void playSound(String alert_sound_type, double alert_sound_volume, double alert_sound_pitch) {
-        Sound alert_playedSound = Sound.valueOf(alert_sound_type);
+    private void playSound(String alertSoundType, double alertSoundVolume, double alertSoundPitch) {
+        Sound alertPlayedSound = Sound.valueOf(alertSoundType);
         for (Player player : Bukkit.getServer().getOnlinePlayers()) {
-            player.playSound(player.getLocation(), alert_playedSound, (float) alert_sound_volume, (float) alert_sound_pitch);
+            player.playSound(player.getLocation(), alertPlayedSound, (float) alertSoundVolume, (float) alertSoundPitch);
         }
     }
 
@@ -206,7 +206,7 @@ public final class MCEEW extends JavaPlugin {
     }
 
     private void updater() {
-        StringBuilder raw_data = new StringBuilder();
+        StringBuilder rawData = new StringBuilder();
         try {
             URL url = new URL("https://tenkyuchimata.github.io/MCEEW/version.json");
             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
@@ -218,12 +218,12 @@ public final class MCEEW extends JavaPlugin {
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8))) {
                 String line;
                 while ((line = reader.readLine()) != null) {
-                    raw_data.append(line);
+                    rawData.append(line);
                 }
-                JsonObject json = JsonParser.parseString(raw_data.toString()).getAsJsonObject();
-                String api_version = json.get("version").getAsString();
-                if (Integer.parseInt(api_version.replaceAll("\\.", "")) > Integer.parseInt(version.replaceAll("-b.*", "").replaceAll("\\.", ""))) {
-                    Bukkit.getLogger().warning("[MCEEW] New plugin version v" + api_version + " detected, Please download a new version from https://acg.kr/mceew");
+                JsonObject json = JsonParser.parseString(rawData.toString()).getAsJsonObject();
+                String apiVersion = json.get("version").getAsString();
+                if (Integer.parseInt(apiVersion.replaceAll("\\.", "")) > Integer.parseInt(version.replaceAll("-b.*", "").replaceAll("\\.", ""))) {
+                    Bukkit.getLogger().warning("[MCEEW] New plugin version v" + apiVersion + " detected, Please download a new version from https://acg.kr/mceew");
                 } else {
                     Bukkit.getLogger().info("[MCEEW] You are running the latest plugin version.");
                 }
@@ -232,7 +232,7 @@ public final class MCEEW extends JavaPlugin {
             Bukkit.getLogger().warning("[MCEEW] Failed to check for plugin updates.");
             Bukkit.getLogger().warning(String.valueOf(e));
         }
-        if (current_config > config_version) {
+        if (currentConfig > configVersion) {
             Bukkit.getLogger().warning("[MCEEW] Configuration update detected, please delete the MCEEW configuration file to update it.");
         }
     }
@@ -323,7 +323,7 @@ public final class MCEEW extends JavaPlugin {
     private void jmaEewExecute(JsonObject jmaEewData) {
         String type = "";
         String flag = jmaEewData.get("Title").getAsString().substring(7, 9);
-        String report_time = jmaEewData.get("AnnouncedTime").getAsString();
+        String reportTime = jmaEewData.get("AnnouncedTime").getAsString();
         String num = jmaEewData.get("Serial").getAsString();
         String lat = jmaEewData.get("Latitude").getAsString();
         String lon = jmaEewData.get("Longitude").getAsString();
@@ -331,7 +331,7 @@ public final class MCEEW extends JavaPlugin {
         String mag = jmaEewData.get("Magunitude").getAsString();
         String depth = jmaEewData.get("Depth").getAsString() + "km";
         String shindo = jmaEewData.get("MaxIntensity").getAsString();
-        String origin_time = getDate("yyyy/MM/dd HH:mm:ss", time_format, "Asia/Tokyo", jmaEewData.get("OriginTime").getAsString());
+        String originTime = getDate("yyyy/MM/dd HH:mm:ss", timeFormat, "Asia/Tokyo", jmaEewData.get("OriginTime").getAsString());
         if (jmaEewData.get("isTraining").getAsBoolean()) {
             type = "訓練";
         } else if (jmaEewData.get("isAssumption").getAsBoolean()) {
@@ -347,11 +347,11 @@ public final class MCEEW extends JavaPlugin {
         if (jmaEewData.get("isCancel").getAsBoolean()) {
             type = "取消";
         }
-        jmaEewAction(flag, report_time, origin_time, num, lat, lon, region, mag, depth, getShindoColor(shindo), type);
+        jmaEewAction(flag, reportTime, originTime, num, lat, lon, region, mag, depth, getShindoColor(shindo), type);
     }
 
     private void jmaEqlistExecute(Boolean jmaEqlistBoolean) {
-        String time_str = jmaEqlistData.get("No1").getAsJsonObject().get("time_full").getAsString();
+        String timeStr = jmaEqlistData.get("No1").getAsJsonObject().get("time_full").getAsString();
         String region = jmaEqlistData.get("No1").getAsJsonObject().get("location").getAsString();
         String mag = jmaEqlistData.get("No1").getAsJsonObject().get("magnitude").getAsString();
         String depth = jmaEqlistData.get("No1").getAsJsonObject().get("depth").getAsString();
@@ -359,11 +359,11 @@ public final class MCEEW extends JavaPlugin {
         String longitude = jmaEqlistData.get("No1").getAsJsonObject().get("longitude").getAsString();
         String shindo = jmaEqlistData.get("No1").getAsJsonObject().get("shindo").getAsString();
         String info = jmaEqlistData.get("No1").getAsJsonObject().get("info").getAsString();
-        String origin_time = getDate("yyyy/MM/dd HH:mm:ss", time_format, "Asia/Tokyo", time_str);
-        if (jmaEqlist_md5 != null && jmaEqlistBoolean) {
+        String originTime = getDate("yyyy/MM/dd HH:mm:ss", timeFormat, "Asia/Tokyo", timeStr);
+        if (jmaEqlistMd5 != null && jmaEqlistBoolean) {
             Bukkit.broadcastMessage(
-                    jmaEqlist_broadcast_message.
-                            replaceAll("%origin_time%", origin_time).
+                    jmaEqlistBroadcastMessage.
+                            replaceAll("%origin_time%", originTime).
                             replaceAll("%region%", region).
                             replaceAll("%mag%", mag).
                             replaceAll("%depth%", depth).
@@ -373,27 +373,27 @@ public final class MCEEW extends JavaPlugin {
                             replaceAll("%info%", info)
             );
         }
-        jmaEqlist_md5 = jmaEqlistData.get("md5").getAsString();
-        jmaEqlist_info.clear();
-        jmaEqlist_info.add(origin_time);
-        jmaEqlist_info.add(region);
-        jmaEqlist_info.add(mag);
-        jmaEqlist_info.add(depth);
-        jmaEqlist_info.add(latitude);
-        jmaEqlist_info.add(longitude);
-        jmaEqlist_info.add(shindo);
-        jmaEqlist_info.add(info);
+        jmaEqlistMd5 = jmaEqlistData.get("md5").getAsString();
+        jmaEqlistInfo.clear();
+        jmaEqlistInfo.add(originTime);
+        jmaEqlistInfo.add(region);
+        jmaEqlistInfo.add(mag);
+        jmaEqlistInfo.add(depth);
+        jmaEqlistInfo.add(latitude);
+        jmaEqlistInfo.add(longitude);
+        jmaEqlistInfo.add(shindo);
+        jmaEqlistInfo.add(info);
     }
 
     private void cencEqlistExecute(Boolean cencEqlistBoolean) {
         String type = cencEqlistData.get("No1").getAsJsonObject().get("type").getAsString();
-        String time_str = cencEqlistData.get("No1").getAsJsonObject().get("time").getAsString();
+        String timeStr = cencEqlistData.get("No1").getAsJsonObject().get("time").getAsString();
         String region = cencEqlistData.get("No1").getAsJsonObject().get("location").getAsString();
         String mag = cencEqlistData.get("No1").getAsJsonObject().get("magnitude").getAsString();
         String depth = cencEqlistData.get("No1").getAsJsonObject().get("depth").getAsString();
         String latitude = cencEqlistData.get("No1").getAsJsonObject().get("latitude").getAsString();
         String longitude = cencEqlistData.get("No1").getAsJsonObject().get("longitude").getAsString();
-        String origin_time = getDate("yyyy-MM-dd HH:mm:ss", time_format, "Asia/Shanghai", time_str);
+        String originTime = getDate("yyyy-MM-dd HH:mm:ss", timeFormat, "Asia/Shanghai", timeStr);
         String intensity = cencEqlistData.get("No1").getAsJsonObject().get("intensity").getAsString();
         depth += "km";
         if (Objects.equals(type, "reviewed")) {
@@ -401,11 +401,11 @@ public final class MCEEW extends JavaPlugin {
         } else {
             type = "自动测定";
         }
-        if (cencEqlist_md5 != null && cencEqlistBoolean) {
+        if (cencEqlistMd5 != null && cencEqlistBoolean) {
             Bukkit.broadcastMessage(
-                    cencEqlist_broadcast_message.
+                    cencEqlistBroadcastMessage.
                             replaceAll("%flag%", type).
-                            replaceAll("%origin_time%", origin_time).
+                            replaceAll("%origin_time%", originTime).
                             replaceAll("%region%", region).
                             replaceAll("%mag%", mag).
                             replaceAll("%depth%", depth).
@@ -414,20 +414,20 @@ public final class MCEEW extends JavaPlugin {
                             replaceAll("%shindo%", getIntensityColor(intensity))
             );
         }
-        cencEqlist_md5 = cencEqlistData.get("md5").getAsString();
-        cencEqlist_info.clear();
-        cencEqlist_info.add(type);
-        cencEqlist_info.add(origin_time);
-        cencEqlist_info.add(region);
-        cencEqlist_info.add(mag);
-        cencEqlist_info.add(depth);
-        cencEqlist_info.add(latitude);
-        cencEqlist_info.add(longitude);
-        cencEqlist_info.add(intensity);
+        cencEqlistMd5 = cencEqlistData.get("md5").getAsString();
+        cencEqlistInfo.clear();
+        cencEqlistInfo.add(type);
+        cencEqlistInfo.add(originTime);
+        cencEqlistInfo.add(region);
+        cencEqlistInfo.add(mag);
+        cencEqlistInfo.add(depth);
+        cencEqlistInfo.add(latitude);
+        cencEqlistInfo.add(longitude);
+        cencEqlistInfo.add(intensity);
     }
 
     private void scEewExecute(JsonObject scEewData) {
-        String report_time = scEewData.get("ReportTime").getAsString();
+        String reportTime = scEewData.get("ReportTime").getAsString();
         String num = scEewData.get("ReportNum").getAsString();
         String lat = scEewData.get("Latitude").getAsString();
         String lon = scEewData.get("Longitude").getAsString();
@@ -440,27 +440,27 @@ public final class MCEEW extends JavaPlugin {
         } else {
             depth = "10km";
         }
-        String origin_time = getDate("yyyy-MM-dd HH:mm:ss", time_format, "Asia/Shanghai", scEewData.get("OriginTime").getAsString());
-        scEewAction(report_time, origin_time, num, lat, lon, region, mag, depth, getIntensityColor(intensity));
+        String originTime = getDate("yyyy-MM-dd HH:mm:ss", timeFormat, "Asia/Shanghai", scEewData.get("OriginTime").getAsString());
+        scEewAction(reportTime, originTime, num, lat, lon, region, mag, depth, getIntensityColor(intensity));
     }
 
     private void fjEewExecute(JsonObject fjEewData) {
         String type = "";
-        String report_time = fjEewData.get("ReportTime").getAsString();
+        String reportTime = fjEewData.get("ReportTime").getAsString();
         String num = fjEewData.get("ReportNum").getAsString();
         String lat = fjEewData.get("Latitude").getAsString();
         String lon = fjEewData.get("Longitude").getAsString();
         String region = fjEewData.get("HypoCenter").getAsString();
         String mag = fjEewData.get("Magunitude").getAsString();
-        String origin_time = getDate("yyyy-MM-dd HH:mm:ss", time_format, "Asia/Shanghai", fjEewData.get("OriginTime").getAsString());
+        String originTime = getDate("yyyy-MM-dd HH:mm:ss", timeFormat, "Asia/Shanghai", fjEewData.get("OriginTime").getAsString());
         if (fjEewData.get("isFinal").getAsBoolean()) {
             type = "最終報";
         }
-        fjEewAction(report_time, origin_time, num, lat, lon, region, mag, type);
+        fjEewAction(reportTime, originTime, num, lat, lon, region, mag, type);
     }
 
     private void cwaEewExecute(JsonObject cwaEewData) {
-        String report_time = cwaEewData.get("ReportTime").getAsString();
+        String reportTime = cwaEewData.get("ReportTime").getAsString();
         String num = cwaEewData.get("ReportNum").getAsString();
         String lat = cwaEewData.get("Latitude").getAsString();
         String lon = cwaEewData.get("Longitude").getAsString();
@@ -468,50 +468,50 @@ public final class MCEEW extends JavaPlugin {
         String mag = cwaEewData.get("Magunitude").getAsString();
         String depth = cwaEewData.get("Depth").getAsString() + "km";
         String shindo = cwaEewData.get("MaxIntensity").getAsString();
-        String origin_time = getDate("yyyy-MM-dd HH:mm:ss", time_format, "Asia/Shanghai", cwaEewData.get("OriginTime").getAsString());
-        cwaEewAction(report_time, origin_time, num, lat, lon, region, mag, depth, getShindoColor(shindo));
+        String originTime = getDate("yyyy-MM-dd HH:mm:ss", timeFormat, "Asia/Shanghai", cwaEewData.get("OriginTime").getAsString());
+        cwaEewAction(reportTime, originTime, num, lat, lon, region, mag, depth, getShindoColor(shindo));
     }
 
     private void getEewInfo(Boolean flag, CommandSender sender) {
         if (flag) {
-            if (cencEqlist_md5 != null) {
+            if (cencEqlistMd5 != null) {
                 sender.sendMessage(
-                        cencEqlist_broadcast_message.
-                                replaceAll("%flag%", cencEqlist_info.get(0)).
-                                replaceAll("%origin_time%", cencEqlist_info.get(1)).
-                                replaceAll("%region%", cencEqlist_info.get(2)).
-                                replaceAll("%mag%", cencEqlist_info.get(3)).
-                                replaceAll("%depth%", cencEqlist_info.get(4)).
-                                replaceAll("%lat%", cencEqlist_info.get(5)).
-                                replaceAll("%lon%", cencEqlist_info.get(6)).
-                                replaceAll("%shindo%", getIntensityColor(cencEqlist_info.get(7)))
+                        cencEqlistBroadcastMessage.
+                                replaceAll("%flag%", cencEqlistInfo.get(0)).
+                                replaceAll("%origin_time%", cencEqlistInfo.get(1)).
+                                replaceAll("%region%", cencEqlistInfo.get(2)).
+                                replaceAll("%mag%", cencEqlistInfo.get(3)).
+                                replaceAll("%depth%", cencEqlistInfo.get(4)).
+                                replaceAll("%lat%", cencEqlistInfo.get(5)).
+                                replaceAll("%lon%", cencEqlistInfo.get(6)).
+                                replaceAll("%shindo%", getIntensityColor(cencEqlistInfo.get(7)))
                 );
             }
         } else {
-            if (jmaEqlist_md5 != null) {
+            if (jmaEqlistMd5 != null) {
                 sender.sendMessage(
-                        jmaEqlist_broadcast_message.
-                                replaceAll("%origin_time%", jmaEqlist_info.get(0)).
-                                replaceAll("%region%", jmaEqlist_info.get(1)).
-                                replaceAll("%mag%", jmaEqlist_info.get(2)).
-                                replaceAll("%depth%", jmaEqlist_info.get(3)).
-                                replaceAll("%lat%", jmaEqlist_info.get(4)).
-                                replaceAll("%lon%", jmaEqlist_info.get(5)).
-                                replaceAll("%shindo%", getShindoColor(jmaEqlist_info.get(6))).
-                                replaceAll("%info%", jmaEqlist_info.get(7))
+                        jmaEqlistBroadcastMessage.
+                                replaceAll("%origin_time%", jmaEqlistInfo.get(0)).
+                                replaceAll("%region%", jmaEqlistInfo.get(1)).
+                                replaceAll("%mag%", jmaEqlistInfo.get(2)).
+                                replaceAll("%depth%", jmaEqlistInfo.get(3)).
+                                replaceAll("%lat%", jmaEqlistInfo.get(4)).
+                                replaceAll("%lon%", jmaEqlistInfo.get(5)).
+                                replaceAll("%shindo%", getShindoColor(jmaEqlistInfo.get(6))).
+                                replaceAll("%info%", jmaEqlistInfo.get(7))
                 );
             }
         }
     }
 
-    private void jmaEewAction(String flag, String report_time, String origin_time, String num, String lat, String lon, String region, String mag, String depth, String shindo, String type) {
-        if (broadcast_bool) {
+    private void jmaEewAction(String flag, String reportTime, String originTime, String num, String lat, String lon, String region, String mag, String depth, String shindo, String type) {
+        if (broadcastBool) {
             if (Objects.equals(flag, "警報")) {
                 Bukkit.broadcastMessage(
-                        alert_broadcast_message.
+                        alertBroadcastMessage.
                                 replaceAll("%flag%", flag).
-                                replaceAll("%report_time%", report_time).
-                                replaceAll("%origin_time%", origin_time).
+                                replaceAll("%report_time%", reportTime).
+                                replaceAll("%origin_time%", originTime).
                                 replaceAll("%num%", num).
                                 replaceAll("%lat%", lat).
                                 replaceAll("%lon%", lon).
@@ -523,10 +523,10 @@ public final class MCEEW extends JavaPlugin {
                 );
             } else {
                 Bukkit.broadcastMessage(
-                        forecast_broadcast_message.
+                        forecastBroadcastMessage.
                                 replaceAll("%flag%", flag).
-                                replaceAll("%report_time%", report_time).
-                                replaceAll("%origin_time%", origin_time).
+                                replaceAll("%report_time%", reportTime).
+                                replaceAll("%origin_time%", originTime).
                                 replaceAll("%num%", num).
                                 replaceAll("%lat%", lat).
                                 replaceAll("%lon%", lon).
@@ -538,14 +538,14 @@ public final class MCEEW extends JavaPlugin {
                 );
             }
         }
-        if (title_bool) {
+        if (titleBool) {
             for (Player player : Bukkit.getServer().getOnlinePlayers()) {
                 if (Objects.equals(flag, "警報")) {
                     player.sendTitle(
-                            alert_title_message.
+                            alertTitleMessage.
                                     replaceAll("%flag%", flag).
-                                    replaceAll("%report_time%", report_time).
-                                    replaceAll("%origin_time%", origin_time).
+                                    replaceAll("%report_time%", reportTime).
+                                    replaceAll("%origin_time%", originTime).
                                     replaceAll("%num%", num).
                                     replaceAll("%lat%", lat).
                                     replaceAll("%lon%", lon).
@@ -554,10 +554,10 @@ public final class MCEEW extends JavaPlugin {
                                     replaceAll("%depth%", depth).
                                     replaceAll("%shindo%", shindo).
                                     replaceAll("%type%", type),
-                            alert_subtitle_message.
+                            alertSubtitleMessage.
                                     replaceAll("%flag%", flag).
-                                    replaceAll("%report_time%", report_time).
-                                    replaceAll("%origin_time%", origin_time).
+                                    replaceAll("%report_time%", reportTime).
+                                    replaceAll("%origin_time%", originTime).
                                     replaceAll("%num%", num).
                                     replaceAll("%lat%", lat).
                                     replaceAll("%lon%", lon).
@@ -570,10 +570,10 @@ public final class MCEEW extends JavaPlugin {
                     );
                 } else {
                     player.sendTitle(
-                            forecast_title_message.
+                            forecastTitleMessage.
                                     replaceAll("%flag%", flag).
-                                    replaceAll("%report_time%", report_time).
-                                    replaceAll("%origin_time%", origin_time).
+                                    replaceAll("%report_time%", reportTime).
+                                    replaceAll("%origin_time%", originTime).
                                     replaceAll("%num%", num).
                                     replaceAll("%lat%", lat).
                                     replaceAll("%lon%", lon).
@@ -582,10 +582,10 @@ public final class MCEEW extends JavaPlugin {
                                     replaceAll("%depth%", depth).
                                     replaceAll("%shindo%", shindo).
                                     replaceAll("%type%", type),
-                            forecast_subtitle_message.
+                            forecastSubtitleMessage.
                                     replaceAll("%flag%", flag).
-                                    replaceAll("%report_time%", report_time).
-                                    replaceAll("%origin_time%", origin_time).
+                                    replaceAll("%report_time%", reportTime).
+                                    replaceAll("%origin_time%", originTime).
                                     replaceAll("%num%", num).
                                     replaceAll("%lat%", lat).
                                     replaceAll("%lon%", lon).
@@ -599,21 +599,21 @@ public final class MCEEW extends JavaPlugin {
                 }
             }
         }
-        if (alert_bool) {
+        if (alertBool) {
             if (Objects.equals(flag, "警報")) {
-                playSound(alert_alert_sound_type, alert_alert_sound_volume, alert_alert_sound_pitch);
+                playSound(alertAlertSoundType, alertAlertSoundVolume, alertAlertSoundPitch);
             } else {
-                playSound(forecast_alert_sound_type, forecast_alert_sound_volume, forecast_alert_sound_pitch);
+                playSound(forecastAlertSoundType, forecastAlertSoundVolume, forecastAlertSoundPitch);
             }
         }
     }
 
-    private void scEewAction(String report_time, String origin_time, String num, String lat, String lon, String region, String mag, String depth, String intensity) {
-        if (broadcast_bool) {
+    private void scEewAction(String reportTime, String originTime, String num, String lat, String lon, String region, String mag, String depth, String intensity) {
+        if (broadcastBool) {
             Bukkit.broadcastMessage(
-                    sichuan_broadcast_message.
-                            replaceAll("%report_time%", report_time).
-                            replaceAll("%origin_time%", origin_time).
+                    sichuanBroadcastMessage.
+                            replaceAll("%report_time%", reportTime).
+                            replaceAll("%origin_time%", originTime).
                             replaceAll("%num%", num).
                             replaceAll("%lat%", lat).
                             replaceAll("%lon%", lon).
@@ -623,12 +623,12 @@ public final class MCEEW extends JavaPlugin {
                             replaceAll("%shindo%", intensity)
             );
         }
-        if (title_bool) {
+        if (titleBool) {
             for (Player player : Bukkit.getServer().getOnlinePlayers()) {
                 player.sendTitle(
-                        sichuan_title_message.
-                                replaceAll("%report_time%", report_time).
-                                replaceAll("%origin_time%", origin_time).
+                        sichuanTitleMessage.
+                                replaceAll("%report_time%", reportTime).
+                                replaceAll("%origin_time%", originTime).
                                 replaceAll("%num%", num).
                                 replaceAll("%lat%", lat).
                                 replaceAll("%lon%", lon).
@@ -636,9 +636,9 @@ public final class MCEEW extends JavaPlugin {
                                 replaceAll("%mag%", mag).
                                 replaceAll("%depth%", depth).
                                 replaceAll("%shindo%", intensity),
-                        sichuan_subtitle_message.
-                                replaceAll("%report_time%", report_time).
-                                replaceAll("%origin_time%", origin_time).
+                        sichuanSubtitleMessage.
+                                replaceAll("%report_time%", reportTime).
+                                replaceAll("%origin_time%", originTime).
                                 replaceAll("%num%", num).
                                 replaceAll("%lat%", lat).
                                 replaceAll("%lon%", lon).
@@ -650,17 +650,17 @@ public final class MCEEW extends JavaPlugin {
                 );
             }
         }
-        if (alert_bool) {
-            playSound(sc_alert_sound_type, sc_alert_sound_volume, sc_alert_sound_pitch);
+        if (alertBool) {
+            playSound(scAlertSoundType, scAlertSoundVolume, scAlertSoundPitch);
         }
     }
 
-    private void fjEewAction(String report_time, String origin_time, String num, String lat, String lon, String region, String mag, String type) {
-        if (broadcast_bool) {
+    private void fjEewAction(String reportTime, String originTime, String num, String lat, String lon, String region, String mag, String type) {
+        if (broadcastBool) {
             Bukkit.broadcastMessage(
-                    fj_broadcast_message.
-                            replaceAll("%report_time%", report_time).
-                            replaceAll("%origin_time%", origin_time).
+                    fjBroadcastMessage.
+                            replaceAll("%report_time%", reportTime).
+                            replaceAll("%origin_time%", originTime).
                             replaceAll("%num%", num).
                             replaceAll("%lat%", lat).
                             replaceAll("%lon%", lon).
@@ -669,21 +669,21 @@ public final class MCEEW extends JavaPlugin {
                             replaceAll("%type%", type)
             );
         }
-        if (title_bool) {
+        if (titleBool) {
             for (Player player : Bukkit.getServer().getOnlinePlayers()) {
                 player.sendTitle(
-                        fj_title_message.
-                                replaceAll("%report_time%", report_time).
-                                replaceAll("%origin_time%", origin_time).
+                        fjTitleMessage.
+                                replaceAll("%report_time%", reportTime).
+                                replaceAll("%origin_time%", originTime).
                                 replaceAll("%num%", num).
                                 replaceAll("%lat%", lat).
                                 replaceAll("%lon%", lon).
                                 replaceAll("%region%", region).
                                 replaceAll("%mag%", mag).
                                 replaceAll("%type%", type),
-                        fj_subtitle_message.
-                                replaceAll("%report_time%", report_time).
-                                replaceAll("%origin_time%", origin_time).
+                        fjSubtitleMessage.
+                                replaceAll("%report_time%", reportTime).
+                                replaceAll("%origin_time%", originTime).
                                 replaceAll("%num%", num).
                                 replaceAll("%lat%", lat).
                                 replaceAll("%lon%", lon).
@@ -694,17 +694,17 @@ public final class MCEEW extends JavaPlugin {
                 );
             }
         }
-        if (alert_bool) {
-            playSound(fj_alert_sound_type, fj_alert_sound_volume, fj_alert_sound_pitch);
+        if (alertBool) {
+            playSound(fjAlertSoundType, fjAlertSoundVolume, fjAlertSoundPitch);
         }
     }
 
-    private void cwaEewAction(String report_time, String origin_time, String num, String lat, String lon, String region, String mag, String depth, String shindo) {
-        if (broadcast_bool) {
+    private void cwaEewAction(String reportTime, String originTime, String num, String lat, String lon, String region, String mag, String depth, String shindo) {
+        if (broadcastBool) {
             Bukkit.broadcastMessage(
-                    cwa_broadcast_message.
-                            replaceAll("%report_time%", report_time).
-                            replaceAll("%origin_time%", origin_time).
+                    cwaBroadcastMessage.
+                            replaceAll("%report_time%", reportTime).
+                            replaceAll("%origin_time%", originTime).
                             replaceAll("%num%", num).
                             replaceAll("%lat%", lat).
                             replaceAll("%lon%", lon).
@@ -714,12 +714,12 @@ public final class MCEEW extends JavaPlugin {
                             replaceAll("%shindo%", shindo)
             );
         }
-        if (title_bool) {
+        if (titleBool) {
             for (Player player : Bukkit.getServer().getOnlinePlayers()) {
                 player.sendTitle(
-                        cwa_title_message.
-                                replaceAll("%report_time%", report_time).
-                                replaceAll("%origin_time%", origin_time).
+                        cwaTitleMessage.
+                                replaceAll("%report_time%", reportTime).
+                                replaceAll("%origin_time%", originTime).
                                 replaceAll("%num%", num).
                                 replaceAll("%lat%", lat).
                                 replaceAll("%lon%", lon).
@@ -727,9 +727,9 @@ public final class MCEEW extends JavaPlugin {
                                 replaceAll("%mag%", mag).
                                 replaceAll("%depth%", depth).
                                 replaceAll("%shindo%", shindo),
-                        cwa_subtitle_message.
-                                replaceAll("%report_time%", report_time).
-                                replaceAll("%origin_time%", origin_time).
+                        cwaSubtitleMessage.
+                                replaceAll("%report_time%", reportTime).
+                                replaceAll("%origin_time%", originTime).
                                 replaceAll("%num%", num).
                                 replaceAll("%lat%", lat).
                                 replaceAll("%lon%", lon).
@@ -741,39 +741,39 @@ public final class MCEEW extends JavaPlugin {
                 );
             }
         }
-        if (alert_bool) {
-            playSound(cwa_alert_sound_type, cwa_alert_sound_volume, cwa_alert_sound_pitch);
+        if (alertBool) {
+            playSound(cwaAlertSoundType, cwaAlertSoundVolume, cwaAlertSoundPitch);
         }
     }
 
     private String getShindoColor(String shindo) {
-        String[] shindo_color = new String[]{"§f", "§7", "§b", "§9", "§a", "§e", "§6", "§c", "§4", "§d"};
+        String[] shindoColor = new String[]{"§f", "§7", "§b", "§9", "§a", "§e", "§6", "§c", "§4", "§d"};
         if (Objects.equals(shindo, "1")) {
-            return shindo_color[1] + shindo;
+            return shindoColor[1] + shindo;
         } else if (Objects.equals(shindo, "2")) {
-            return shindo_color[2] + shindo;
+            return shindoColor[2] + shindo;
         } else if (Objects.equals(shindo, "3")) {
-            return shindo_color[3] + shindo;
+            return shindoColor[3] + shindo;
         } else if (Objects.equals(shindo, "4")) {
-            return shindo_color[4] + shindo;
+            return shindoColor[4] + shindo;
         } else if (Objects.equals(shindo, "5弱") || Objects.equals(shindo, "5-")) {
-            return shindo_color[5] + shindo;
+            return shindoColor[5] + shindo;
         } else if (Objects.equals(shindo, "5強") || Objects.equals(shindo, "5+")) {
-            return shindo_color[6] + shindo;
+            return shindoColor[6] + shindo;
         } else if (Objects.equals(shindo, "6弱") || Objects.equals(shindo, "6-")) {
-            return shindo_color[7] + shindo;
+            return shindoColor[7] + shindo;
         } else if (Objects.equals(shindo, "6強") || Objects.equals(shindo, "6+")) {
-            return shindo_color[8] + shindo;
+            return shindoColor[8] + shindo;
         } else if (Objects.equals(shindo, "7")) {
-            return shindo_color[9] + shindo;
+            return shindoColor[9] + shindo;
         } else {
-            return shindo_color[0] + shindo;
+            return shindoColor[0] + shindo;
         }
     }
 
     private String getIntensityColor(String intensity) {
-        String[] intensity_color = new String[]{"§f", "§7", "§b", "§3", "§9", "§a", "§2", "§e", "§6", "§c", "§4", "§d", "§5"};
-        return intensity_color[Integer.parseInt(intensity)] + intensity;
+        String[] intensityColor = new String[]{"§f", "§7", "§b", "§3", "§9", "§a", "§2", "§e", "§6", "§c", "§4", "§d", "§5"};
+        return intensityColor[Integer.parseInt(intensity)] + intensity;
     }
 
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
@@ -840,45 +840,45 @@ public final class MCEEW extends JavaPlugin {
         scEewBoolean = getConfig().getBoolean("enable_sc");
         fjEewBoolean = getConfig().getBoolean("enable_fj");
         cwaEewBoolean = getConfig().getBoolean("enable_cwa");
-        broadcast_bool = getConfig().getBoolean("Action.broadcast");
-        title_bool = getConfig().getBoolean("Action.title");
-        alert_bool = getConfig().getBoolean("Action.alert");
+        broadcastBool = getConfig().getBoolean("Action.broadcast");
+        titleBool = getConfig().getBoolean("Action.title");
+        alertBool = getConfig().getBoolean("Action.alert");
         jmaEqlistBoolean = getConfig().getBoolean("Action.jma");
         cencEqlistBoolean = getConfig().getBoolean("Action.cenc");
-        time_format = getConfig().getString("time_format");
-        alert_broadcast_message = Objects.requireNonNull(getConfig().getString("Message.Alert.broadcast")).replace("&", "§");
-        alert_title_message = Objects.requireNonNull(getConfig().getString("Message.Alert.title")).replace("&", "§");
-        alert_subtitle_message = Objects.requireNonNull(getConfig().getString("Message.Alert.subtitle")).replace("&", "§");
-        forecast_broadcast_message = Objects.requireNonNull(getConfig().getString("Message.Forecast.broadcast")).replace("&", "§");
-        forecast_title_message = Objects.requireNonNull(getConfig().getString("Message.Forecast.title")).replace("&", "§");
-        forecast_subtitle_message = Objects.requireNonNull(getConfig().getString("Message.Forecast.subtitle")).replace("&", "§");
-        jmaEqlist_broadcast_message = Objects.requireNonNull(getConfig().getString("Message.Jma.broadcast")).replace("&", "§");
-        cencEqlist_broadcast_message = Objects.requireNonNull(getConfig().getString("Message.Cenc.broadcast")).replace("&", "§");
-        sichuan_broadcast_message = Objects.requireNonNull(getConfig().getString("Message.Sichuan.broadcast")).replace("&", "§");
-        sichuan_title_message = Objects.requireNonNull(getConfig().getString("Message.Sichuan.title")).replace("&", "§");
-        sichuan_subtitle_message = Objects.requireNonNull(getConfig().getString("Message.Sichuan.subtitle")).replace("&", "§");
-        fj_broadcast_message = Objects.requireNonNull(getConfig().getString("Message.Fjea.broadcast")).replace("&", "§");
-        fj_title_message = Objects.requireNonNull(getConfig().getString("Message.Fjea.title")).replace("&", "§");
-        fj_subtitle_message = Objects.requireNonNull(getConfig().getString("Message.Fjea.subtitle")).replace("&", "§");
-        cwa_broadcast_message = Objects.requireNonNull(getConfig().getString("Message.Cwa.broadcast")).replace("&", "§");
-        cwa_title_message = Objects.requireNonNull(getConfig().getString("Message.Cwa.title")).replace("&", "§");
-        cwa_subtitle_message = Objects.requireNonNull(getConfig().getString("Message.Cwa.subtitle")).replace("&", "§");
-        alert_alert_sound_type = getConfig().getString("Sound.Alert.type");
-        alert_alert_sound_volume = getConfig().getDouble("Sound.Alert.volume");
-        alert_alert_sound_pitch = getConfig().getDouble("Sound.Alert.pitch");
-        forecast_alert_sound_type = getConfig().getString("Sound.Forecast.type");
-        forecast_alert_sound_volume = getConfig().getDouble("Sound.Forecast.volume");
-        forecast_alert_sound_pitch = getConfig().getDouble("Sound.Forecast.pitch");
-        sc_alert_sound_type = getConfig().getString("Sound.Sichuan.type");
-        sc_alert_sound_volume = getConfig().getDouble("Sound.Sichuan.volume");
-        sc_alert_sound_pitch = getConfig().getDouble("Sound.Sichuan.pitch");
-        fj_alert_sound_type = getConfig().getString("Sound.Fjea.type");
-        fj_alert_sound_volume = getConfig().getDouble("Sound.Fjea.volume");
-        fj_alert_sound_pitch = getConfig().getDouble("Sound.Fjea.pitch");
-        cwa_alert_sound_type = getConfig().getString("Sound.Cwa.type");
-        cwa_alert_sound_volume = getConfig().getDouble("Sound.Cwa.volume");
-        cwa_alert_sound_pitch = getConfig().getDouble("Sound.Cwa.pitch");
-        config_version = getConfig().getInt("config-version");
+        timeFormat = getConfig().getString("timeFormat");
+        alertBroadcastMessage = Objects.requireNonNull(getConfig().getString("Message.Alert.broadcast")).replace("&", "§");
+        alertTitleMessage = Objects.requireNonNull(getConfig().getString("Message.Alert.title")).replace("&", "§");
+        alertSubtitleMessage = Objects.requireNonNull(getConfig().getString("Message.Alert.subtitle")).replace("&", "§");
+        forecastBroadcastMessage = Objects.requireNonNull(getConfig().getString("Message.Forecast.broadcast")).replace("&", "§");
+        forecastTitleMessage = Objects.requireNonNull(getConfig().getString("Message.Forecast.title")).replace("&", "§");
+        forecastSubtitleMessage = Objects.requireNonNull(getConfig().getString("Message.Forecast.subtitle")).replace("&", "§");
+        jmaEqlistBroadcastMessage = Objects.requireNonNull(getConfig().getString("Message.Jma.broadcast")).replace("&", "§");
+        cencEqlistBroadcastMessage = Objects.requireNonNull(getConfig().getString("Message.Cenc.broadcast")).replace("&", "§");
+        sichuanBroadcastMessage = Objects.requireNonNull(getConfig().getString("Message.Sichuan.broadcast")).replace("&", "§");
+        sichuanTitleMessage = Objects.requireNonNull(getConfig().getString("Message.Sichuan.title")).replace("&", "§");
+        sichuanSubtitleMessage = Objects.requireNonNull(getConfig().getString("Message.Sichuan.subtitle")).replace("&", "§");
+        fjBroadcastMessage = Objects.requireNonNull(getConfig().getString("Message.Fjea.broadcast")).replace("&", "§");
+        fjTitleMessage = Objects.requireNonNull(getConfig().getString("Message.Fjea.title")).replace("&", "§");
+        fjSubtitleMessage = Objects.requireNonNull(getConfig().getString("Message.Fjea.subtitle")).replace("&", "§");
+        cwaBroadcastMessage = Objects.requireNonNull(getConfig().getString("Message.Cwa.broadcast")).replace("&", "§");
+        cwaTitleMessage = Objects.requireNonNull(getConfig().getString("Message.Cwa.title")).replace("&", "§");
+        cwaSubtitleMessage = Objects.requireNonNull(getConfig().getString("Message.Cwa.subtitle")).replace("&", "§");
+        alertAlertSoundType = getConfig().getString("Sound.Alert.type");
+        alertAlertSoundVolume = getConfig().getDouble("Sound.Alert.volume");
+        alertAlertSoundPitch = getConfig().getDouble("Sound.Alert.pitch");
+        forecastAlertSoundType = getConfig().getString("Sound.Forecast.type");
+        forecastAlertSoundVolume = getConfig().getDouble("Sound.Forecast.volume");
+        forecastAlertSoundPitch = getConfig().getDouble("Sound.Forecast.pitch");
+        scAlertSoundType = getConfig().getString("Sound.Sichuan.type");
+        scAlertSoundVolume = getConfig().getDouble("Sound.Sichuan.volume");
+        scAlertSoundPitch = getConfig().getDouble("Sound.Sichuan.pitch");
+        fjAlertSoundType = getConfig().getString("Sound.Fjea.type");
+        fjAlertSoundVolume = getConfig().getDouble("Sound.Fjea.volume");
+        fjAlertSoundPitch = getConfig().getDouble("Sound.Fjea.pitch");
+        cwaAlertSoundType = getConfig().getString("Sound.Cwa.type");
+        cwaAlertSoundVolume = getConfig().getDouble("Sound.Cwa.volume");
+        cwaAlertSoundPitch = getConfig().getDouble("Sound.Cwa.pitch");
+        configVersion = getConfig().getInt("config-version");
         mceewScheduler(first);
     }
 
