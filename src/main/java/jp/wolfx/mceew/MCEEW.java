@@ -845,7 +845,7 @@ public final class MCEEW extends JavaPlugin {
         alertBool = getConfig().getBoolean("Action.alert");
         jmaEqlistBoolean = getConfig().getBoolean("Action.jma");
         cencEqlistBoolean = getConfig().getBoolean("Action.cenc");
-        timeFormat = getConfig().getString("timeFormat");
+        timeFormat = getConfig().getString("time_format");
         alertBroadcastMessage = Objects.requireNonNull(getConfig().getString("Message.Alert.broadcast")).replace("&", "§");
         alertTitleMessage = Objects.requireNonNull(getConfig().getString("Message.Alert.title")).replace("&", "§");
         alertSubtitleMessage = Objects.requireNonNull(getConfig().getString("Message.Alert.subtitle")).replace("&", "§");
