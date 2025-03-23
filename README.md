@@ -42,13 +42,6 @@ A real-time Earthquake Early Warning(EEW) plugin for Minecraft Server.
 ![6.png](https://s2.loli.net/2024/02/29/OSGKuyq9zE8ChTY.png)
 ![7.png](https://s2.loli.net/2024/02/29/tuXgnVqkrxQoYGJ.png)
 
-## Demo Servers
-
-* [WolfxSMP](https://mc.wolfx.jp)
-
-*Open an [Issue](https://github.com/TenkyuChimata/MCEEW/issues) or
-a [Pull Request](https://github.com/TenkyuChimata/MCEEW/pulls) if you want to add your server here.*
-
 ## Bstats
 
 [![Bstats](https://bstats.org/signatures/bukkit/MCEEW.svg)](https://bstats.org/plugin/bukkit/MCEEW/17261)
