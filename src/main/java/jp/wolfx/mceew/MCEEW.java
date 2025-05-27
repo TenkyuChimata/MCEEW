@@ -807,9 +807,9 @@ public final class MCEEW extends JavaPlugin {
         if (args.length == 0) {
             sender.sendMessage("§a[MCEEW] Plugin version: v" + version);
             sender.sendMessage("§a[MCEEW] §3/eew§a - Show available commands");
-            sender.sendMessage("§a[MCEEW] §3/eew test§a - Send a test EEW alert (admin only)");
+            sender.sendMessage("§a[MCEEW] §3/eew test§a - Send a test EEW alert");
             sender.sendMessage("§a[MCEEW] §3/eew info§a - Display latest earthquake information");
-            sender.sendMessage("§a[MCEEW] §3/eew reload§a - Reload plugin configuration (admin only)");
+            sender.sendMessage("§a[MCEEW] §3/eew reload§a - Reload plugin configuration");
             return true;
         } else if (args[0].equalsIgnoreCase("reload") && sender.isOp()) {
             loadEew(false);
@@ -848,11 +848,11 @@ public final class MCEEW extends JavaPlugin {
                     return true;
                 }
             } else {
-                sender.sendMessage("§a[MCEEW] §3/eew test forecast§a - Send JMA forecast EEW test alert.");
-                sender.sendMessage("§a[MCEEW] §3/eew test alert§a - Send JMA emergency EEW test alert.");
-                sender.sendMessage("§a[MCEEW] §3/eew test sc§a - Send Sichuan EEW test alert.");
-                sender.sendMessage("§a[MCEEW] §3/eew test fj§a - Send Taiwan/Fujian EEW test alert.");
-                sender.sendMessage("§a[MCEEW] §3/eew test cwa§a - Send Taiwan CWA EEW test alert.");
+                sender.sendMessage("§a[MCEEW] §3/eew test forecast§a - Send JMA forecast EEW test.");
+                sender.sendMessage("§a[MCEEW] §3/eew test alert§a - Send JMA alert EEW test.");
+                sender.sendMessage("§a[MCEEW] §3/eew test sc§a - Send Sichuan EEW test.");
+                sender.sendMessage("§a[MCEEW] §3/eew test fj§a - Send Taiwan/Fujian EEW test.");
+                sender.sendMessage("§a[MCEEW] §3/eew test cwa§a - Send Taiwan CWA EEW test.");
                 return true;
             }
         }
