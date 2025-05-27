@@ -805,15 +805,15 @@ public final class MCEEW extends JavaPlugin {
 
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String @NotNull [] args) {
         if (args.length == 0) {
-            sender.sendMessage("§a[MCEEW] Plugin Version: v" + version);
-            sender.sendMessage("§a[MCEEW] §3/eew§a - List commands.");
-            sender.sendMessage("§a[MCEEW] §3/eew test§a - Run EEW send test.");
-            sender.sendMessage("§a[MCEEW] §3/eew info§a - Get earthquake information.");
-            sender.sendMessage("§a[MCEEW] §3/eew reload§a - Reload configuration.");
+            sender.sendMessage("§a[MCEEW] Plugin version: v" + version);
+            sender.sendMessage("§a[MCEEW] §3/eew§a - Show available commands");
+            sender.sendMessage("§a[MCEEW] §3/eew test§a - Send a test EEW alert (admin only)");
+            sender.sendMessage("§a[MCEEW] §3/eew info§a - Display latest earthquake information");
+            sender.sendMessage("§a[MCEEW] §3/eew reload§a - Reload plugin configuration (admin only)");
             return true;
         } else if (args[0].equalsIgnoreCase("reload") && sender.isOp()) {
             loadEew(false);
-            sender.sendMessage("§a[MCEEW] Configuration reload successfully.");
+            sender.sendMessage("§a[MCEEW] Configuration reloaded successfully.");
             return true;
         } else if (args[0].equalsIgnoreCase("info")) {
             if (args.length == 2) {
@@ -825,8 +825,8 @@ public final class MCEEW extends JavaPlugin {
                     return true;
                 }
             } else {
-                sender.sendMessage("§a[MCEEW] §3/eew info jma§a - Get Japan JMA earthquake information.");
-                sender.sendMessage("§a[MCEEW] §3/eew info cenc§a - Get China CENC earthquake information.");
+                sender.sendMessage("§a[MCEEW] §3/eew info jma§a - Show Japan JMA earthquake information.");
+                sender.sendMessage("§a[MCEEW] §3/eew info cenc§a - Show China CENC earthquake information.");
                 return true;
             }
         } else if (args[0].equalsIgnoreCase("test") && sender.isOp()) {
@@ -848,11 +848,11 @@ public final class MCEEW extends JavaPlugin {
                     return true;
                 }
             } else {
-                sender.sendMessage("§a[MCEEW] §3/eew test forecast§a - Run JMA Forecast EEW test.");
-                sender.sendMessage("§a[MCEEW] §3/eew test alert§a - Run JMA Alert EEW test.");
-                sender.sendMessage("§a[MCEEW] §3/eew test sc§a - Run Sichuan EEW test.");
-                sender.sendMessage("§a[MCEEW] §3/eew test fj§a - Run Taiwan/Fujian EEW test.");
-                sender.sendMessage("§a[MCEEW] §3/eew test cwa§a - Run Taiwan CWA EEW test.");
+                sender.sendMessage("§a[MCEEW] §3/eew test forecast§a - Send JMA forecast EEW test alert.");
+                sender.sendMessage("§a[MCEEW] §3/eew test alert§a - Send JMA emergency EEW test alert.");
+                sender.sendMessage("§a[MCEEW] §3/eew test sc§a - Send Sichuan EEW test alert.");
+                sender.sendMessage("§a[MCEEW] §3/eew test fj§a - Send Taiwan/Fujian EEW test alert.");
+                sender.sendMessage("§a[MCEEW] §3/eew test cwa§a - Send Taiwan CWA EEW test alert.");
                 return true;
             }
         }
