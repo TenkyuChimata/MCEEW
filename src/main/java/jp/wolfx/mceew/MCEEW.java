@@ -2,7 +2,11 @@ package jp.wolfx.mceew;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.title.Title;
 import org.bukkit.Bukkit;
+import org.bukkit.NamespacedKey;
+import org.bukkit.Registry;
 import org.bukkit.Sound;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
@@ -167,16 +171,24 @@ public final class MCEEW extends JavaPlugin {
         Bukkit.broadcastMessage("§eWarning: This is an Earthquake Early Warning test.");
     }
 
+    private boolean canReceive(Player player, String node) {
+        return player.hasPermission("mceew.notify.all") && player.hasPermission(node);
+    }
+
     private String getDate(String pattern, String timeFormat, String timezone, String originTime) {
         DateTimeFormatter originTime1 = DateTimeFormatter.ofPattern(pattern);
         ZonedDateTime originTime2 = ZonedDateTime.parse(originTime, originTime1.withZone(ZoneId.of(timezone)));
         return originTime2.format(DateTimeFormatter.ofPattern(timeFormat));
     }
 
-    private void playSound(String alertSoundType, double alertSoundVolume, double alertSoundPitch) {
-        Sound alertPlayedSound = Sound.valueOf(alertSoundType);
+    private void playSound(String alertSoundType, double alertSoundVolume, double alertSoundPitch, String permissionNode) {
+        NamespacedKey key = NamespacedKey.minecraft(alertSoundType.toLowerCase());
+        Sound alertPlayedSound = Registry.SOUNDS.get(key);
         for (Player player : Bukkit.getServer().getOnlinePlayers()) {
-            player.playSound(player.getLocation(), alertPlayedSound, (float) alertSoundVolume, (float) alertSoundPitch);
+            if (canReceive(player, permissionNode)) {
+                assert alertPlayedSound != null;
+                player.playSound(player.getLocation(), alertPlayedSound, (float) alertSoundVolume, (float) alertSoundPitch);
+            }
         }
     }
 
@@ -192,14 +204,14 @@ public final class MCEEW extends JavaPlugin {
         if (!folia) {
             Bukkit.getScheduler().runTaskAsynchronously(this, () -> wsClient(first));
             if (first) {
-                Bukkit.getLogger().info("[MCEEW] Using Bukkit API for scheduler.");
+                getLogger().info("Using Bukkit API for scheduler.");
                 Bukkit.getScheduler().runTaskAsynchronously(this, this::updater);
             }
         } else {
             Plugin plugin = this;
             Bukkit.getAsyncScheduler().runNow(plugin, task1 -> wsClient(first));
             if (first) {
-                Bukkit.getLogger().info("[MCEEW] Using Folia API for scheduler.");
+                getLogger().info("Using Folia API for scheduler.");
                 Bukkit.getAsyncScheduler().runNow(plugin, task2 -> updater());
             }
         }
@@ -223,22 +235,22 @@ public final class MCEEW extends JavaPlugin {
                 JsonObject json = JsonParser.parseString(rawData.toString()).getAsJsonObject();
                 String apiVersion = json.get("version").getAsString();
                 if (Integer.parseInt(apiVersion.replaceAll("\\.", "")) > Integer.parseInt(version.replaceAll("-b.*", "").replaceAll("\\.", ""))) {
-                    Bukkit.getLogger().warning("[MCEEW] New plugin version v" + apiVersion + " detected, Please download a new version from https://acg.kr/mceew");
+                    getLogger().warning("New plugin version v" + apiVersion + " detected, Please download a new version from https://acg.kr/mceew");
                 } else {
-                    Bukkit.getLogger().info("[MCEEW] You are running the latest plugin version.");
+                    getLogger().info("You are running the latest plugin version.");
                 }
             }
         } catch (IOException e) {
-            Bukkit.getLogger().warning("[MCEEW] Failed to check for plugin updates.");
-            Bukkit.getLogger().warning(String.valueOf(e));
+            getLogger().warning("Failed to check for plugin updates.");
+            getLogger().warning(String.valueOf(e));
         }
         if (currentConfig > configVersion) {
-            Bukkit.getLogger().warning("[MCEEW] Configuration update detected, please delete the MCEEW configuration file to update it.");
+            getLogger().warning("Configuration update detected, please delete the MCEEW configuration file to update it.");
         }
     }
 
     private void wsReconnect(Boolean type) {
-        Bukkit.getLogger().warning("[MCEEW] Trying to reconnect to WebSocket API...");
+        getLogger().warning("Trying to reconnect to WebSocket API...");
         try {
             TimeUnit.SECONDS.sleep(5);
         } catch (InterruptedException e) {
@@ -258,7 +270,7 @@ public final class MCEEW extends JavaPlugin {
                 private final StringBuilder messageBuffer = new StringBuilder();
 
                 public void onOpen(WebSocket webSocket) {
-                    Bukkit.getLogger().info("[MCEEW] Connected to WebSocket API.");
+                    getLogger().info("Connected to WebSocket API.");
                     webSocket.request(1);
                 }
 
@@ -297,15 +309,15 @@ public final class MCEEW extends JavaPlugin {
 
                 @Override
                 public CompletionStage<?> onClose(WebSocket webSocket, int statusCode, String reason) {
-                    Bukkit.getLogger().warning("[MCEEW] WebSocket API connection closed unexpectedly.");
-                    Bukkit.getLogger().warning(reason);
+                    getLogger().warning("WebSocket API connection closed unexpectedly.");
+                    getLogger().warning(reason);
                     wsReconnect(true);
                     return null;
                 }
 
                 public void onError(WebSocket webSocket, Throwable error) {
-                    Bukkit.getLogger().warning("[MCEEW] Failed to connect to WebSocket API.");
-                    Bukkit.getLogger().warning(error.getMessage());
+                    getLogger().warning("Failed to connect to WebSocket API.");
+                    getLogger().warning(error.getMessage());
                     wsReconnect(false);
                 }
             }).join();
@@ -314,8 +326,8 @@ public final class MCEEW extends JavaPlugin {
                 webSocket.sendText("query_cenceqlist", true);
             }
         } catch (Exception e) {
-            Bukkit.getLogger().warning("[MCEEW] Failed to connect to WebSocket API.");
-            Bukkit.getLogger().warning(String.valueOf(e));
+            getLogger().warning("Failed to connect to WebSocket API.");
+            getLogger().warning(String.valueOf(e));
             wsReconnect(false);
         }
     }
@@ -541,69 +553,75 @@ public final class MCEEW extends JavaPlugin {
         if (titleBool) {
             for (Player player : Bukkit.getServer().getOnlinePlayers()) {
                 if (Objects.equals(flag, "警報")) {
-                    player.sendTitle(
-                            alertTitleMessage.
-                                    replaceAll("%flag%", flag).
-                                    replaceAll("%report_time%", reportTime).
-                                    replaceAll("%origin_time%", originTime).
-                                    replaceAll("%num%", num).
-                                    replaceAll("%lat%", lat).
-                                    replaceAll("%lon%", lon).
-                                    replaceAll("%region%", region).
-                                    replaceAll("%mag%", mag).
-                                    replaceAll("%depth%", depth).
-                                    replaceAll("%shindo%", shindo).
-                                    replaceAll("%type%", type),
-                            alertSubtitleMessage.
-                                    replaceAll("%flag%", flag).
-                                    replaceAll("%report_time%", reportTime).
-                                    replaceAll("%origin_time%", originTime).
-                                    replaceAll("%num%", num).
-                                    replaceAll("%lat%", lat).
-                                    replaceAll("%lon%", lon).
-                                    replaceAll("%region%", region).
-                                    replaceAll("%mag%", mag).
-                                    replaceAll("%depth%", depth).
-                                    replaceAll("%shindo%", shindo).
-                                    replaceAll("%type%", type),
-                            -1, -1, -1
-                    );
+                    if (canReceive(player, "mceew.notify.jma.alert")) {
+                        player.showTitle(
+                                Title.title(
+                                        Component.text(alertTitleMessage.
+                                                replaceAll("%flag%", flag).
+                                                replaceAll("%report_time%", reportTime).
+                                                replaceAll("%origin_time%", originTime).
+                                                replaceAll("%num%", num).
+                                                replaceAll("%lat%", lat).
+                                                replaceAll("%lon%", lon).
+                                                replaceAll("%region%", region).
+                                                replaceAll("%mag%", mag).
+                                                replaceAll("%depth%", depth).
+                                                replaceAll("%shindo%", shindo).
+                                                replaceAll("%type%", type)),
+                                        Component.text(alertSubtitleMessage.
+                                                replaceAll("%flag%", flag).
+                                                replaceAll("%report_time%", reportTime).
+                                                replaceAll("%origin_time%", originTime).
+                                                replaceAll("%num%", num).
+                                                replaceAll("%lat%", lat).
+                                                replaceAll("%lon%", lon).
+                                                replaceAll("%region%", region).
+                                                replaceAll("%mag%", mag).
+                                                replaceAll("%depth%", depth).
+                                                replaceAll("%shindo%", shindo).
+                                                replaceAll("%type%", type))
+                                )
+                        );
+                    }
                 } else {
-                    player.sendTitle(
-                            forecastTitleMessage.
-                                    replaceAll("%flag%", flag).
-                                    replaceAll("%report_time%", reportTime).
-                                    replaceAll("%origin_time%", originTime).
-                                    replaceAll("%num%", num).
-                                    replaceAll("%lat%", lat).
-                                    replaceAll("%lon%", lon).
-                                    replaceAll("%region%", region).
-                                    replaceAll("%mag%", mag).
-                                    replaceAll("%depth%", depth).
-                                    replaceAll("%shindo%", shindo).
-                                    replaceAll("%type%", type),
-                            forecastSubtitleMessage.
-                                    replaceAll("%flag%", flag).
-                                    replaceAll("%report_time%", reportTime).
-                                    replaceAll("%origin_time%", originTime).
-                                    replaceAll("%num%", num).
-                                    replaceAll("%lat%", lat).
-                                    replaceAll("%lon%", lon).
-                                    replaceAll("%region%", region).
-                                    replaceAll("%mag%", mag).
-                                    replaceAll("%depth%", depth).
-                                    replaceAll("%shindo%", shindo).
-                                    replaceAll("%type%", type),
-                            -1, -1, -1
-                    );
+                    if (canReceive(player, "mceew.notify.jma.forecast")) {
+                        player.showTitle(
+                                Title.title(
+                                        Component.text(forecastTitleMessage.
+                                                replaceAll("%flag%", flag).
+                                                replaceAll("%report_time%", reportTime).
+                                                replaceAll("%origin_time%", originTime).
+                                                replaceAll("%num%", num).
+                                                replaceAll("%lat%", lat).
+                                                replaceAll("%lon%", lon).
+                                                replaceAll("%region%", region).
+                                                replaceAll("%mag%", mag).
+                                                replaceAll("%depth%", depth).
+                                                replaceAll("%shindo%", shindo).
+                                                replaceAll("%type%", type)),
+                                        Component.text(forecastSubtitleMessage.
+                                                replaceAll("%flag%", flag).
+                                                replaceAll("%report_time%", reportTime).
+                                                replaceAll("%origin_time%", originTime).
+                                                replaceAll("%num%", num).
+                                                replaceAll("%lat%", lat).
+                                                replaceAll("%lon%", lon).
+                                                replaceAll("%region%", region).
+                                                replaceAll("%mag%", mag).
+                                                replaceAll("%depth%", depth).
+                                                replaceAll("%shindo%", shindo).
+                                                replaceAll("%type%", type))
+                                )
+                        );
+                    }
                 }
             }
         }
         if (alertBool) {
             if (Objects.equals(flag, "警報")) {
-                playSound(alertAlertSoundType, alertAlertSoundVolume, alertAlertSoundPitch);
+                playSound(alertAlertSoundType, alertAlertSoundVolume, alertAlertSoundPitch, "mceew.notify.jma.alert");
             } else {
-                playSound(forecastAlertSoundType, forecastAlertSoundVolume, forecastAlertSoundPitch);
+                playSound(forecastAlertSoundType, forecastAlertSoundVolume, forecastAlertSoundPitch, "mceew.notify.jma.forecast");
             }
         }
     }
@@ -625,33 +643,36 @@ public final class MCEEW extends JavaPlugin {
         }
         if (titleBool) {
             for (Player player : Bukkit.getServer().getOnlinePlayers()) {
-                player.sendTitle(
-                        sichuanTitleMessage.
-                                replaceAll("%report_time%", reportTime).
-                                replaceAll("%origin_time%", originTime).
-                                replaceAll("%num%", num).
-                                replaceAll("%lat%", lat).
-                                replaceAll("%lon%", lon).
-                                replaceAll("%region%", region).
-                                replaceAll("%mag%", mag).
-                                replaceAll("%depth%", depth).
-                                replaceAll("%shindo%", intensity),
-                        sichuanSubtitleMessage.
-                                replaceAll("%report_time%", reportTime).
-                                replaceAll("%origin_time%", originTime).
-                                replaceAll("%num%", num).
-                                replaceAll("%lat%", lat).
-                                replaceAll("%lon%", lon).
-                                replaceAll("%region%", region).
-                                replaceAll("%mag%", mag).
-                                replaceAll("%depth%", depth).
-                                replaceAll("%shindo%", intensity),
-                        -1, -1, -1
-                );
+                if (canReceive(player, "mceew.notify.sc")) {
+                    player.showTitle(
+                            Title.title(
+                                    Component.text(sichuanTitleMessage.
+                                            replaceAll("%report_time%", reportTime).
+                                            replaceAll("%origin_time%", originTime).
+                                            replaceAll("%num%", num).
+                                            replaceAll("%lat%", lat).
+                                            replaceAll("%lon%", lon).
+                                            replaceAll("%region%", region).
+                                            replaceAll("%mag%", mag).
+                                            replaceAll("%depth%", depth).
+                                            replaceAll("%shindo%", intensity)),
+                                    Component.text(sichuanSubtitleMessage.
+                                            replaceAll("%report_time%", reportTime).
+                                            replaceAll("%origin_time%", originTime).
+                                            replaceAll("%num%", num).
+                                            replaceAll("%lat%", lat).
+                                            replaceAll("%lon%", lon).
+                                            replaceAll("%region%", region).
+                                            replaceAll("%mag%", mag).
+                                            replaceAll("%depth%", depth).
+                                            replaceAll("%shindo%", intensity))
+                            )
+                    );
+                }
             }
         }
         if (alertBool) {
-            playSound(scAlertSoundType, scAlertSoundVolume, scAlertSoundPitch);
+            playSound(scAlertSoundType, scAlertSoundVolume, scAlertSoundPitch, "mceew.notify.sc");
         }
     }
 
@@ -671,31 +692,34 @@ public final class MCEEW extends JavaPlugin {
         }
         if (titleBool) {
             for (Player player : Bukkit.getServer().getOnlinePlayers()) {
-                player.sendTitle(
-                        fjTitleMessage.
-                                replaceAll("%report_time%", reportTime).
-                                replaceAll("%origin_time%", originTime).
-                                replaceAll("%num%", num).
-                                replaceAll("%lat%", lat).
-                                replaceAll("%lon%", lon).
-                                replaceAll("%region%", region).
-                                replaceAll("%mag%", mag).
-                                replaceAll("%type%", type),
-                        fjSubtitleMessage.
-                                replaceAll("%report_time%", reportTime).
-                                replaceAll("%origin_time%", originTime).
-                                replaceAll("%num%", num).
-                                replaceAll("%lat%", lat).
-                                replaceAll("%lon%", lon).
-                                replaceAll("%region%", region).
-                                replaceAll("%mag%", mag).
-                                replaceAll("%type%", type),
-                        -1, -1, -1
-                );
+                if (canReceive(player, "mceew.notify.fj")) {
+                    player.showTitle(
+                            Title.title(
+                                    Component.text(fjTitleMessage.
+                                            replaceAll("%report_time%", reportTime).
+                                            replaceAll("%origin_time%", originTime).
+                                            replaceAll("%num%", num).
+                                            replaceAll("%lat%", lat).
+                                            replaceAll("%lon%", lon).
+                                            replaceAll("%region%", region).
+                                            replaceAll("%mag%", mag).
+                                            replaceAll("%type%", type)),
+                                    Component.text(fjSubtitleMessage.
+                                            replaceAll("%report_time%", reportTime).
+                                            replaceAll("%origin_time%", originTime).
+                                            replaceAll("%num%", num).
+                                            replaceAll("%lat%", lat).
+                                            replaceAll("%lon%", lon).
+                                            replaceAll("%region%", region).
+                                            replaceAll("%mag%", mag).
+                                            replaceAll("%type%", type))
+                            )
+                    );
+                }
             }
         }
         if (alertBool) {
-            playSound(fjAlertSoundType, fjAlertSoundVolume, fjAlertSoundPitch);
+            playSound(fjAlertSoundType, fjAlertSoundVolume, fjAlertSoundPitch, "mceew.notify.fj");
         }
     }
 
@@ -716,33 +740,36 @@ public final class MCEEW extends JavaPlugin {
         }
         if (titleBool) {
             for (Player player : Bukkit.getServer().getOnlinePlayers()) {
-                player.sendTitle(
-                        cwaTitleMessage.
-                                replaceAll("%report_time%", reportTime).
-                                replaceAll("%origin_time%", originTime).
-                                replaceAll("%num%", num).
-                                replaceAll("%lat%", lat).
-                                replaceAll("%lon%", lon).
-                                replaceAll("%region%", region).
-                                replaceAll("%mag%", mag).
-                                replaceAll("%depth%", depth).
-                                replaceAll("%shindo%", shindo),
-                        cwaSubtitleMessage.
-                                replaceAll("%report_time%", reportTime).
-                                replaceAll("%origin_time%", originTime).
-                                replaceAll("%num%", num).
-                                replaceAll("%lat%", lat).
-                                replaceAll("%lon%", lon).
-                                replaceAll("%region%", region).
-                                replaceAll("%mag%", mag).
-                                replaceAll("%depth%", depth).
-                                replaceAll("%shindo%", shindo),
-                        -1, -1, -1
-                );
+                if (canReceive(player, "mceew.notify.cwa")) {
+                    player.showTitle(
+                            Title.title(
+                                    Component.text(cwaTitleMessage.
+                                            replaceAll("%report_time%", reportTime).
+                                            replaceAll("%origin_time%", originTime).
+                                            replaceAll("%num%", num).
+                                            replaceAll("%lat%", lat).
+                                            replaceAll("%lon%", lon).
+                                            replaceAll("%region%", region).
+                                            replaceAll("%mag%", mag).
+                                            replaceAll("%depth%", depth).
+                                            replaceAll("%shindo%", shindo)),
+                                    Component.text(cwaSubtitleMessage.
+                                            replaceAll("%report_time%", reportTime).
+                                            replaceAll("%origin_time%", originTime).
+                                            replaceAll("%num%", num).
+                                            replaceAll("%lat%", lat).
+                                            replaceAll("%lon%", lon).
+                                            replaceAll("%region%", region).
+                                            replaceAll("%mag%", mag).
+                                            replaceAll("%depth%", depth).
+                                            replaceAll("%shindo%", shindo))
+                            )
+                    );
+                }
             }
         }
         if (alertBool) {
-            playSound(cwaAlertSoundType, cwaAlertSoundVolume, cwaAlertSoundPitch);
+            playSound(cwaAlertSoundType, cwaAlertSoundVolume, cwaAlertSoundPitch, "mceew.notify.cwa");
         }
     }
 
@@ -776,17 +803,17 @@ public final class MCEEW extends JavaPlugin {
         return intensityColor[Integer.parseInt(intensity)] + intensity;
     }
 
-    public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
+    public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String @NotNull [] args) {
         if (args.length == 0) {
-            sender.sendMessage("§a[MCEEW] Plugin Version: v" + version);
-            sender.sendMessage("§a[MCEEW] §3/eew§a - List commands.");
-            sender.sendMessage("§a[MCEEW] §3/eew test§a - Run EEW send test.");
-            sender.sendMessage("§a[MCEEW] §3/eew info§a - Get earthquake information.");
-            sender.sendMessage("§a[MCEEW] §3/eew reload§a - Reload configuration.");
+            sender.sendMessage(" Plugin Version: v" + version);
+            sender.sendMessage(" §3/eew§a - List commands.");
+            sender.sendMessage(" §3/eew test§a - Run EEW send test.");
+            sender.sendMessage(" §3/eew info§a - Get earthquake information.");
+            sender.sendMessage(" §3/eew reload§a - Reload configuration.");
             return true;
         } else if (args[0].equalsIgnoreCase("reload") && sender.isOp()) {
             loadEew(false);
-            sender.sendMessage("§a[MCEEW] Configuration reload successfully.");
+            sender.sendMessage(" Configuration reload successfully.");
             return true;
         } else if (args[0].equalsIgnoreCase("info")) {
             if (args.length == 2) {
@@ -798,8 +825,8 @@ public final class MCEEW extends JavaPlugin {
                     return true;
                 }
             } else {
-                sender.sendMessage("§a[MCEEW] §3/eew info jma§a - Get Japan JMA earthquake information.");
-                sender.sendMessage("§a[MCEEW] §3/eew info cenc§a - Get China CENC earthquake information.");
+                sender.sendMessage(" §3/eew info jma§a - Get Japan JMA earthquake information.");
+                sender.sendMessage(" §3/eew info cenc§a - Get China CENC earthquake information.");
                 return true;
             }
         } else if (args[0].equalsIgnoreCase("test") && sender.isOp()) {
@@ -821,11 +848,11 @@ public final class MCEEW extends JavaPlugin {
                     return true;
                 }
             } else {
-                sender.sendMessage("§a[MCEEW] §3/eew test forecast§a - Run JMA Forecast EEW test.");
-                sender.sendMessage("§a[MCEEW] §3/eew test alert§a - Run JMA Alert EEW test.");
-                sender.sendMessage("§a[MCEEW] §3/eew test sc§a - Run Sichuan EEW test.");
-                sender.sendMessage("§a[MCEEW] §3/eew test fj§a - Run Taiwan/Fujian EEW test.");
-                sender.sendMessage("§a[MCEEW] §3/eew test cwa§a - Run Taiwan CWA EEW test.");
+                sender.sendMessage(" §3/eew test forecast§a - Run JMA Forecast EEW test.");
+                sender.sendMessage(" §3/eew test alert§a - Run JMA Alert EEW test.");
+                sender.sendMessage(" §3/eew test sc§a - Run Sichuan EEW test.");
+                sender.sendMessage(" §3/eew test fj§a - Run Taiwan/Fujian EEW test.");
+                sender.sendMessage(" §3/eew test cwa§a - Run Taiwan CWA EEW test.");
                 return true;
             }
         }

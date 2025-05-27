@@ -7,3 +7,29 @@ folia-supported: true
 commands:
   eew:
   mceew:
+
+permissions:
+  mceew.notify.all:
+    description: "Receive all EEW notifications"
+    default: true
+  mceew.notify.jma.alert:
+    description: "Receive JMA EEW alerts"
+    default: true
+  mceew.notify.jma.forecast:
+    description: "Receive JMA EEW forecasts"
+    default: true
+  mceew.notify.jma.eqlist:
+    description: "Receive JMA earthquake information notifications"
+    default: true
+  mceew.notify.cenc.eqlist:
+    description: "Receive CENC earthquake information notifications"
+    default: true
+  mceew.notify.sc:
+    description: "Receive Sichuan EEW"
+    default: true
+  mceew.notify.fj:
+    description: "Receive Fujian EEW"
+    default: true
+  mceew.notify.cwa:
+    description: "Receive Taiwan CWA EEW"
+    default: true
