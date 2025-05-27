@@ -1,31 +1,32 @@
 # MCEEW
 
-A real-time Earthquake Early Warning(EEW) plugin for Minecraft Server.
+A real-time Earthquake Early Warning (EEW) plugin for Minecraft servers.
 
 ## Features
 
-* **Supports Spigot/Paper/Folia 1.13+.**
-* **Use WebSocket with low latency.**
-* **Receives Japan JMA EEW.**
-* **Receives JMA final reports.**
-* **Receives CENC final reports.**
-* **Receives Taiwan/Fujian EEW.**
-* **Receives Sichuan China EEW.**
-* **Broadcast messages to chat.**
-* **Broadcast messages to title.**
-* **Alerts when an earthquake is detected.**
-* **Allows manual get earthquake information.**
-* **Customizable broadcast messages.**
-* **Customizable alert sounds.**
-* **Customizable EEW switch.**
-* **Supports EEW send test.**
+* **Supports Spigot/Paper/Folia 1.13+**
+* **Low-latency WebSocket connection**
+* **Receives Japan JMA EEW alerts**
+* **Receives final reports from JMA**
+* **Receives final reports from CENC**
+* **Receives EEW alerts from Taiwan and Fujian**
+* **Receives EEW alerts from Sichuan, China**
+* **Broadcasts messages to chat**
+* **Broadcasts messages to screen titles**
+* **Sends alerts when an earthquake is detected**
+* **Allows manual retrieval of earthquake information**
+* **Supports permission-based notification control**
+* **Customizable broadcast messages**
+* **Customizable alert sounds**
+* **Customizable EEW toggles**
+* **Supports EEW test transmissions**
 
 ## Commands
 
-* List available commands: /eew
-* Get earthquake information: /eew info
-* Run EEW send test: /eew test (need admin)
-* Reload configuration: /eew reload (need admin)
+* View available commands: `/eew`
+* Retrieve latest earthquake info: `/eew info`
+* Run an EEW test alert: `/eew test` (admin only)
+* Reload plugin configuration: `/eew reload` (admin only)
 
 ## Downloads
 
