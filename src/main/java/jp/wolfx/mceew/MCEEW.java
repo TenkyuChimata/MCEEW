@@ -35,7 +35,7 @@ import java.util.concurrent.CompletionStage;
 
 public final class MCEEW extends JavaPlugin {
     private int configVersion;
-    private final int currentConfig = 6;
+    private final int currentConfig = 7;
     private boolean jpEewBoolean;
     private boolean scEewBoolean;
     private boolean fjEewBoolean;
@@ -181,15 +181,14 @@ public final class MCEEW extends JavaPlugin {
         return originTime2.format(DateTimeFormatter.ofPattern(timeFormat));
     }
 
-    private void playSound(String alertSoundType, double alertSoundVolume, double alertSoundPitch, String permissionNode) {
-        NamespacedKey key = NamespacedKey.minecraft(alertSoundType.toLowerCase());
+    private void playSound(String alertSoundType, double alertSoundVolume, double alertSoundPitch, Player player) {
+        NamespacedKey key = NamespacedKey.minecraft(alertSoundType);
         Sound alertPlayedSound = Registry.SOUNDS.get(key);
-        for (Player player : Bukkit.getServer().getOnlinePlayers()) {
-            if (canReceive(player, permissionNode)) {
-                assert alertPlayedSound != null;
-                player.playSound(player.getLocation(), alertPlayedSound, (float) alertSoundVolume, (float) alertSoundPitch);
-            }
+        if (alertPlayedSound == null) {
+            getLogger().warning("Unknown sound type: " + alertSoundType);
+            return;
         }
+        player.playSound(player.getLocation(), alertPlayedSound, (float) alertSoundVolume, (float) alertSoundPitch);
     }
 
     private void cancelScheduler() {
@@ -373,7 +372,7 @@ public final class MCEEW extends JavaPlugin {
         String info = jmaEqlistData.get("No1").getAsJsonObject().get("info").getAsString();
         String originTime = getDate("yyyy/MM/dd HH:mm:ss", timeFormat, "Asia/Tokyo", timeStr);
         if (jmaEqlistMd5 != null && jmaEqlistBoolean) {
-            Bukkit.broadcastMessage(
+            Bukkit.getConsoleSender().sendMessage(
                     jmaEqlistBroadcastMessage.
                             replaceAll("%origin_time%", originTime).
                             replaceAll("%region%", region).
@@ -384,6 +383,21 @@ public final class MCEEW extends JavaPlugin {
                             replaceAll("%shindo%", getShindoColor(shindo)).
                             replaceAll("%info%", info)
             );
+            for (Player player : Bukkit.getServer().getOnlinePlayers()) {
+                if (canReceive(player, "mceew.notify.jma.eqlist")) {
+                    player.sendMessage(
+                            jmaEqlistBroadcastMessage.
+                                    replaceAll("%origin_time%", originTime).
+                                    replaceAll("%region%", region).
+                                    replaceAll("%mag%", mag).
+                                    replaceAll("%depth%", depth).
+                                    replaceAll("%lat%", latitude).
+                                    replaceAll("%lon%", longitude).
+                                    replaceAll("%shindo%", getShindoColor(shindo)).
+                                    replaceAll("%info%", info)
+                    );
+                }
+            }
         }
         jmaEqlistMd5 = jmaEqlistData.get("md5").getAsString();
         jmaEqlistInfo.clear();
@@ -414,7 +428,7 @@ public final class MCEEW extends JavaPlugin {
             type = "自动测定";
         }
         if (cencEqlistMd5 != null && cencEqlistBoolean) {
-            Bukkit.broadcastMessage(
+            Bukkit.getConsoleSender().sendMessage(
                     cencEqlistBroadcastMessage.
                             replaceAll("%flag%", type).
                             replaceAll("%origin_time%", originTime).
@@ -425,6 +439,21 @@ public final class MCEEW extends JavaPlugin {
                             replaceAll("%lon%", longitude).
                             replaceAll("%shindo%", getIntensityColor(intensity))
             );
+            for (Player player : Bukkit.getServer().getOnlinePlayers()) {
+                if (canReceive(player, "mceew.notify.cenc.eqlist")) {
+                    player.sendMessage(
+                            cencEqlistBroadcastMessage.
+                                    replaceAll("%flag%", type).
+                                    replaceAll("%origin_time%", originTime).
+                                    replaceAll("%region%", region).
+                                    replaceAll("%mag%", mag).
+                                    replaceAll("%depth%", depth).
+                                    replaceAll("%lat%", latitude).
+                                    replaceAll("%lon%", longitude).
+                                    replaceAll("%shindo%", getIntensityColor(intensity))
+                    );
+                }
+            }
         }
         cencEqlistMd5 = cencEqlistData.get("md5").getAsString();
         cencEqlistInfo.clear();
@@ -519,7 +548,7 @@ public final class MCEEW extends JavaPlugin {
     private void jmaEewAction(String flag, String reportTime, String originTime, String num, String lat, String lon, String region, String mag, String depth, String shindo, String type) {
         if (broadcastBool) {
             if (Objects.equals(flag, "警報")) {
-                Bukkit.broadcastMessage(
+                Bukkit.getConsoleSender().sendMessage(
                         alertBroadcastMessage.
                                 replaceAll("%flag%", flag).
                                 replaceAll("%report_time%", reportTime).
@@ -534,7 +563,7 @@ public final class MCEEW extends JavaPlugin {
                                 replaceAll("%type%", type)
                 );
             } else {
-                Bukkit.broadcastMessage(
+                Bukkit.getConsoleSender().sendMessage(
                         forecastBroadcastMessage.
                                 replaceAll("%flag%", flag).
                                 replaceAll("%report_time%", reportTime).
@@ -550,8 +579,45 @@ public final class MCEEW extends JavaPlugin {
                 );
             }
         }
-        if (titleBool) {
-            for (Player player : Bukkit.getServer().getOnlinePlayers()) {
+        for (Player player : Bukkit.getServer().getOnlinePlayers()) {
+            if (broadcastBool) {
+                if (Objects.equals(flag, "警報")) {
+                    if (canReceive(player, "mceew.notify.jma.alert")) {
+                        player.sendMessage(
+                                alertBroadcastMessage.
+                                        replaceAll("%flag%", flag).
+                                        replaceAll("%report_time%", reportTime).
+                                        replaceAll("%origin_time%", originTime).
+                                        replaceAll("%num%", num).
+                                        replaceAll("%lat%", lat).
+                                        replaceAll("%lon%", lon).
+                                        replaceAll("%region%", region).
+                                        replaceAll("%mag%", mag).
+                                        replaceAll("%depth%", depth).
+                                        replaceAll("%shindo%", shindo).
+                                        replaceAll("%type%", type)
+                        );
+                    }
+                } else {
+                    if (canReceive(player, "mceew.notify.jma.forecast")) {
+                        player.sendMessage(
+                                forecastBroadcastMessage.
+                                        replaceAll("%flag%", flag).
+                                        replaceAll("%report_time%", reportTime).
+                                        replaceAll("%origin_time%", originTime).
+                                        replaceAll("%num%", num).
+                                        replaceAll("%lat%", lat).
+                                        replaceAll("%lon%", lon).
+                                        replaceAll("%region%", region).
+                                        replaceAll("%mag%", mag).
+                                        replaceAll("%depth%", depth).
+                                        replaceAll("%shindo%", shindo).
+                                        replaceAll("%type%", type)
+                        );
+                    }
+                }
+            }
+            if (titleBool) {
                 if (Objects.equals(flag, "警報")) {
                     if (canReceive(player, "mceew.notify.jma.alert")) {
                         player.showTitle(
@@ -616,19 +682,23 @@ public final class MCEEW extends JavaPlugin {
                     }
                 }
             }
-        }
-        if (alertBool) {
-            if (Objects.equals(flag, "警報")) {
-                playSound(alertAlertSoundType, alertAlertSoundVolume, alertAlertSoundPitch, "mceew.notify.jma.alert");
-            } else {
-                playSound(forecastAlertSoundType, forecastAlertSoundVolume, forecastAlertSoundPitch, "mceew.notify.jma.forecast");
+            if (alertBool) {
+                if (Objects.equals(flag, "警報")) {
+                    if (canReceive(player, "mceew.notify.jma.alert")) {
+                        playSound(alertAlertSoundType, alertAlertSoundVolume, alertAlertSoundPitch, player);
+                    }
+                } else {
+                    if (canReceive(player, "mceew.notify.jma.forecast")) {
+                        playSound(forecastAlertSoundType, forecastAlertSoundVolume, forecastAlertSoundPitch, player);
+                    }
+                }
             }
         }
     }
 
     private void scEewAction(String reportTime, String originTime, String num, String lat, String lon, String region, String mag, String depth, String intensity) {
         if (broadcastBool) {
-            Bukkit.broadcastMessage(
+            Bukkit.getConsoleSender().sendMessage(
                     sichuanBroadcastMessage.
                             replaceAll("%report_time%", reportTime).
                             replaceAll("%origin_time%", originTime).
@@ -641,9 +711,23 @@ public final class MCEEW extends JavaPlugin {
                             replaceAll("%shindo%", intensity)
             );
         }
-        if (titleBool) {
-            for (Player player : Bukkit.getServer().getOnlinePlayers()) {
-                if (canReceive(player, "mceew.notify.sc")) {
+        for (Player player : Bukkit.getServer().getOnlinePlayers()) {
+            if (canReceive(player, "mceew.notify.sc")) {
+                if (broadcastBool) {
+                    player.sendMessage(
+                            sichuanBroadcastMessage.
+                                    replaceAll("%report_time%", reportTime).
+                                    replaceAll("%origin_time%", originTime).
+                                    replaceAll("%num%", num).
+                                    replaceAll("%lat%", lat).
+                                    replaceAll("%lon%", lon).
+                                    replaceAll("%region%", region).
+                                    replaceAll("%mag%", mag).
+                                    replaceAll("%depth%", depth).
+                                    replaceAll("%shindo%", intensity)
+                    );
+                }
+                if (titleBool) {
                     player.showTitle(
                             Title.title(
                                     Component.text(sichuanTitleMessage.
@@ -669,16 +753,16 @@ public final class MCEEW extends JavaPlugin {
                             )
                     );
                 }
+                if (alertBool) {
+                    playSound(scAlertSoundType, scAlertSoundVolume, scAlertSoundPitch, player);
+                }
             }
-        }
-        if (alertBool) {
-            playSound(scAlertSoundType, scAlertSoundVolume, scAlertSoundPitch, "mceew.notify.sc");
         }
     }
 
     private void fjEewAction(String reportTime, String originTime, String num, String lat, String lon, String region, String mag, String type) {
         if (broadcastBool) {
-            Bukkit.broadcastMessage(
+            Bukkit.getConsoleSender().sendMessage(
                     fjBroadcastMessage.
                             replaceAll("%report_time%", reportTime).
                             replaceAll("%origin_time%", originTime).
@@ -690,9 +774,22 @@ public final class MCEEW extends JavaPlugin {
                             replaceAll("%type%", type)
             );
         }
-        if (titleBool) {
-            for (Player player : Bukkit.getServer().getOnlinePlayers()) {
-                if (canReceive(player, "mceew.notify.fj")) {
+        for (Player player : Bukkit.getServer().getOnlinePlayers()) {
+            if (canReceive(player, "mceew.notify.fj")) {
+                if (broadcastBool) {
+                    player.sendMessage(
+                            fjBroadcastMessage.
+                                    replaceAll("%report_time%", reportTime).
+                                    replaceAll("%origin_time%", originTime).
+                                    replaceAll("%num%", num).
+                                    replaceAll("%lat%", lat).
+                                    replaceAll("%lon%", lon).
+                                    replaceAll("%region%", region).
+                                    replaceAll("%mag%", mag).
+                                    replaceAll("%type%", type)
+                    );
+                }
+                if (titleBool) {
                     player.showTitle(
                             Title.title(
                                     Component.text(fjTitleMessage.
@@ -716,16 +813,16 @@ public final class MCEEW extends JavaPlugin {
                             )
                     );
                 }
+                if (alertBool) {
+                    playSound(fjAlertSoundType, fjAlertSoundVolume, fjAlertSoundPitch, player);
+                }
             }
-        }
-        if (alertBool) {
-            playSound(fjAlertSoundType, fjAlertSoundVolume, fjAlertSoundPitch, "mceew.notify.fj");
         }
     }
 
     private void cwaEewAction(String reportTime, String originTime, String num, String lat, String lon, String region, String mag, String depth, String shindo) {
         if (broadcastBool) {
-            Bukkit.broadcastMessage(
+            Bukkit.getConsoleSender().sendMessage(
                     cwaBroadcastMessage.
                             replaceAll("%report_time%", reportTime).
                             replaceAll("%origin_time%", originTime).
@@ -738,9 +835,23 @@ public final class MCEEW extends JavaPlugin {
                             replaceAll("%shindo%", shindo)
             );
         }
-        if (titleBool) {
-            for (Player player : Bukkit.getServer().getOnlinePlayers()) {
-                if (canReceive(player, "mceew.notify.cwa")) {
+        for (Player player : Bukkit.getServer().getOnlinePlayers()) {
+            if (canReceive(player, "mceew.notify.cwa")) {
+                if (broadcastBool) {
+                    player.sendMessage(
+                            cwaBroadcastMessage.
+                                    replaceAll("%report_time%", reportTime).
+                                    replaceAll("%origin_time%", originTime).
+                                    replaceAll("%num%", num).
+                                    replaceAll("%lat%", lat).
+                                    replaceAll("%lon%", lon).
+                                    replaceAll("%region%", region).
+                                    replaceAll("%mag%", mag).
+                                    replaceAll("%depth%", depth).
+                                    replaceAll("%shindo%", shindo)
+                    );
+                }
+                if (titleBool) {
                     player.showTitle(
                             Title.title(
                                     Component.text(cwaTitleMessage.
@@ -766,10 +877,10 @@ public final class MCEEW extends JavaPlugin {
                             )
                     );
                 }
+                if (alertBool) {
+                    playSound(cwaAlertSoundType, cwaAlertSoundVolume, cwaAlertSoundPitch, player);
+                }
             }
-        }
-        if (alertBool) {
-            playSound(cwaAlertSoundType, cwaAlertSoundVolume, cwaAlertSoundPitch, "mceew.notify.cwa");
         }
     }
 

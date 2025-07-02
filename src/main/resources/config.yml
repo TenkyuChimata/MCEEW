@@ -91,31 +91,31 @@ Sound:
   # Japan JMA EEW alert sound
   Alert:
     # Set the alert sound type
-    type: "BLOCK_NOTE_BLOCK_PLING"
+    type: "block.note_block.pling"
     # Set the alert sound volume
     volume: 1000.0
     # Set the alert sound pitch
     pitch: 1.0
   # Japan JMA EEW forecast sound
   Forecast:
-    type: "BLOCK_NOTE_BLOCK_PLING"
+    type: "block.note_block.pling"
     volume: 1000.0
     pitch: 1.0
   # Sichuan EEW sound
   Sichuan:
-    type: "BLOCK_NOTE_BLOCK_PLING"
+    type: "block.note_block.pling"
     volume: 1000.0
     pitch: 1.0
   # Fujian/Taiwan EEW sound
   Fjea:
-    type: "BLOCK_NOTE_BLOCK_PLING"
+    type: "block.note_block.pling"
     volume: 1000.0
     pitch: 1.0
   # Taiwan CWA EEW sound
   Cwa:
-    type: "BLOCK_NOTE_BLOCK_PLING"
+    type: "block.note_block.pling"
     volume: 1000.0
     pitch: 1.0
 
 # Do not change this value
-config-version: 6
+config-version: 7
