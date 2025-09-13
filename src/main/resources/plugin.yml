@@ -33,3 +33,6 @@ permissions:
   mceew.notify.cwa:
     description: "Receive Taiwan CWA EEW"
     default: true
+  mceew.notify.cenc.eew:
+    description: "Receive China CENC EEW"
+    default: true
