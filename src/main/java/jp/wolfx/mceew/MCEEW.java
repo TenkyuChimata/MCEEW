@@ -543,7 +543,12 @@ public final class MCEEW extends JavaPlugin {
         String region = cencEewData.get("HypoCenter").getAsString();
         String mag = cencEewData.get("Magnitude").getAsString();
         String intensity = String.valueOf(Math.round(Float.parseFloat(cencEewData.get("MaxIntensity").getAsString())));
-        String depth = cencEewData.get("Depth").getAsString() + "km";
+        String depth;
+        if (!cencEewData.get("Depth").isJsonNull()) {
+            depth = cencEewData.get("Depth").getAsString() + "km";
+        } else {
+            depth = "10km";
+        }
         String originTime = getDate("yyyy-MM-dd HH:mm:ss", timeFormat, "Asia/Shanghai", cencEewData.get("OriginTime").getAsString());
         cencEewAction(reportTime, originTime, num, lat, lon, region, mag, depth, getIntensityColor(intensity));
     }
