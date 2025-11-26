@@ -23,6 +23,8 @@ import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -210,6 +212,19 @@ public final class MCEEW extends JavaPlugin {
         player.playSound(player.getLocation(), alertPlayedSound, (float) alertSoundVolume, (float) alertSoundPitch);
     }
 
+    private boolean isFresh(String reportTimeStr, String pattern, ZoneId zone) {
+        try {
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern(pattern);
+            LocalDateTime reportTime = LocalDateTime.parse(reportTimeStr, formatter);
+            ZonedDateTime reportZdt = reportTime.atZone(zone);
+            ZonedDateTime now = ZonedDateTime.now(zone);
+            long diff = Math.abs(Duration.between(reportZdt, now).toMinutes());
+            return diff <= 10;
+        } catch (Exception e) {
+            return true;
+        }
+    }
+
     private void cancelScheduler() {
         if (!folia) {
             Bukkit.getScheduler().cancelTasks(this);
@@ -380,7 +395,9 @@ public final class MCEEW extends JavaPlugin {
         if (jmaEewData.get("isCancel").getAsBoolean()) {
             type = "取消";
         }
-        jmaEewAction(flag, reportTime, originTime, num, lat, lon, region, mag, depth, getShindoColor(shindo), type);
+        if (isFresh(reportTime, "yyyy/MM/dd HH:mm:ss", ZoneId.of("Asia/Tokyo"))) {
+            jmaEewAction(flag, reportTime, originTime, num, lat, lon, region, mag, depth, getShindoColor(shindo), type);
+        }
     }
 
     private void jmaEqlistExecute(Boolean jmaEqlistBoolean) {
@@ -504,7 +521,9 @@ public final class MCEEW extends JavaPlugin {
             depth = "10km";
         }
         String originTime = getDate("yyyy-MM-dd HH:mm:ss", timeFormat, "Asia/Shanghai", scEewData.get("OriginTime").getAsString());
-        scEewAction(reportTime, originTime, num, lat, lon, region, mag, depth, getIntensityColor(intensity));
+        if (isFresh(reportTime, "yyyy-MM-dd HH:mm:ss", ZoneId.of("Asia/Shanghai"))) {
+            scEewAction(reportTime, originTime, num, lat, lon, region, mag, depth, getIntensityColor(intensity));
+        }
     }
 
     private void fjEewExecute(JsonObject fjEewData) {
@@ -519,7 +538,9 @@ public final class MCEEW extends JavaPlugin {
         if (fjEewData.get("isFinal").getAsBoolean()) {
             type = "最終報";
         }
-        fjEewAction(reportTime, originTime, num, lat, lon, region, mag, type);
+        if (isFresh(reportTime, "yyyy-MM-dd HH:mm:ss", ZoneId.of("Asia/Shanghai"))) {
+            fjEewAction(reportTime, originTime, num, lat, lon, region, mag, type);
+        }
     }
 
     private void cwaEewExecute(JsonObject cwaEewData) {
@@ -532,7 +553,9 @@ public final class MCEEW extends JavaPlugin {
         String depth = cwaEewData.get("Depth").getAsString() + "km";
         String shindo = cwaEewData.get("MaxIntensity").getAsString();
         String originTime = getDate("yyyy-MM-dd HH:mm:ss", timeFormat, "Asia/Shanghai", cwaEewData.get("OriginTime").getAsString());
-        cwaEewAction(reportTime, originTime, num, lat, lon, region, mag, depth, getShindoColor(shindo));
+        if (isFresh(reportTime, "yyyy-MM-dd HH:mm:ss", ZoneId.of("Asia/Shanghai"))) {
+            cwaEewAction(reportTime, originTime, num, lat, lon, region, mag, depth, getShindoColor(shindo));
+        }
     }
 
     private void cencEewExecute(JsonObject cencEewData) {
@@ -550,7 +573,9 @@ public final class MCEEW extends JavaPlugin {
             depth = "10km";
         }
         String originTime = getDate("yyyy-MM-dd HH:mm:ss", timeFormat, "Asia/Shanghai", cencEewData.get("OriginTime").getAsString());
-        cencEewAction(reportTime, originTime, num, lat, lon, region, mag, depth, getIntensityColor(intensity));
+        if (isFresh(reportTime, "yyyy-MM-dd HH:mm:ss", ZoneId.of("Asia/Shanghai"))) {
+            cencEewAction(reportTime, originTime, num, lat, lon, region, mag, depth, getIntensityColor(intensity));
+        }
     }
 
     private void getEewInfo(Boolean flag, CommandSender sender) {
