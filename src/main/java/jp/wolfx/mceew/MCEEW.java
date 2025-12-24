@@ -16,19 +16,19 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.bstats.bukkit.Metrics;
 import org.jetbrains.annotations.NotNull;
 
-import java.io.BufferedReader;
+import javax.naming.directory.Attribute;
+import javax.naming.directory.Attributes;
+import javax.naming.directory.DirContext;
+import javax.naming.directory.InitialDirContext;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
 import java.net.URI;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Hashtable;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.net.http.HttpClient;
@@ -192,6 +192,76 @@ public final class MCEEW extends JavaPlugin {
         Bukkit.broadcastMessage("§eWarning: This is an Earthquake Early Warning test.");
     }
 
+    private String fetchVersionFromDnsTxt() throws Exception {
+        Hashtable<String, String> env = new Hashtable<>();
+        env.put("java.naming.factory.initial", "com.sun.jndi.dns.DnsContextFactory");
+        // 也可以指定 resolver，例如 Cloudflare：env.put("java.naming.provider.url", "dns://1.1.1.1");
+        DirContext ctx = new InitialDirContext(env);
+
+        Attributes attrs = ctx.getAttributes("mceew.mtf.edu.kg", new String[]{"TXT"});
+        Attribute txt = attrs.get("TXT");
+        if (txt == null || txt.size() == 0) return null;
+
+        // 一个域名可能有多条 TXT，这里遍历找包含 version= 的那条
+        for (int i = 0; i < txt.size(); i++) {
+            String record = String.valueOf(txt.get(i));
+
+            // JNDI 返回的 TXT 可能自带引号，先去掉
+            record = record.replace("\"", "").trim();
+
+            // 允许记录里包含多个键值，例如: foo=bar version=1.2.3
+            // 但你目前是单值：version=1.2.3
+            int idx = record.indexOf("version=");
+            if (idx >= 0) {
+                String v = record.substring(idx + "version=".length()).trim();
+
+                // 如果后面还有空格/分号之类，切掉
+                int cut = v.indexOf(' ');
+                if (cut > 0) v = v.substring(0, cut);
+                cut = v.indexOf(';');
+                if (cut > 0) v = v.substring(0, cut);
+
+                // 只保留数字和点（防御性）
+                v = v.replaceAll("[^0-9.]", "");
+                return v;
+            }
+        }
+        return null;
+    }
+
+    private int compareSemver(String a, String b) {
+        int[] av = parseSemver(a);
+        int[] bv = parseSemver(b);
+
+        int n = Math.max(av.length, bv.length);
+        for (int i = 0; i < n; i++) {
+            int ai = i < av.length ? av[i] : 0;
+            int bi = i < bv.length ? bv[i] : 0;
+            if (ai != bi) return Integer.compare(ai, bi);
+        }
+        return 0;
+    }
+
+    private int[] parseSemver(String v) {
+        if (v == null) return new int[]{0, 0, 0};
+        v = v.trim();
+
+        // 防御：只留 x.y.z 数字点
+        v = v.replaceAll("[^0-9.]", "");
+        if (v.isEmpty()) return new int[]{0, 0, 0};
+
+        String[] parts = v.split("\\.");
+        int[] out = new int[parts.length];
+        for (int i = 0; i < parts.length; i++) {
+            try {
+                out[i] = Integer.parseInt(parts[i].isEmpty() ? "0" : parts[i]);
+            } catch (NumberFormatException e) {
+                out[i] = 0;
+            }
+        }
+        return out;
+    }
+
     private boolean canReceive(Player player, String node) {
         return player.hasPermission("mceew.notify.all") && player.hasPermission(node);
     }
@@ -251,32 +321,31 @@ public final class MCEEW extends JavaPlugin {
     }
 
     private void updater() {
-        StringBuilder rawData = new StringBuilder();
         try {
-            URL url = new URL("https://tenkyuchimata.github.io/MCEEW/version.json");
-            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-            connection.setConnectTimeout(5000);
-            connection.setReadTimeout(5000);
-            if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) {
-                throw new IOException();
+            // 1) 从 DNS TXT 读取版本号（格式：version=x.x.x）
+            String apiVersion = fetchVersionFromDnsTxt(); // 例如 "2.6.2"
+            if (apiVersion == null || apiVersion.isBlank()) {
+                throw new IOException("Empty version from DNS TXT");
             }
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    rawData.append(line);
-                }
-                JsonObject json = JsonParser.parseString(rawData.toString()).getAsJsonObject();
-                String apiVersion = json.get("version").getAsString();
-                if (Integer.parseInt(apiVersion.replaceAll("\\.", "")) > Integer.parseInt(version.replaceAll("-b.*", "").replaceAll("\\.", ""))) {
-                    getLogger().warning("New plugin version v" + apiVersion + " detected, Please download a new version from https://acg.kr/mceew");
-                } else {
-                    getLogger().info("You are running the latest plugin version.");
-                }
+
+            // 2) 本地版本号清洗（去掉 -bxxx 之类后缀）
+            String localVersion = version.replaceAll("-b.*", "");
+
+            // 3) 版本比较（语义化比较，避免 2.10.0 vs 2.6.9 这种出错）
+            int cmp = compareSemver(apiVersion, localVersion);
+
+            if (cmp > 0) {
+                getLogger().warning("New plugin version v" + apiVersion
+                        + " detected, Please download a new version from https://acg.kr/mceew");
+            } else {
+                getLogger().info(String.format("Plugin is up to date. Current version: v%s", apiVersion));
             }
-        } catch (IOException e) {
-            getLogger().warning("Failed to check for plugin updates.");
+
+        } catch (Exception e) {
+            getLogger().warning("Failed to check for plugin updates via DNS TXT.");
             getLogger().warning(String.valueOf(e));
         }
+
         if (currentConfig > configVersion) {
             getLogger().warning("Configuration update detected, please delete the MCEEW configuration file to update it.");
         }
