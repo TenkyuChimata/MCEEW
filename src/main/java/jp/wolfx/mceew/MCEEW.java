@@ -3,6 +3,7 @@ package jp.wolfx.mceew;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.title.Title;
 import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
@@ -37,7 +38,7 @@ import java.util.concurrent.CompletionStage;
 
 public final class MCEEW extends JavaPlugin {
     private int configVersion;
-    private final int currentConfig = 8;
+    private static final int currentConfig = 8;
     private boolean jpEewBoolean;
     private boolean scEewBoolean;
     private boolean fjEewBoolean;
@@ -93,8 +94,8 @@ public final class MCEEW extends JavaPlugin {
     private JsonObject cencEqlistData = null;
     private final ArrayList<String> jmaEqlistInfo = new ArrayList<>();
     private final ArrayList<String> cencEqlistInfo = new ArrayList<>();
-    private final String version = getDescription().getVersion();
-    private final HttpClient client = HttpClient.newHttpClient();
+    private final String version = getPluginMeta().getVersion();
+    private static final HttpClient client = HttpClient.newHttpClient();
     private final boolean folia = isFolia();
 
     @Override
@@ -189,7 +190,7 @@ public final class MCEEW extends JavaPlugin {
             String originTime = getDate("yyyy/MM/dd HH:mm:ss", timeFormat, "Asia/Tokyo", originTimeStr);
             jmaEewAction(flags, reportTime, originTime, num, lat, lon, region, mag, depth, getShindoColor(shindo), type);
         }
-        Bukkit.broadcastMessage("§eWarning: This is an Earthquake Early Warning test.");
+        Bukkit.getServer().broadcast(Component.text("Warning: This is an Earthquake Early Warning test.", NamedTextColor.YELLOW));
     }
 
     private String fetchVersionFromDnsTxt() throws Exception {
