@@ -337,7 +337,7 @@ public final class MCEEW extends JavaPlugin {
 
             if (cmp > 0) {
                 getLogger().warning("New plugin version v" + apiVersion
-                        + " detected, Please download a new version from https://acg.kr/mceew");
+                        + " detected, Please download a new version from https://www.spigotmc.org/resources/mceew-earthquake-early-warning.104549/");
             } else {
                 getLogger().info(String.format("Plugin is up to date. Current version: v%s", apiVersion));
             }

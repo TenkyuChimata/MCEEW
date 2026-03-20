@@ -31,7 +31,7 @@ A real-time Earthquake Early Warning (EEW) plugin for Minecraft servers.
 
 ## Downloads
 
-* [SpigotMC (Recommend)](https://acg.kr/mceew)
+* [SpigotMC (Recommend)](https://www.spigotmc.org/resources/mceew-earthquake-early-warning.104549/)
 * [GitHub Releases](https://github.com/TenkyuChimata/MCEEW/releases/latest)
 
 ## Screenshots
