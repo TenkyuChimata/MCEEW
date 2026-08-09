@@ -3,6 +3,7 @@ package jp.wolfx.mceew.websocket;
 import java.net.http.HttpResponse;
 import java.net.http.WebSocket;
 import java.net.http.WebSocketHandshakeException;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -18,6 +19,8 @@ import java.util.function.Consumer;
 public final class WebSocketConnectionManager {
     static final String JMA_QUERY = "query_jmaeqlist";
     static final String CENC_QUERY = "query_cenceqlist";
+    static final long BOOTSTRAP_QUERY_INTERVAL_MILLIS = 1200L;
+    static final List<String> BOOTSTRAP_QUERIES = List.of(JMA_QUERY, CENC_QUERY);
 
     @FunctionalInterface
     public interface Connector {
@@ -25,7 +28,7 @@ public final class WebSocketConnectionManager {
     }
 
     @FunctionalInterface
-    public interface ReconnectScheduler {
+    public interface DelayScheduler {
         ScheduledAction schedule(Runnable task, long delay, TimeUnit unit);
     }
 
@@ -36,7 +39,7 @@ public final class WebSocketConnectionManager {
 
     private final Object lock = new Object();
     private final Connector connector;
-    private final ReconnectScheduler reconnectScheduler;
+    private final DelayScheduler delayScheduler;
     private final Consumer<String> messageConsumer;
     private final Logger logger;
     private final long reconnectDelay;
@@ -44,21 +47,22 @@ public final class WebSocketConnectionManager {
 
     private long generation;
     private boolean stopped = true;
-    private boolean initialQueriesCompleted;
+    private long bootstrapGeneration = -1L;
     private WebSocket activeSocket;
     private CompletableFuture<WebSocket> connecting;
     private ScheduledAction scheduledReconnect;
+    private ScheduledAction scheduledBootstrap;
 
     public WebSocketConnectionManager(
             Connector connector,
-            ReconnectScheduler reconnectScheduler,
+            DelayScheduler delayScheduler,
             Consumer<String> messageConsumer,
             Logger logger,
             long reconnectDelay,
             TimeUnit reconnectDelayUnit
     ) {
         this.connector = Objects.requireNonNull(connector, "connector");
-        this.reconnectScheduler = Objects.requireNonNull(reconnectScheduler, "reconnectScheduler");
+        this.delayScheduler = Objects.requireNonNull(delayScheduler, "delayScheduler");
         this.messageConsumer = Objects.requireNonNull(messageConsumer, "messageConsumer");
         this.logger = Objects.requireNonNull(logger, "logger");
         this.reconnectDelay = reconnectDelay;
@@ -81,6 +85,7 @@ public final class WebSocketConnectionManager {
         WebSocket oldSocket;
         CompletableFuture<WebSocket> oldConnection;
         ScheduledAction oldReconnect;
+        ScheduledAction oldBootstrap;
         long token;
         synchronized (lock) {
             stopped = false;
@@ -91,8 +96,11 @@ public final class WebSocketConnectionManager {
             connecting = null;
             oldReconnect = scheduledReconnect;
             scheduledReconnect = null;
+            oldBootstrap = scheduledBootstrap;
+            scheduledBootstrap = null;
         }
         cancel(oldReconnect);
+        cancel(oldBootstrap);
         cancel(oldConnection);
         closeBeforeRestart(oldSocket, token);
     }
@@ -101,8 +109,10 @@ public final class WebSocketConnectionManager {
         WebSocket oldSocket;
         CompletableFuture<WebSocket> oldConnection;
         ScheduledAction oldReconnect;
+        ScheduledAction oldBootstrap;
         synchronized (lock) {
-            if (stopped && activeSocket == null && connecting == null && scheduledReconnect == null) {
+            if (stopped && activeSocket == null && connecting == null
+                    && scheduledReconnect == null && scheduledBootstrap == null) {
                 return;
             }
             stopped = true;
@@ -113,8 +123,11 @@ public final class WebSocketConnectionManager {
             connecting = null;
             oldReconnect = scheduledReconnect;
             scheduledReconnect = null;
+            oldBootstrap = scheduledBootstrap;
+            scheduledBootstrap = null;
         }
         cancel(oldReconnect);
+        cancel(oldBootstrap);
         cancel(oldConnection);
         closeWithoutReconnect(oldSocket, "Plugin disabled");
     }
@@ -210,12 +223,16 @@ public final class WebSocketConnectionManager {
     }
 
     private void handleConnectionFailure(long token, WebSocket socket, Throwable error, String message) {
+        ScheduledAction bootstrap;
         synchronized (lock) {
             if (!isCurrentSocket(token, socket)) {
                 return;
             }
             activeSocket = null;
+            bootstrap = scheduledBootstrap;
+            scheduledBootstrap = null;
         }
+        cancel(bootstrap);
         logFailure(message, error);
         socket.abort();
         scheduleReconnect(token);
@@ -229,7 +246,7 @@ public final class WebSocketConnectionManager {
             logger.warning("Trying to reconnect to WebSocket API in "
                     + reconnectDelay + " " + reconnectDelayUnit.toString().toLowerCase() + ".");
             try {
-                scheduledReconnect = reconnectScheduler.schedule(
+                scheduledReconnect = delayScheduler.schedule(
                         () -> runReconnect(token), reconnectDelay, reconnectDelayUnit);
             } catch (Throwable error) {
                 logger.log(Level.WARNING, "Unable to schedule WebSocket reconnect.", error);
@@ -249,35 +266,74 @@ public final class WebSocketConnectionManager {
         connect(nextToken);
     }
 
-    private void sendInitialQueries(long token, WebSocket socket) {
-        CompletableFuture<WebSocket> sends;
-        try {
-            sends = socket.sendText(JMA_QUERY, true)
-                    .thenCompose(sentSocket -> {
-                        synchronized (lock) {
-                            if (!isCurrentSocket(token, socket)) {
-                                return CompletableFuture.completedFuture(sentSocket);
-                            }
-                        }
-                        return sentSocket.sendText(CENC_QUERY, true);
-                    });
-        } catch (Throwable error) {
-            handleConnectionFailure(token, socket, error,
-                    "Failed to send initial WebSocket earthquake-list queries.");
-            return;
-        }
-        sends.whenComplete((ignored, error) -> {
-            if (error != null) {
-                handleConnectionFailure(token, socket, error,
-                        "Failed to send initial WebSocket earthquake-list queries.");
+    private void sendBootstrapQuery(long token, WebSocket socket, int queryIndex) {
+        String query = BOOTSTRAP_QUERIES.get(queryIndex);
+        CompletableFuture<WebSocket> send = null;
+        Throwable sendFailure = null;
+        synchronized (lock) {
+            if (!isCurrentBootstrap(token, socket)) {
                 return;
             }
-            synchronized (lock) {
-                if (isCurrentSocket(token, socket)) {
-                    initialQueriesCompleted = true;
-                }
+            try {
+                send = socket.sendText(query, true);
+            } catch (Throwable error) {
+                sendFailure = error;
+            }
+        }
+        if (sendFailure != null) {
+            handleBootstrapFailure(token, socket, query, sendFailure);
+            return;
+        }
+        CompletableFuture<WebSocket> sendResult = send;
+        sendResult.whenComplete((ignored, error) -> {
+            if (error != null) {
+                handleBootstrapFailure(token, socket, query, error);
+            } else if (queryIndex + 1 < BOOTSTRAP_QUERIES.size()) {
+                scheduleBootstrapQuery(token, socket, queryIndex + 1);
             }
         });
+    }
+
+    private void scheduleBootstrapQuery(long token, WebSocket socket, int queryIndex) {
+        Throwable scheduleFailure = null;
+        synchronized (lock) {
+            if (!isCurrentBootstrap(token, socket) || scheduledBootstrap != null) {
+                return;
+            }
+            try {
+                scheduledBootstrap = delayScheduler.schedule(
+                        () -> runBootstrapQuery(token, socket, queryIndex),
+                        BOOTSTRAP_QUERY_INTERVAL_MILLIS,
+                        TimeUnit.MILLISECONDS
+                );
+            } catch (Throwable error) {
+                scheduleFailure = error;
+            }
+        }
+        if (scheduleFailure != null) {
+            handleBootstrapFailure(
+                    token, socket, BOOTSTRAP_QUERIES.get(queryIndex), scheduleFailure);
+        }
+    }
+
+    private void runBootstrapQuery(long token, WebSocket socket, int queryIndex) {
+        synchronized (lock) {
+            if (!isCurrentBootstrap(token, socket) || scheduledBootstrap == null) {
+                return;
+            }
+            scheduledBootstrap = null;
+        }
+        sendBootstrapQuery(token, socket, queryIndex);
+    }
+
+    private void handleBootstrapFailure(
+            long token, WebSocket socket, String query, Throwable error) {
+        handleConnectionFailure(token, socket, error,
+                "Failed to send WebSocket bootstrap query: " + query);
+    }
+
+    private boolean isCurrentBootstrap(long token, WebSocket socket) {
+        return bootstrapGeneration == token && isCurrentSocket(token, socket);
     }
 
     private boolean isCurrentGeneration(long token) {
@@ -339,20 +395,26 @@ public final class WebSocketConnectionManager {
 
         @Override
         public void onOpen(WebSocket socket) {
-            boolean sendQueries;
+            boolean startBootstrap;
             synchronized (lock) {
                 if (!isCurrentGeneration(token) || (activeSocket != null && activeSocket != socket)) {
                     socket.abort();
                     return;
                 }
+                if (activeSocket == socket) {
+                    return;
+                }
                 activeSocket = socket;
                 connecting = null;
-                sendQueries = !initialQueriesCompleted;
+                startBootstrap = bootstrapGeneration != token;
+                if (startBootstrap) {
+                    bootstrapGeneration = token;
+                }
             }
             logger.info("Connected to WebSocket API.");
             socket.request(1);
-            if (sendQueries) {
-                sendInitialQueries(token, socket);
+            if (startBootstrap) {
+                sendBootstrapQuery(token, socket, 0);
             }
         }
 
@@ -368,7 +430,12 @@ public final class WebSocketConnectionManager {
                 if (last) {
                     String completeMessage = messageBuffer.toString();
                     messageBuffer.setLength(0);
-                    messageConsumer.accept(completeMessage);
+                    synchronized (lock) {
+                        if (!isCurrentSocket(token, socket)) {
+                            return CompletableFuture.completedFuture(null);
+                        }
+                        messageConsumer.accept(completeMessage);
+                    }
                 }
                 socket.request(1);
             } catch (Throwable error) {
@@ -380,12 +447,16 @@ public final class WebSocketConnectionManager {
 
         @Override
         public CompletionStage<?> onClose(WebSocket socket, int statusCode, String reason) {
+            ScheduledAction bootstrap;
             synchronized (lock) {
                 if (!isCurrentSocket(token, socket)) {
                     return CompletableFuture.completedFuture(null);
                 }
                 activeSocket = null;
+                bootstrap = scheduledBootstrap;
+                scheduledBootstrap = null;
             }
+            cancel(bootstrap);
             if (statusCode == WebSocket.NORMAL_CLOSURE) {
                 logger.info("WebSocket API connection closed normally.");
             } else {

@@ -1,5 +1,9 @@
 package jp.wolfx.mceew;
 
+import com.google.gson.JsonObject;
+
+import java.util.Objects;
+
 /**
  * Atomically published immutable snapshots shared by WebSocket and command threads.
  */
@@ -9,20 +13,34 @@ final class EarthquakeInfoCache {
     private volatile JmaSnapshot jma;
     private volatile CencSnapshot cenc;
 
+    enum UpdateResult {
+        FIRST_VALUE,
+        UNCHANGED,
+        CHANGED;
+
+        boolean shouldNotify(boolean enabled) {
+            return this == CHANGED && enabled;
+        }
+    }
+
     JmaSnapshot getJma() {
         return jma;
     }
 
-    void setJma(JmaSnapshot snapshot) {
+    synchronized UpdateResult updateJma(JmaSnapshot snapshot) {
+        UpdateResult result = classify(jma, snapshot.md5);
         jma = snapshot;
+        return result;
     }
 
     CencSnapshot getCenc() {
         return cenc;
     }
 
-    void setCenc(CencSnapshot snapshot) {
+    synchronized UpdateResult updateCenc(CencSnapshot snapshot) {
+        UpdateResult result = classify(cenc, snapshot.md5);
         cenc = snapshot;
+        return result;
     }
 
     String formatJma(String template) {
@@ -30,14 +48,7 @@ final class EarthquakeInfoCache {
         if (snapshot == null) {
             return NOT_AVAILABLE;
         }
-        return template.replaceAll("%origin_time%", snapshot.originTime)
-                .replaceAll("%region%", snapshot.region)
-                .replaceAll("%mag%", snapshot.magnitude)
-                .replaceAll("%depth%", snapshot.depth)
-                .replaceAll("%lat%", snapshot.latitude)
-                .replaceAll("%lon%", snapshot.longitude)
-                .replaceAll("%shindo%", snapshot.displayIntensity)
-                .replaceAll("%info%", snapshot.info);
+        return snapshot.format(template);
     }
 
     String formatCenc(String template) {
@@ -45,17 +56,23 @@ final class EarthquakeInfoCache {
         if (snapshot == null) {
             return NOT_AVAILABLE;
         }
-        return template.replaceAll("%flag%", snapshot.type)
-                .replaceAll("%origin_time%", snapshot.originTime)
-                .replaceAll("%region%", snapshot.region)
-                .replaceAll("%mag%", snapshot.magnitude)
-                .replaceAll("%depth%", snapshot.depth)
-                .replaceAll("%lat%", snapshot.latitude)
-                .replaceAll("%lon%", snapshot.longitude)
-                .replaceAll("%shindo%", snapshot.displayIntensity);
+        return snapshot.format(template);
     }
 
-    static final class JmaSnapshot {
+    private UpdateResult classify(Snapshot previous, String incomingMd5) {
+        if (previous == null) {
+            return UpdateResult.FIRST_VALUE;
+        }
+        return Objects.equals(previous.md5(), incomingMd5)
+                ? UpdateResult.UNCHANGED
+                : UpdateResult.CHANGED;
+    }
+
+    private interface Snapshot {
+        String md5();
+    }
+
+    static final class JmaSnapshot implements Snapshot {
         final String md5;
         final String originTime;
         final String region;
@@ -78,9 +95,25 @@ final class EarthquakeInfoCache {
             this.displayIntensity = displayIntensity;
             this.info = info;
         }
+
+        @Override
+        public String md5() {
+            return md5;
+        }
+
+        String format(String template) {
+            return template.replaceAll("%origin_time%", originTime)
+                    .replaceAll("%region%", region)
+                    .replaceAll("%mag%", magnitude)
+                    .replaceAll("%depth%", depth)
+                    .replaceAll("%lat%", latitude)
+                    .replaceAll("%lon%", longitude)
+                    .replaceAll("%shindo%", displayIntensity)
+                    .replaceAll("%info%", info);
+        }
     }
 
-    static final class CencSnapshot {
+    static final class CencSnapshot implements Snapshot {
         final String md5;
         final String type;
         final String originTime;
@@ -102,6 +135,41 @@ final class EarthquakeInfoCache {
             this.latitude = latitude;
             this.longitude = longitude;
             this.displayIntensity = displayIntensity;
+        }
+
+        @Override
+        public String md5() {
+            return md5;
+        }
+
+        String format(String template) {
+            return template.replaceAll("%flag%", type)
+                    .replaceAll("%origin_time%", originTime)
+                    .replaceAll("%region%", region)
+                    .replaceAll("%mag%", magnitude)
+                    .replaceAll("%depth%", depth)
+                    .replaceAll("%lat%", latitude)
+                    .replaceAll("%lon%", longitude)
+                    .replaceAll("%shindo%", displayIntensity);
+        }
+
+        static CencSnapshot fromEqlist(
+                JsonObject data, String originTime, String displayIntensity) {
+            JsonObject latest = data.get("No1").getAsJsonObject();
+            String type = "reviewed".equals(latest.get("type").getAsString())
+                    ? "正式测定"
+                    : "自动测定";
+            return new CencSnapshot(
+                    data.get("md5").getAsString(),
+                    type,
+                    originTime,
+                    latest.get("location").getAsString(),
+                    latest.get("magnitude").getAsString(),
+                    latest.get("depth").getAsString() + "km",
+                    latest.get("latitude").getAsString(),
+                    latest.get("longitude").getAsString(),
+                    displayIntensity
+            );
         }
     }
 }

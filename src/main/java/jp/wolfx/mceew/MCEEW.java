@@ -422,13 +422,12 @@ public final class MCEEW extends JavaPlugin {
         String shindo = latest.get("shindo").getAsString();
         String info = latest.get("info").getAsString();
         String originTime = getDate("yyyy/MM/dd HH:mm:ss", timeFormat, "Asia/Tokyo", timeStr);
-        EarthquakeInfoCache.JmaSnapshot previous = earthquakeInfoCache.getJma();
         EarthquakeInfoCache.JmaSnapshot snapshot = new EarthquakeInfoCache.JmaSnapshot(
                 data.get("md5").getAsString(), originTime, region, mag, depth,
                 latitude, longitude, getShindoColor(shindo), info);
-        earthquakeInfoCache.setJma(snapshot);
-        if (previous != null && enabled) {
-            String formatted = earthquakeInfoCache.formatJma(jmaEqlistBroadcastMessage);
+        EarthquakeInfoCache.UpdateResult update = earthquakeInfoCache.updateJma(snapshot);
+        if (update.shouldNotify(enabled)) {
+            String formatted = snapshot.format(jmaEqlistBroadcastMessage);
             sendConsoleMessage(formatted);
             forEachPlayer(player -> {
                 if (canReceive(player, "mceew.notify.jma.eqlist")) {
@@ -440,23 +439,14 @@ public final class MCEEW extends JavaPlugin {
 
     private void cencEqlistExecute(JsonObject data, boolean enabled) {
         JsonObject latest = data.get("No1").getAsJsonObject();
-        String sourceType = latest.get("type").getAsString();
         String timeStr = latest.get("time").getAsString();
-        String region = latest.get("location").getAsString();
-        String mag = latest.get("magnitude").getAsString();
-        String depth = latest.get("depth").getAsString() + "km";
-        String latitude = latest.get("latitude").getAsString();
-        String longitude = latest.get("longitude").getAsString();
         String originTime = getDate("yyyy-MM-dd HH:mm:ss", timeFormat, "Asia/Shanghai", timeStr);
         String intensity = latest.get("intensity").getAsString();
-        String type = Objects.equals(sourceType, "reviewed") ? "正式测定" : "自动测定";
-        EarthquakeInfoCache.CencSnapshot previous = earthquakeInfoCache.getCenc();
-        EarthquakeInfoCache.CencSnapshot snapshot = new EarthquakeInfoCache.CencSnapshot(
-                data.get("md5").getAsString(), type, originTime, region, mag, depth,
-                latitude, longitude, getIntensityColor(intensity));
-        earthquakeInfoCache.setCenc(snapshot);
-        if (previous != null && enabled) {
-            String formatted = earthquakeInfoCache.formatCenc(cencEqlistBroadcastMessage);
+        EarthquakeInfoCache.CencSnapshot snapshot = EarthquakeInfoCache.CencSnapshot.fromEqlist(
+                data, originTime, getIntensityColor(intensity));
+        EarthquakeInfoCache.UpdateResult update = earthquakeInfoCache.updateCenc(snapshot);
+        if (update.shouldNotify(enabled)) {
+            String formatted = snapshot.format(cencEqlistBroadcastMessage);
             sendConsoleMessage(formatted);
             forEachPlayer(player -> {
                 if (canReceive(player, "mceew.notify.cenc.eqlist")) {

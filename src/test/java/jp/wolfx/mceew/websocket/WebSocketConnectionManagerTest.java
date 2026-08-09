@@ -12,15 +12,15 @@ import java.net.http.WebSocket;
 import java.net.http.WebSocketHandshakeException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.logging.Level;
 import java.util.logging.Handler;
+import java.util.logging.Level;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 
@@ -30,28 +30,36 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class WebSocketConnectionManagerTest {
     @Test
-    void initialQueriesWaitForThePreviousSendToComplete() {
-        FakeReconnectScheduler scheduler = new FakeReconnectScheduler();
+    void bootstrapQueriesWaitForSendCompletionAndTheFullPacingInterval() {
+        FakeDelayScheduler scheduler = new FakeDelayScheduler();
         FakeConnector connector = new FakeConnector(true);
         WebSocketConnectionManager manager = manager(connector, scheduler);
-
         manager.start();
 
         FakeWebSocket socket = connector.attempts.get(0).socket;
         assertEquals(List.of(WebSocketConnectionManager.JMA_QUERY), socket.textMessages);
+        assertEquals(1, socket.pendingTextSends);
+
+        scheduler.advanceBy(10_000);
+        assertEquals(List.of(WebSocketConnectionManager.JMA_QUERY), socket.textMessages);
 
         socket.firstTextSend.complete(socket);
+        assertEquals(0, socket.pendingTextSends);
+        assertEquals(List.of(WebSocketConnectionManager.JMA_QUERY), socket.textMessages);
+        assertEquals(1, scheduler.pendingWithDelay(
+                WebSocketConnectionManager.BOOTSTRAP_QUERY_INTERVAL_MILLIS));
 
-        assertEquals(List.of(
-                WebSocketConnectionManager.JMA_QUERY,
-                WebSocketConnectionManager.CENC_QUERY
-        ), socket.textMessages);
-        assertEquals(0, scheduler.pendingCount());
+        scheduler.advanceBy(WebSocketConnectionManager.BOOTSTRAP_QUERY_INTERVAL_MILLIS - 1);
+        assertEquals(List.of(WebSocketConnectionManager.JMA_QUERY), socket.textMessages);
+
+        scheduler.advanceBy(1);
+        assertEquals(WebSocketConnectionManager.BOOTSTRAP_QUERIES, socket.textMessages);
+        assertEquals(1, socket.maxPendingTextSends);
     }
 
     @Test
-    void failedQueryFutureIsLoggedAndReconnectsOnce() {
-        FakeReconnectScheduler scheduler = new FakeReconnectScheduler();
+    void failedBootstrapQueryNamesTheQueryAndReconnectsOnce() {
+        FakeDelayScheduler scheduler = new FakeDelayScheduler();
         FakeConnector connector = new FakeConnector(true);
         RecordingHandler logs = new RecordingHandler();
         WebSocketConnectionManager manager = manager(connector, scheduler, logs);
@@ -60,13 +68,14 @@ class WebSocketConnectionManagerTest {
         connector.attempts.get(0).socket.firstTextSend.completeExceptionally(
                 new IllegalStateException("send failed"));
 
-        assertTrue(logs.contains("Failed to send initial WebSocket earthquake-list queries."));
-        assertEquals(1, scheduler.pendingCount());
+        assertTrue(logs.contains(
+                "Failed to send WebSocket bootstrap query: " + WebSocketConnectionManager.JMA_QUERY));
+        assertEquals(1, scheduler.pendingWithDelay(TimeUnit.SECONDS.toMillis(5)));
     }
 
     @Test
     void reloadClosesTheOldConnectionAndCreatesExactlyOneReplacement() {
-        FakeReconnectScheduler scheduler = new FakeReconnectScheduler();
+        FakeDelayScheduler scheduler = new FakeDelayScheduler();
         FakeConnector connector = new FakeConnector(false);
         WebSocketConnectionManager manager = manager(connector, scheduler);
         manager.start();
@@ -77,12 +86,109 @@ class WebSocketConnectionManagerTest {
         assertEquals(1, oldSocket.closeCalls.get());
         assertTrue(oldSocket.aborted);
         assertEquals(2, connector.attempts.size());
-        assertEquals(0, scheduler.pendingCount());
+        assertEquals(List.of(WebSocketConnectionManager.JMA_QUERY),
+                connector.attempts.get(1).socket.textMessages);
+        assertEquals(0, scheduler.pendingWithDelay(TimeUnit.SECONDS.toMillis(5)));
+    }
+
+    @Test
+    void reloadDuringPacingInvalidatesTheOldBootstrap() {
+        FakeDelayScheduler scheduler = new FakeDelayScheduler();
+        FakeConnector connector = new FakeConnector(false);
+        WebSocketConnectionManager manager = manager(connector, scheduler);
+        manager.start();
+
+        Attempt old = connector.attempts.get(0);
+        FakeScheduledAction oldBootstrap = scheduler.lastScheduled();
+        manager.restart();
+        scheduler.runIgnoringCancellation(oldBootstrap);
+
+        assertEquals(List.of(WebSocketConnectionManager.JMA_QUERY), old.socket.textMessages);
+        Attempt replacement = connector.attempts.get(1);
+        assertEquals(List.of(WebSocketConnectionManager.JMA_QUERY), replacement.socket.textMessages);
+
+        scheduler.advanceBy(WebSocketConnectionManager.BOOTSTRAP_QUERY_INTERVAL_MILLIS);
+        assertEquals(WebSocketConnectionManager.BOOTSTRAP_QUERIES,
+                replacement.socket.textMessages);
+        assertEquals(List.of(WebSocketConnectionManager.JMA_QUERY), old.socket.textMessages);
+    }
+
+    @Test
+    void disableDuringPacingInvalidatesTheBootstrap() {
+        FakeDelayScheduler scheduler = new FakeDelayScheduler();
+        FakeConnector connector = new FakeConnector(false);
+        WebSocketConnectionManager manager = manager(connector, scheduler);
+        manager.start();
+
+        Attempt attempt = connector.attempts.get(0);
+        FakeScheduledAction bootstrap = scheduler.lastScheduled();
+        manager.stop();
+        scheduler.runIgnoringCancellation(bootstrap);
+
+        assertEquals(List.of(WebSocketConnectionManager.JMA_QUERY), attempt.socket.textMessages);
+        assertEquals(1, connector.attempts.size());
+        assertEquals(0, scheduler.activePendingCount());
+    }
+
+    @Test
+    void reconnectStartsACompleteBootstrapForTheNewGeneration() {
+        FakeDelayScheduler scheduler = new FakeDelayScheduler();
+        FakeConnector connector = new FakeConnector(false);
+        WebSocketConnectionManager manager = manager(connector, scheduler);
+        manager.start();
+
+        Attempt old = connector.attempts.get(0);
+        old.listener.onClose(old.socket, 1006, "network failure");
+        scheduler.advanceBy(TimeUnit.SECONDS.toMillis(5));
+
+        assertEquals(2, connector.attempts.size());
+        Attempt replacement = connector.attempts.get(1);
+        assertEquals(List.of(WebSocketConnectionManager.JMA_QUERY), replacement.socket.textMessages);
+
+        scheduler.advanceBy(WebSocketConnectionManager.BOOTSTRAP_QUERY_INTERVAL_MILLIS);
+        assertEquals(WebSocketConnectionManager.BOOTSTRAP_QUERIES,
+                replacement.socket.textMessages);
+    }
+
+    @Test
+    void staleOnOpenCannotStartAnotherBootstrap() {
+        FakeDelayScheduler scheduler = new FakeDelayScheduler();
+        FakeConnector connector = new FakeConnector(false);
+        WebSocketConnectionManager manager = manager(connector, scheduler);
+        manager.start();
+
+        Attempt old = connector.attempts.get(0);
+        manager.restart();
+        old.listener.onOpen(old.socket);
+        scheduler.advanceBy(WebSocketConnectionManager.BOOTSTRAP_QUERY_INTERVAL_MILLIS);
+
+        assertEquals(List.of(WebSocketConnectionManager.JMA_QUERY), old.socket.textMessages);
+        assertEquals(WebSocketConnectionManager.BOOTSTRAP_QUERIES,
+                connector.attempts.get(1).socket.textMessages);
+        assertEquals(2, connector.attempts.size());
+    }
+
+    @Test
+    void duplicateOnOpenForOneGenerationDoesNotDuplicateBootstrap() {
+        FakeDelayScheduler scheduler = new FakeDelayScheduler();
+        FakeConnector connector = new FakeConnector(false);
+        WebSocketConnectionManager manager = manager(connector, scheduler);
+        manager.start();
+
+        Attempt attempt = connector.attempts.get(0);
+        attempt.listener.onOpen(attempt.socket);
+        scheduler.advanceBy(WebSocketConnectionManager.BOOTSTRAP_QUERY_INTERVAL_MILLIS);
+
+        assertEquals(WebSocketConnectionManager.BOOTSTRAP_QUERIES, attempt.socket.textMessages);
+        assertEquals(1, attempt.socket.textMessages.stream()
+                .filter(WebSocketConnectionManager.JMA_QUERY::equals).count());
+        assertEquals(1, attempt.socket.textMessages.stream()
+                .filter(WebSocketConnectionManager.CENC_QUERY::equals).count());
     }
 
     @Test
     void intentionalCloseDoesNotScheduleReconnect() {
-        FakeReconnectScheduler scheduler = new FakeReconnectScheduler();
+        FakeDelayScheduler scheduler = new FakeDelayScheduler();
         FakeConnector connector = new FakeConnector(false);
         WebSocketConnectionManager manager = manager(connector, scheduler);
         manager.start();
@@ -92,12 +198,12 @@ class WebSocketConnectionManagerTest {
         old.listener.onClose(old.socket, WebSocket.NORMAL_CLOSURE, "reload");
 
         assertEquals(2, connector.attempts.size());
-        assertEquals(0, scheduler.pendingCount());
+        assertEquals(0, scheduler.pendingWithDelay(TimeUnit.SECONDS.toMillis(5)));
     }
 
     @Test
     void staleCloseAndErrorCannotAffectTheReplacementConnection() {
-        FakeReconnectScheduler scheduler = new FakeReconnectScheduler();
+        FakeDelayScheduler scheduler = new FakeDelayScheduler();
         FakeConnector connector = new FakeConnector(false);
         WebSocketConnectionManager manager = manager(connector, scheduler);
         manager.start();
@@ -108,13 +214,13 @@ class WebSocketConnectionManagerTest {
         old.listener.onError(old.socket, new IllegalStateException("late error"));
 
         assertEquals(2, connector.attempts.size());
-        assertEquals(0, scheduler.pendingCount());
+        assertEquals(0, scheduler.pendingWithDelay(TimeUnit.SECONDS.toMillis(5)));
         assertFalse(connector.attempts.get(1).socket.aborted);
     }
 
     @Test
     void abnormalCloseSchedulesOnlyOneReconnect() {
-        FakeReconnectScheduler scheduler = new FakeReconnectScheduler();
+        FakeDelayScheduler scheduler = new FakeDelayScheduler();
         FakeConnector connector = new FakeConnector(false);
         WebSocketConnectionManager manager = manager(connector, scheduler);
         manager.start();
@@ -123,22 +229,21 @@ class WebSocketConnectionManagerTest {
         attempt.listener.onClose(attempt.socket, 1006, "network failure");
         attempt.listener.onError(attempt.socket, new IllegalStateException("duplicate callback"));
 
-        assertEquals(1, scheduler.pendingCount());
-        scheduler.runNext();
+        assertEquals(1, scheduler.pendingWithDelay(TimeUnit.SECONDS.toMillis(5)));
+        scheduler.advanceBy(TimeUnit.SECONDS.toMillis(5));
         assertEquals(2, connector.attempts.size());
-        assertEquals(0, scheduler.pendingCount());
     }
 
     @Test
     void disableCancelsReconnectAndRejectsLaterCallbacks() {
-        FakeReconnectScheduler scheduler = new FakeReconnectScheduler();
+        FakeDelayScheduler scheduler = new FakeDelayScheduler();
         FakeConnector connector = new FakeConnector(false);
         WebSocketConnectionManager manager = manager(connector, scheduler);
         manager.start();
 
         Attempt attempt = connector.attempts.get(0);
         attempt.listener.onError(attempt.socket, new IllegalStateException("network failure"));
-        assertEquals(1, scheduler.pendingCount());
+        assertEquals(1, scheduler.pendingWithDelay(TimeUnit.SECONDS.toMillis(5)));
 
         manager.stop();
         scheduler.runAllIncludingCancelled();
@@ -146,12 +251,12 @@ class WebSocketConnectionManagerTest {
         attempt.listener.onError(attempt.socket, new IllegalStateException("late error"));
 
         assertEquals(1, connector.attempts.size());
-        assertEquals(0, scheduler.pendingCount());
+        assertEquals(0, scheduler.activePendingCount());
     }
 
     @Test
     void disableClosesTheCurrentConnectionWithoutReconnect() {
-        FakeReconnectScheduler scheduler = new FakeReconnectScheduler();
+        FakeDelayScheduler scheduler = new FakeDelayScheduler();
         FakeConnector connector = new FakeConnector(false);
         WebSocketConnectionManager manager = manager(connector, scheduler);
         manager.start();
@@ -161,13 +266,13 @@ class WebSocketConnectionManagerTest {
 
         assertEquals(1, socket.closeCalls.get());
         assertTrue(socket.aborted);
-        assertEquals(0, scheduler.pendingCount());
+        assertEquals(0, scheduler.activePendingCount());
         assertEquals(1, connector.attempts.size());
     }
 
     @Test
     void handshakeFailureLogIncludesStatusButNotHeaders() {
-        FakeReconnectScheduler scheduler = new FakeReconnectScheduler();
+        FakeDelayScheduler scheduler = new FakeDelayScheduler();
         RecordingHandler logs = new RecordingHandler();
         HttpResponse<Void> response = handshakeResponse(429);
         WebSocketHandshakeException handshake = new WebSocketHandshakeException(response);
@@ -181,17 +286,17 @@ class WebSocketConnectionManagerTest {
 
         assertTrue(logs.contains("WebSocket handshake HTTP status: 429"));
         assertFalse(logs.contains("secret-token"));
-        assertEquals(1, scheduler.pendingCount());
+        assertEquals(1, scheduler.pendingWithDelay(TimeUnit.SECONDS.toMillis(5)));
     }
 
     private WebSocketConnectionManager manager(
-            FakeConnector connector, FakeReconnectScheduler scheduler) {
+            FakeConnector connector, FakeDelayScheduler scheduler) {
         return manager(connector, scheduler, null);
     }
 
     private WebSocketConnectionManager manager(
             WebSocketConnectionManager.Connector connector,
-            FakeReconnectScheduler scheduler,
+            FakeDelayScheduler scheduler,
             RecordingHandler handler) {
         Logger logger = Logger.getLogger(getClass().getName() + System.nanoTime());
         logger.setUseParentHandlers(false);
@@ -277,19 +382,21 @@ class WebSocketConnectionManagerTest {
         }
     }
 
-    private static final class FakeReconnectScheduler
-            implements WebSocketConnectionManager.ReconnectScheduler {
+    private static final class FakeDelayScheduler
+            implements WebSocketConnectionManager.DelayScheduler {
         private final List<FakeScheduledAction> tasks = new ArrayList<>();
+        private long currentTimeMillis;
 
         @Override
         public WebSocketConnectionManager.ScheduledAction schedule(
                 Runnable task, long delay, TimeUnit unit) {
-            FakeScheduledAction action = new FakeScheduledAction(task);
+            FakeScheduledAction action = new FakeScheduledAction(
+                    task, currentTimeMillis + unit.toMillis(delay), unit.toMillis(delay));
             tasks.add(action);
             return action;
         }
 
-        private int pendingCount() {
+        private int activePendingCount() {
             int count = 0;
             for (FakeScheduledAction task : tasks) {
                 if (!task.cancelled && !task.executed) {
@@ -299,22 +406,48 @@ class WebSocketConnectionManagerTest {
             return count;
         }
 
-        private void runNext() {
+        private int pendingWithDelay(long delayMillis) {
+            int count = 0;
             for (FakeScheduledAction task : tasks) {
-                if (!task.cancelled && !task.executed) {
-                    task.executed = true;
-                    task.runnable.run();
-                    return;
+                if (!task.cancelled && !task.executed && task.requestedDelayMillis == delayMillis) {
+                    count++;
                 }
+            }
+            return count;
+        }
+
+        private FakeScheduledAction lastScheduled() {
+            return tasks.get(tasks.size() - 1);
+        }
+
+        private void advanceBy(long millis) {
+            long targetTime = currentTimeMillis + millis;
+            while (true) {
+                Optional<FakeScheduledAction> next = tasks.stream()
+                        .filter(task -> !task.cancelled && !task.executed
+                                && task.dueTimeMillis <= targetTime)
+                        .min(Comparator.comparingLong(task -> task.dueTimeMillis));
+                if (next.isEmpty()) {
+                    break;
+                }
+                FakeScheduledAction action = next.get();
+                currentTimeMillis = action.dueTimeMillis;
+                action.executed = true;
+                action.runnable.run();
+            }
+            currentTimeMillis = targetTime;
+        }
+
+        private void runIgnoringCancellation(FakeScheduledAction action) {
+            if (!action.executed) {
+                action.executed = true;
+                action.runnable.run();
             }
         }
 
         private void runAllIncludingCancelled() {
             for (FakeScheduledAction task : new ArrayList<>(tasks)) {
-                if (!task.executed) {
-                    task.executed = true;
-                    task.runnable.run();
-                }
+                runIgnoringCancellation(task);
             }
         }
     }
@@ -322,11 +455,16 @@ class WebSocketConnectionManagerTest {
     private static final class FakeScheduledAction
             implements WebSocketConnectionManager.ScheduledAction {
         private final Runnable runnable;
+        private final long dueTimeMillis;
+        private final long requestedDelayMillis;
         private boolean cancelled;
         private boolean executed;
 
-        private FakeScheduledAction(Runnable runnable) {
+        private FakeScheduledAction(
+                Runnable runnable, long dueTimeMillis, long requestedDelayMillis) {
             this.runnable = runnable;
+            this.dueTimeMillis = dueTimeMillis;
+            this.requestedDelayMillis = requestedDelayMillis;
         }
 
         @Override
@@ -340,6 +478,8 @@ class WebSocketConnectionManagerTest {
         private final CompletableFuture<WebSocket> firstTextSend = new CompletableFuture<>();
         private final AtomicInteger closeCalls = new AtomicInteger();
         private final boolean holdFirstTextSend;
+        private int pendingTextSends;
+        private int maxPendingTextSends;
         private boolean aborted;
 
         private FakeWebSocket(boolean holdFirstTextSend) {
@@ -349,10 +489,14 @@ class WebSocketConnectionManagerTest {
         @Override
         public CompletableFuture<WebSocket> sendText(CharSequence data, boolean last) {
             textMessages.add(data.toString());
-            if (holdFirstTextSend && textMessages.size() == 1) {
-                return firstTextSend;
-            }
-            return CompletableFuture.completedFuture(this);
+            pendingTextSends++;
+            maxPendingTextSends = Math.max(maxPendingTextSends, pendingTextSends);
+            CompletableFuture<WebSocket> result =
+                    holdFirstTextSend && textMessages.size() == 1
+                            ? firstTextSend
+                            : CompletableFuture.completedFuture(this);
+            result.whenComplete((ignored, error) -> pendingTextSends--);
+            return result;
         }
 
         @Override
