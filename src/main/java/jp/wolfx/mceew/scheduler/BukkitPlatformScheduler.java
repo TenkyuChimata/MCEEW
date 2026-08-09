@@ -4,6 +4,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 final class BukkitPlatformScheduler implements PlatformScheduler {
@@ -21,6 +22,15 @@ final class BukkitPlatformScheduler implements PlatformScheduler {
     @Override
     public void runAsync(Runnable task) {
         Bukkit.getScheduler().runTaskAsynchronously(plugin, task);
+    }
+
+    @Override
+    public TaskHandle runAsyncDelayed(Runnable task, long delay, TimeUnit unit) {
+        long milliseconds = unit.toMillis(delay);
+        long ticks = Math.max(1L, (milliseconds + 49L) / 50L);
+        org.bukkit.scheduler.BukkitTask scheduled =
+                Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, task, ticks);
+        return scheduled::cancel;
     }
 
     @Override

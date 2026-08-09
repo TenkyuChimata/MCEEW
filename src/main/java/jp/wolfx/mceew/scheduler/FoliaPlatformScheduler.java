@@ -7,6 +7,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 /**
@@ -18,7 +19,9 @@ final class FoliaPlatformScheduler implements PlatformScheduler {
     private final Object asyncScheduler;
     private final Object globalScheduler;
     private final Method asyncRunNow;
+    private final Method asyncRunDelayed;
     private final Method asyncCancelTasks;
+    private final Method scheduledTaskCancel;
     private final Method globalExecute;
     private final Method globalCancelTasks;
     private final Method entityGetScheduler;
@@ -34,6 +37,8 @@ final class FoliaPlatformScheduler implements PlatformScheduler {
                     "io.papermc.paper.threadedregions.scheduler.GlobalRegionScheduler", false, classLoader);
             Class<?> entitySchedulerType = Class.forName(
                     "io.papermc.paper.threadedregions.scheduler.EntityScheduler", false, classLoader);
+            Class<?> scheduledTaskType = Class.forName(
+                    "io.papermc.paper.threadedregions.scheduler.ScheduledTask", false, classLoader);
             Class<?> serverType = Class.forName("org.bukkit.Server", false, classLoader);
             Class<?> entityType = Class.forName("org.bukkit.entity.Entity", false, classLoader);
 
@@ -43,7 +48,10 @@ final class FoliaPlatformScheduler implements PlatformScheduler {
             globalScheduler = getGlobalScheduler.invoke(Bukkit.getServer());
 
             asyncRunNow = asyncSchedulerType.getMethod("runNow", Plugin.class, Consumer.class);
+            asyncRunDelayed = asyncSchedulerType.getMethod(
+                    "runDelayed", Plugin.class, Consumer.class, long.class, TimeUnit.class);
             asyncCancelTasks = asyncSchedulerType.getMethod("cancelTasks", Plugin.class);
+            scheduledTaskCancel = scheduledTaskType.getMethod("cancel");
             globalExecute = globalSchedulerType.getMethod("execute", Plugin.class, Runnable.class);
             globalCancelTasks = globalSchedulerType.getMethod("cancelTasks", Plugin.class);
             entityGetScheduler = entityType.getMethod("getScheduler");
@@ -62,6 +70,13 @@ final class FoliaPlatformScheduler implements PlatformScheduler {
     @Override
     public void runAsync(Runnable task) {
         invoke(asyncRunNow, asyncScheduler, plugin, taskConsumer(task));
+    }
+
+    @Override
+    public TaskHandle runAsyncDelayed(Runnable task, long delay, TimeUnit unit) {
+        Object scheduled = invoke(
+                asyncRunDelayed, asyncScheduler, plugin, taskConsumer(task), delay, unit);
+        return () -> invoke(scheduledTaskCancel, scheduled);
     }
 
     @Override

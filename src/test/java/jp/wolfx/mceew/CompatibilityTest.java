@@ -9,6 +9,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -68,16 +69,23 @@ class CompatibilityTest {
                 "io.papermc.paper.threadedregions.scheduler.GlobalRegionScheduler");
         Class<?> entityScheduler = Class.forName(
                 "io.papermc.paper.threadedregions.scheduler.EntityScheduler");
+        Class<?> scheduledTask = Class.forName(
+                "io.papermc.paper.threadedregions.scheduler.ScheduledTask");
 
         Method runNow = asyncScheduler.getMethod("runNow", Plugin.class, Consumer.class);
+        Method runDelayed = asyncScheduler.getMethod(
+                "runDelayed", Plugin.class, Consumer.class, long.class, TimeUnit.class);
         Method cancelAsync = asyncScheduler.getMethod("cancelTasks", Plugin.class);
+        Method cancelScheduled = scheduledTask.getMethod("cancel");
         Method executeGlobal = globalScheduler.getMethod("execute", Plugin.class, Runnable.class);
         Method cancelGlobal = globalScheduler.getMethod("cancelTasks", Plugin.class);
         Method runEntity = entityScheduler.getMethod(
                 "run", Plugin.class, Consumer.class, Runnable.class);
 
         assertEquals("runNow", runNow.getName());
+        assertEquals("runDelayed", runDelayed.getName());
         assertEquals("cancelTasks", cancelAsync.getName());
+        assertEquals("cancel", cancelScheduled.getName());
         assertEquals("execute", executeGlobal.getName());
         assertEquals("cancelTasks", cancelGlobal.getName());
         assertEquals("run", runEntity.getName());

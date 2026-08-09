@@ -3,6 +3,7 @@ package jp.wolfx.mceew;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import jp.wolfx.mceew.scheduler.PlatformScheduler;
+import jp.wolfx.mceew.websocket.WebSocketConnectionManager;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
@@ -21,13 +22,10 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.Hashtable;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.net.http.HttpClient;
-import java.net.http.WebSocket;
-import java.util.concurrent.CompletionStage;
 import java.util.function.Consumer;
 import java.util.regex.Pattern;
 
@@ -86,21 +84,35 @@ public final class MCEEW extends JavaPlugin {
     private String cencAlertSoundType;
     private double cencAlertSoundVolume;
     private double cencAlertSoundPitch;
-    private String jmaEqlistMd5 = null;
-    private String cencEqlistMd5 = null;
-    private JsonObject jmaEqlistData = null;
-    private JsonObject cencEqlistData = null;
-    private final ArrayList<String> jmaEqlistInfo = new ArrayList<>();
-    private final ArrayList<String> cencEqlistInfo = new ArrayList<>();
+    private final EarthquakeInfoCache earthquakeInfoCache = new EarthquakeInfoCache();
     private String version;
     private static final HttpClient client = HttpClient.newHttpClient();
     private PlatformScheduler platformScheduler;
+    private WebSocketConnectionManager webSocketManager;
 
     @Override
     public void onEnable() {
         version = getDescription().getVersion();
         platformScheduler = PlatformScheduler.create(this);
-        loadEew(true);
+        webSocketManager = new WebSocketConnectionManager(
+                listener -> client.newWebSocketBuilder()
+                        .buildAsync(URI.create("wss://ws-api.wolfx.jp/all_eew"), listener),
+                (task, delay, unit) -> {
+                    PlatformScheduler.TaskHandle handle =
+                            platformScheduler.runAsyncDelayed(task, delay, unit);
+                    return handle::cancel;
+                },
+                this::handleWebSocketMessage,
+                getLogger(),
+                5,
+                TimeUnit.SECONDS
+        );
+        loadEew();
+        getLogger().info(platformScheduler.isFolia()
+                ? "Using Folia API for scheduler."
+                : "Using Bukkit API for scheduler.");
+        webSocketManager.start();
+        platformScheduler.runAsync(this::updater);
         new Metrics(this, 17261);
     }
 
@@ -307,20 +319,6 @@ public final class MCEEW extends JavaPlugin {
         }
     }
 
-    private void cancelScheduler() {
-        platformScheduler.cancelTasks();
-    }
-
-    private void mceewScheduler(boolean first) {
-        platformScheduler.runAsync(() -> wsClient(first));
-        if (first) {
-            getLogger().info(platformScheduler.isFolia()
-                    ? "Using Folia API for scheduler."
-                    : "Using Bukkit API for scheduler.");
-            platformScheduler.runAsync(this::updater);
-        }
-    }
-
     private void updater() {
         try {
             // 1) 从 DNS TXT 读取版本号（格式：version=x.x.x）
@@ -352,89 +350,32 @@ public final class MCEEW extends JavaPlugin {
         }
     }
 
-    private void wsReconnect(Boolean type) {
-        getLogger().warning("Trying to reconnect to WebSocket API...");
-        try {
-            TimeUnit.SECONDS.sleep(5);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
+    private void handleWebSocketMessage(String message) {
+        JsonObject json = JsonParser.parseString(message).getAsJsonObject();
+        String type = json.get("type").getAsString();
+        if (Objects.equals(type, "heartbeat")) {
+            return;
         }
-        if (type) {
-            wsClient(false);
-        } else {
-            platformScheduler.runGlobal(() -> loadEew(false));
+        if (Objects.equals(type, "jma_eew") && jpEewBoolean) {
+            jmaEewExecute(json);
         }
-    }
-
-    private void wsClient(Boolean first) {
-        try {
-            WebSocket.Builder builder = client.newWebSocketBuilder();
-            WebSocket webSocket = builder.buildAsync(URI.create("wss://ws-api.wolfx.jp/all_eew"), new WebSocket.Listener() {
-                private final StringBuilder messageBuffer = new StringBuilder();
-
-                public void onOpen(WebSocket webSocket) {
-                    getLogger().info("Connected to WebSocket API.");
-                    webSocket.request(1);
-                }
-
-                public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
-                    messageBuffer.append(data);
-                    if (last) {
-                        String completeMessage = messageBuffer.toString();
-                        messageBuffer.setLength(0);
-                        JsonObject json = JsonParser.parseString(completeMessage).getAsJsonObject();
-                        if (!Objects.equals(json.get("type").getAsString(), "heartbeat")) {
-                            if (Objects.equals(json.get("type").getAsString(), "jma_eew") && jpEewBoolean) {
-                                jmaEewExecute(json);
-                            }
-                            if (Objects.equals(json.get("type").getAsString(), "jma_eqlist")) {
-                                jmaEqlistData = json;
-                                jmaEqlistExecute(jmaEqlistBoolean);
-                            }
-                            if (Objects.equals(json.get("type").getAsString(), "sc_eew") && scEewBoolean) {
-                                scEewExecute(json);
-                            }
-                            if (Objects.equals(json.get("type").getAsString(), "fj_eew") && fjEewBoolean) {
-                                fjEewExecute(json);
-                            }
-                            if (Objects.equals(json.get("type").getAsString(), "cwa_eew") && cwaEewBoolean) {
-                                cwaEewExecute(json);
-                            }
-                            if (Objects.equals(json.get("type").getAsString(), "cenc_eew") && cencEewBoolean) {
-                                cencEewExecute(json);
-                            }
-                            if (Objects.equals(json.get("type").getAsString(), "cenc_eqlist")) {
-                                cencEqlistData = json;
-                                cencEqlistExecute(cencEqlistBoolean);
-                            }
-                        }
-                    }
-                    webSocket.request(1);
-                    return null;
-                }
-
-                @Override
-                public CompletionStage<?> onClose(WebSocket webSocket, int statusCode, String reason) {
-                    getLogger().warning("WebSocket API connection closed unexpectedly.");
-                    getLogger().warning(reason);
-                    wsReconnect(true);
-                    return null;
-                }
-
-                public void onError(WebSocket webSocket, Throwable error) {
-                    getLogger().warning("Failed to connect to WebSocket API.");
-                    getLogger().warning(error.getMessage());
-                    wsReconnect(false);
-                }
-            }).join();
-            if (first) {
-                webSocket.sendText("query_jmaeqlist", true);
-                webSocket.sendText("query_cenceqlist", true);
-            }
-        } catch (Exception e) {
-            getLogger().warning("Failed to connect to WebSocket API.");
-            getLogger().warning(String.valueOf(e));
-            wsReconnect(false);
+        if (Objects.equals(type, "jma_eqlist")) {
+            jmaEqlistExecute(json, jmaEqlistBoolean);
+        }
+        if (Objects.equals(type, "sc_eew") && scEewBoolean) {
+            scEewExecute(json);
+        }
+        if (Objects.equals(type, "fj_eew") && fjEewBoolean) {
+            fjEewExecute(json);
+        }
+        if (Objects.equals(type, "cwa_eew") && cwaEewBoolean) {
+            cwaEewExecute(json);
+        }
+        if (Objects.equals(type, "cenc_eew") && cencEewBoolean) {
+            cencEewExecute(json);
+        }
+        if (Objects.equals(type, "cenc_eqlist")) {
+            cencEqlistExecute(json, cencEqlistBoolean);
         }
     }
 
@@ -470,105 +411,59 @@ public final class MCEEW extends JavaPlugin {
         }
     }
 
-    private void jmaEqlistExecute(Boolean jmaEqlistBoolean) {
-        String timeStr = jmaEqlistData.get("No1").getAsJsonObject().get("time_full").getAsString();
-        String region = jmaEqlistData.get("No1").getAsJsonObject().get("location").getAsString();
-        String mag = jmaEqlistData.get("No1").getAsJsonObject().get("magnitude").getAsString();
-        String depth = jmaEqlistData.get("No1").getAsJsonObject().get("depth").getAsString();
-        String latitude = jmaEqlistData.get("No1").getAsJsonObject().get("latitude").getAsString();
-        String longitude = jmaEqlistData.get("No1").getAsJsonObject().get("longitude").getAsString();
-        String shindo = jmaEqlistData.get("No1").getAsJsonObject().get("shindo").getAsString();
-        String info = jmaEqlistData.get("No1").getAsJsonObject().get("info").getAsString();
+    private void jmaEqlistExecute(JsonObject data, boolean enabled) {
+        JsonObject latest = data.get("No1").getAsJsonObject();
+        String timeStr = latest.get("time_full").getAsString();
+        String region = latest.get("location").getAsString();
+        String mag = latest.get("magnitude").getAsString();
+        String depth = latest.get("depth").getAsString();
+        String latitude = latest.get("latitude").getAsString();
+        String longitude = latest.get("longitude").getAsString();
+        String shindo = latest.get("shindo").getAsString();
+        String info = latest.get("info").getAsString();
         String originTime = getDate("yyyy/MM/dd HH:mm:ss", timeFormat, "Asia/Tokyo", timeStr);
-        if (jmaEqlistMd5 != null && jmaEqlistBoolean) {
-            sendConsoleMessage(
-                    jmaEqlistBroadcastMessage.
-                            replaceAll("%origin_time%", originTime).
-                            replaceAll("%region%", region).
-                            replaceAll("%mag%", mag).
-                            replaceAll("%depth%", depth).
-                            replaceAll("%lat%", latitude).
-                            replaceAll("%lon%", longitude).
-                            replaceAll("%shindo%", getShindoColor(shindo)).
-                            replaceAll("%info%", info)
-            );
+        EarthquakeInfoCache.JmaSnapshot previous = earthquakeInfoCache.getJma();
+        EarthquakeInfoCache.JmaSnapshot snapshot = new EarthquakeInfoCache.JmaSnapshot(
+                data.get("md5").getAsString(), originTime, region, mag, depth,
+                latitude, longitude, getShindoColor(shindo), info);
+        earthquakeInfoCache.setJma(snapshot);
+        if (previous != null && enabled) {
+            String formatted = earthquakeInfoCache.formatJma(jmaEqlistBroadcastMessage);
+            sendConsoleMessage(formatted);
             forEachPlayer(player -> {
                 if (canReceive(player, "mceew.notify.jma.eqlist")) {
-                    player.sendMessage(
-                            jmaEqlistBroadcastMessage.
-                                    replaceAll("%origin_time%", originTime).
-                                    replaceAll("%region%", region).
-                                    replaceAll("%mag%", mag).
-                                    replaceAll("%depth%", depth).
-                                    replaceAll("%lat%", latitude).
-                                    replaceAll("%lon%", longitude).
-                                    replaceAll("%shindo%", getShindoColor(shindo)).
-                                    replaceAll("%info%", info)
-                    );
+                    player.sendMessage(formatted);
                 }
             });
         }
-        jmaEqlistMd5 = jmaEqlistData.get("md5").getAsString();
-        jmaEqlistInfo.clear();
-        jmaEqlistInfo.add(originTime);
-        jmaEqlistInfo.add(region);
-        jmaEqlistInfo.add(mag);
-        jmaEqlistInfo.add(depth);
-        jmaEqlistInfo.add(latitude);
-        jmaEqlistInfo.add(longitude);
-        jmaEqlistInfo.add(shindo);
-        jmaEqlistInfo.add(info);
     }
 
-    private void cencEqlistExecute(Boolean cencEqlistBoolean) {
-        String sourceType = cencEqlistData.get("No1").getAsJsonObject().get("type").getAsString();
-        String timeStr = cencEqlistData.get("No1").getAsJsonObject().get("time").getAsString();
-        String region = cencEqlistData.get("No1").getAsJsonObject().get("location").getAsString();
-        String mag = cencEqlistData.get("No1").getAsJsonObject().get("magnitude").getAsString();
-        String depth = cencEqlistData.get("No1").getAsJsonObject().get("depth").getAsString() + "km";
-        String latitude = cencEqlistData.get("No1").getAsJsonObject().get("latitude").getAsString();
-        String longitude = cencEqlistData.get("No1").getAsJsonObject().get("longitude").getAsString();
+    private void cencEqlistExecute(JsonObject data, boolean enabled) {
+        JsonObject latest = data.get("No1").getAsJsonObject();
+        String sourceType = latest.get("type").getAsString();
+        String timeStr = latest.get("time").getAsString();
+        String region = latest.get("location").getAsString();
+        String mag = latest.get("magnitude").getAsString();
+        String depth = latest.get("depth").getAsString() + "km";
+        String latitude = latest.get("latitude").getAsString();
+        String longitude = latest.get("longitude").getAsString();
         String originTime = getDate("yyyy-MM-dd HH:mm:ss", timeFormat, "Asia/Shanghai", timeStr);
-        String intensity = cencEqlistData.get("No1").getAsJsonObject().get("intensity").getAsString();
+        String intensity = latest.get("intensity").getAsString();
         String type = Objects.equals(sourceType, "reviewed") ? "正式测定" : "自动测定";
-        if (cencEqlistMd5 != null && cencEqlistBoolean) {
-            sendConsoleMessage(
-                    cencEqlistBroadcastMessage.
-                            replaceAll("%flag%", type).
-                            replaceAll("%origin_time%", originTime).
-                            replaceAll("%region%", region).
-                            replaceAll("%mag%", mag).
-                            replaceAll("%depth%", depth).
-                            replaceAll("%lat%", latitude).
-                            replaceAll("%lon%", longitude).
-                            replaceAll("%shindo%", getIntensityColor(intensity))
-            );
+        EarthquakeInfoCache.CencSnapshot previous = earthquakeInfoCache.getCenc();
+        EarthquakeInfoCache.CencSnapshot snapshot = new EarthquakeInfoCache.CencSnapshot(
+                data.get("md5").getAsString(), type, originTime, region, mag, depth,
+                latitude, longitude, getIntensityColor(intensity));
+        earthquakeInfoCache.setCenc(snapshot);
+        if (previous != null && enabled) {
+            String formatted = earthquakeInfoCache.formatCenc(cencEqlistBroadcastMessage);
+            sendConsoleMessage(formatted);
             forEachPlayer(player -> {
                 if (canReceive(player, "mceew.notify.cenc.eqlist")) {
-                    player.sendMessage(
-                            cencEqlistBroadcastMessage.
-                                    replaceAll("%flag%", type).
-                                    replaceAll("%origin_time%", originTime).
-                                    replaceAll("%region%", region).
-                                    replaceAll("%mag%", mag).
-                                    replaceAll("%depth%", depth).
-                                    replaceAll("%lat%", latitude).
-                                    replaceAll("%lon%", longitude).
-                                    replaceAll("%shindo%", getIntensityColor(intensity))
-                    );
+                    player.sendMessage(formatted);
                 }
             });
         }
-        cencEqlistMd5 = cencEqlistData.get("md5").getAsString();
-        cencEqlistInfo.clear();
-        cencEqlistInfo.add(type);
-        cencEqlistInfo.add(originTime);
-        cencEqlistInfo.add(region);
-        cencEqlistInfo.add(mag);
-        cencEqlistInfo.add(depth);
-        cencEqlistInfo.add(latitude);
-        cencEqlistInfo.add(longitude);
-        cencEqlistInfo.add(intensity);
     }
 
     private void scEewExecute(JsonObject scEewData) {
@@ -644,35 +539,9 @@ public final class MCEEW extends JavaPlugin {
     }
 
     private void getEewInfo(Boolean flag, CommandSender sender) {
-        if (flag) {
-            if (cencEqlistMd5 != null) {
-                sender.sendMessage(
-                        cencEqlistBroadcastMessage.
-                                replaceAll("%flag%", cencEqlistInfo.get(0)).
-                                replaceAll("%origin_time%", cencEqlistInfo.get(1)).
-                                replaceAll("%region%", cencEqlistInfo.get(2)).
-                                replaceAll("%mag%", cencEqlistInfo.get(3)).
-                                replaceAll("%depth%", cencEqlistInfo.get(4)).
-                                replaceAll("%lat%", cencEqlistInfo.get(5)).
-                                replaceAll("%lon%", cencEqlistInfo.get(6)).
-                                replaceAll("%shindo%", getIntensityColor(cencEqlistInfo.get(7)))
-                );
-            }
-        } else {
-            if (jmaEqlistMd5 != null) {
-                sender.sendMessage(
-                        jmaEqlistBroadcastMessage.
-                                replaceAll("%origin_time%", jmaEqlistInfo.get(0)).
-                                replaceAll("%region%", jmaEqlistInfo.get(1)).
-                                replaceAll("%mag%", jmaEqlistInfo.get(2)).
-                                replaceAll("%depth%", jmaEqlistInfo.get(3)).
-                                replaceAll("%lat%", jmaEqlistInfo.get(4)).
-                                replaceAll("%lon%", jmaEqlistInfo.get(5)).
-                                replaceAll("%shindo%", getShindoColor(jmaEqlistInfo.get(6))).
-                                replaceAll("%info%", jmaEqlistInfo.get(7))
-                );
-            }
-        }
+        sender.sendMessage(flag
+                ? earthquakeInfoCache.formatCenc(cencEqlistBroadcastMessage)
+                : earthquakeInfoCache.formatJma(jmaEqlistBroadcastMessage));
     }
 
     private void jmaEewAction(String flag, String reportTime, String originTime, String num, String lat, String lon, String region, String mag, String depth, String shindo, String type) {
@@ -1115,7 +984,8 @@ public final class MCEEW extends JavaPlugin {
             sender.sendMessage("§a[MCEEW] §3/eew reload§a - Reload plugin configuration");
             return true;
         } else if (args[0].equalsIgnoreCase("reload") && sender.isOp()) {
-            loadEew(false);
+            loadEew();
+            webSocketManager.restart();
             sender.sendMessage("§a[MCEEW] Configuration reloaded successfully.");
             return true;
         } else if (args[0].equalsIgnoreCase("info")) {
@@ -1166,8 +1036,7 @@ public final class MCEEW extends JavaPlugin {
         return false;
     }
 
-    private void loadEew(Boolean first) {
-        cancelScheduler();
+    private void loadEew() {
         saveDefaultConfig();
         reloadConfig();
         jpEewBoolean = getConfig().getBoolean("enable_jp");
@@ -1220,13 +1089,15 @@ public final class MCEEW extends JavaPlugin {
         cencAlertSoundVolume = getConfig().getDouble("Sound.CencEEW.volume");
         cencAlertSoundPitch = getConfig().getDouble("Sound.CencEEW.pitch");
         configVersion = getConfig().getInt("config-version");
-        mceewScheduler(first);
     }
 
     @Override
     public void onDisable() {
+        if (webSocketManager != null) {
+            webSocketManager.stop();
+        }
         if (platformScheduler != null) {
-            cancelScheduler();
+            platformScheduler.cancelTasks();
         }
     }
 }
