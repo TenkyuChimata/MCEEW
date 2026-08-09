@@ -1,9 +1,9 @@
 #
 #  MCEEW configuration
-#  Last updated on 2.6.0
+#  Last updated on 2.7.0
 #
 #  API Source: https://api.wolfx.jp
-#  Github: https://github.com/TenkyuChimata/MCEEW
+#  GitHub: https://github.com/TenkyuChimata/MCEEW
 #  Plugin Page: https://www.spigotmc.org/resources/mceew-earthquake-early-warning.104549/
 #
 # ####
@@ -38,6 +38,9 @@ enable_cwa: true
 
 # Enable CENC EEW broadcast
 enable_cenceew: true
+
+# Enable Chongqing EEW broadcast
+enable_cq: true
 
 # Date-time format
 time_format: "yyyy年MM月dd日 HH時mm分ss秒"
@@ -81,8 +84,8 @@ Message:
     subtitle: "&e%region%发生烈度%shindo%&e的地震"
   # Fujian/Taiwan EEW message
   Fjea:
-    broadcast: "&c福建局地震預警 | 第%num%報 %type%\n &e%origin_time% &f發生\n &f震央: &e%region% (北緯: &e%lat%度 東經: &e%lon%度)\n &f規模: &e%mag%\n &f更新時間: &e%report_time%"
-    title: "&c福建局地震預警"
+    broadcast: "&c福建地震預警 | 第%num%報 %type%\n &e%origin_time% &f發生\n &f震央: &e%region% (北緯: &e%lat%度 東經: &e%lon%度)\n &f規模: &e%mag%\n &f更新時間: &e%report_time%"
+    title: "&c福建地震預警"
     subtitle: "&e%region%发生震级%mag%地震"
   # Taiwan CWA EEW message
   Cwa:
@@ -93,6 +96,11 @@ Message:
   CencEEW:
     broadcast: "&c中国地震台网地震预警 | 第%num%报\n &e%origin_time% &f发生\n &f震中: &e%region% (北纬: &e%lat%度 东经: &e%lon%度)\n &f震级: &e%mag%\n &f深度: &e%depth%\n &f最大烈度: &r%shindo%\n &f更新时间: &e%report_time%"
     title: "&c中国地震台网地震预警"
+    subtitle: "&e%region%发生震级%mag%地震"
+  # Chongqing EEW message
+  Chongqing:
+    broadcast: "&c重庆地震预警 | 第%num%报\n &e%origin_time% &f发生\n &f震中: &e%region% (北纬: &e%lat%度 东经: &e%lon%度)\n &f震级: &e%mag%\n &f深度: &e%depth%\n &f最大烈度: &r%shindo%\n &f更新时间: &e%report_time%"
+    title: "&c重庆地震预警"
     subtitle: "&e%region%发生震级%mag%地震"
 
 Sound:
@@ -129,6 +137,11 @@ Sound:
     type: "block.note_block.pling"
     volume: 1000.0
     pitch: 1.0
+  # Chongqing EEW sound
+  Chongqing:
+    type: "block.note_block.pling"
+    volume: 1000.0
+    pitch: 1.0
 
 # Do not change this value
-config-version: 8
+config-version: 9

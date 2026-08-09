@@ -9,9 +9,10 @@ A real-time Earthquake Early Warning (EEW) plugin for Minecraft servers.
 * **Receives Japan JMA EEW alerts**
 * **Receives final reports from JMA**
 * **Receives final reports from CENC**
+* **Receives EEW alerts from CENC, China**
 * **Receives EEW alerts from Taiwan and Fujian**
 * **Receives EEW alerts from Sichuan, China**
-* **Receives EEW alerts from CENC, China**
+* **Receives EEW alerts from Chongqing, China**
 * **Broadcasts messages to chat**
 * **Broadcasts messages to screen titles**
 * **Sends alerts when an earthquake is detected**
@@ -50,8 +51,9 @@ version required by the server when it is higher than Java 11.
 ![4.png](https://s2.loli.net/2024/02/29/ncFAuWD4wEsqIah.png)
 ![5.png](https://s2.loli.net/2024/04/03/QltcV4RZfe8kwIm.png)
 ![6.png](https://s2.loli.net/2025/09/13/GNYrfU8JQTP7IdE.png)
-![7.png](https://s2.loli.net/2024/02/29/OSGKuyq9zE8ChTY.png)
-![8.png](https://s2.loli.net/2024/02/29/tuXgnVqkrxQoYGJ.png)
+![7.png](https://files.seeusercontent.com/2026/08/09/8gkT/2026-08-09_233526.png)
+![8.png](https://s2.loli.net/2024/02/29/OSGKuyq9zE8ChTY.png)
+![9.png](https://s2.loli.net/2024/02/29/tuXgnVqkrxQoYGJ.png)
 
 ## Bstats
 

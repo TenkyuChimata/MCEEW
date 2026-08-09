@@ -36,3 +36,6 @@ permissions:
   mceew.notify.cenc.eew:
     description: "Receive China CENC EEW"
     default: true
+  mceew.notify.cq:
+    description: "Receive Chongqing EEW"
+    default: true

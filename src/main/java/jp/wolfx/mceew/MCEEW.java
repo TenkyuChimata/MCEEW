@@ -34,12 +34,13 @@ public final class MCEEW extends JavaPlugin {
             "(?:[a-z0-9._-]+:)?[a-z0-9/._-]+"
     );
     private int configVersion;
-    private static final int currentConfig = 8;
+    private static final int currentConfig = 9;
     private boolean jpEewBoolean;
     private boolean scEewBoolean;
     private boolean fjEewBoolean;
     private boolean cwaEewBoolean;
     private boolean cencEewBoolean;
+    private boolean cqEewBoolean;
     private boolean broadcastBool;
     private boolean titleBool;
     private boolean alertBool;
@@ -66,6 +67,9 @@ public final class MCEEW extends JavaPlugin {
     private String cencBroadcastMessage;
     private String cencTitleMessage;
     private String cencSubtitleMessage;
+    private String cqBroadcastMessage;
+    private String cqTitleMessage;
+    private String cqSubtitleMessage;
     private String alertAlertSoundType;
     private double alertAlertSoundVolume;
     private double alertAlertSoundPitch;
@@ -84,6 +88,9 @@ public final class MCEEW extends JavaPlugin {
     private String cencAlertSoundType;
     private double cencAlertSoundVolume;
     private double cencAlertSoundPitch;
+    private String cqAlertSoundType;
+    private double cqAlertSoundVolume;
+    private double cqAlertSoundPitch;
     private final EarthquakeInfoCache earthquakeInfoCache = new EarthquakeInfoCache();
     private String version;
     private static final HttpClient client = HttpClient.newHttpClient();
@@ -178,6 +185,18 @@ public final class MCEEW extends JavaPlugin {
             String intensity = "6.1";
             String originTime = getDate("yyyy-MM-dd HH:mm:ss", timeFormat, "Asia/Shanghai", originTimeStr);
             cencEewAction(reportTime, originTime, num, lat, lon, region, mag, depth, getIntensityColor(intensity));
+        } else if (flag == 6) {
+            String originTimeStr = "2026-08-07 13:08:30";
+            String reportTime = "2026-08-07 13:08:30";
+            String num = "1";
+            String lat = "28.517";
+            String lon = "104.673";
+            String region = "四川宜宾市高县";
+            String mag = "4.8";
+            String depth = "4km";
+            String intensity = "6.6";
+            String originTime = getDate("yyyy-MM-dd HH:mm:ss", timeFormat, "Asia/Shanghai", originTimeStr);
+            cqEewAction(reportTime, originTime, num, lat, lon, region, mag, depth, getIntensityColor(intensity));
         } else {
             String flags = "予報";
             String originTimeStr = "2024/02/29 18:35:38";
@@ -193,7 +212,7 @@ public final class MCEEW extends JavaPlugin {
             String originTime = getDate("yyyy/MM/dd HH:mm:ss", timeFormat, "Asia/Tokyo", originTimeStr);
             jmaEewAction(flags, reportTime, originTime, num, lat, lon, region, mag, depth, getShindoColor(shindo), type);
         }
-        broadcastMessage("§eWarning: This is an Earthquake Early Warning test.");
+        broadcastMessage();
     }
 
     private String fetchVersionFromDnsTxt() throws Exception {
@@ -278,9 +297,9 @@ public final class MCEEW extends JavaPlugin {
         platformScheduler.forEachPlayer(action);
     }
 
-    private void broadcastMessage(String message) {
-        sendConsoleMessage(message);
-        forEachPlayer(player -> player.sendMessage(message));
+    private void broadcastMessage() {
+        sendConsoleMessage("§eWarning: This is an Earthquake Early Warning test.");
+        forEachPlayer(player -> player.sendMessage("§eWarning: This is an Earthquake Early Warning test."));
     }
 
     private String getDate(String pattern, String timeFormat, String timezone, String originTime) {
@@ -373,6 +392,9 @@ public final class MCEEW extends JavaPlugin {
         }
         if (Objects.equals(type, "cenc_eew") && cencEewBoolean) {
             cencEewExecute(json);
+        }
+        if (Objects.equals(type, "cq_eew") && cqEewBoolean) {
+            cqEewExecute(json);
         }
         if (Objects.equals(type, "cenc_eqlist")) {
             cencEqlistExecute(json, cencEqlistBoolean);
@@ -528,6 +550,26 @@ public final class MCEEW extends JavaPlugin {
         }
     }
 
+    private void cqEewExecute(JsonObject cqEewData) {
+        String reportTime = cqEewData.get("ReportTime").getAsString();
+        String num = cqEewData.get("ReportNum").getAsString();
+        String lat = cqEewData.get("Latitude").getAsString();
+        String lon = cqEewData.get("Longitude").getAsString();
+        String region = cqEewData.get("HypoCenter").getAsString();
+        String mag = cqEewData.get("Magnitude").getAsString();
+        String intensity = String.valueOf(Math.round(Float.parseFloat(cqEewData.get("MaxIntensity").getAsString())));
+        String depth;
+        if (!cqEewData.get("Depth").isJsonNull()) {
+            depth = cqEewData.get("Depth").getAsString() + "km";
+        } else {
+            depth = "10km";
+        }
+        String originTime = getDate("yyyy-MM-dd HH:mm:ss", timeFormat, "Asia/Shanghai", cqEewData.get("OriginTime").getAsString());
+        if (isFresh(reportTime, "yyyy-MM-dd HH:mm:ss", ZoneId.of("Asia/Shanghai"))) {
+            cqEewAction(reportTime, originTime, num, lat, lon, region, mag, depth, getIntensityColor(intensity));
+        }
+    }
+
     private void getEewInfo(Boolean flag, CommandSender sender) {
         sender.sendMessage(flag
                 ? earthquakeInfoCache.formatCenc(cencEqlistBroadcastMessage)
@@ -611,29 +653,29 @@ public final class MCEEW extends JavaPlugin {
                     if (canReceive(player, "mceew.notify.jma.alert")) {
                         player.sendTitle(
                                 alertTitleMessage.
-                                                replaceAll("%flag%", flag).
-                                                replaceAll("%report_time%", reportTime).
-                                                replaceAll("%origin_time%", originTime).
-                                                replaceAll("%num%", num).
-                                                replaceAll("%lat%", lat).
-                                                replaceAll("%lon%", lon).
-                                                replaceAll("%region%", region).
-                                                replaceAll("%mag%", mag).
-                                                replaceAll("%depth%", depth).
-                                                replaceAll("%shindo%", shindo).
-                                                replaceAll("%type%", type),
+                                        replaceAll("%flag%", flag).
+                                        replaceAll("%report_time%", reportTime).
+                                        replaceAll("%origin_time%", originTime).
+                                        replaceAll("%num%", num).
+                                        replaceAll("%lat%", lat).
+                                        replaceAll("%lon%", lon).
+                                        replaceAll("%region%", region).
+                                        replaceAll("%mag%", mag).
+                                        replaceAll("%depth%", depth).
+                                        replaceAll("%shindo%", shindo).
+                                        replaceAll("%type%", type),
                                 alertSubtitleMessage.
-                                                replaceAll("%flag%", flag).
-                                                replaceAll("%report_time%", reportTime).
-                                                replaceAll("%origin_time%", originTime).
-                                                replaceAll("%num%", num).
-                                                replaceAll("%lat%", lat).
-                                                replaceAll("%lon%", lon).
-                                                replaceAll("%region%", region).
-                                                replaceAll("%mag%", mag).
-                                                replaceAll("%depth%", depth).
-                                                replaceAll("%shindo%", shindo).
-                                                replaceAll("%type%", type),
+                                        replaceAll("%flag%", flag).
+                                        replaceAll("%report_time%", reportTime).
+                                        replaceAll("%origin_time%", originTime).
+                                        replaceAll("%num%", num).
+                                        replaceAll("%lat%", lat).
+                                        replaceAll("%lon%", lon).
+                                        replaceAll("%region%", region).
+                                        replaceAll("%mag%", mag).
+                                        replaceAll("%depth%", depth).
+                                        replaceAll("%shindo%", shindo).
+                                        replaceAll("%type%", type),
                                 10, 70, 20
                         );
                     }
@@ -641,29 +683,29 @@ public final class MCEEW extends JavaPlugin {
                     if (canReceive(player, "mceew.notify.jma.forecast")) {
                         player.sendTitle(
                                 forecastTitleMessage.
-                                                replaceAll("%flag%", flag).
-                                                replaceAll("%report_time%", reportTime).
-                                                replaceAll("%origin_time%", originTime).
-                                                replaceAll("%num%", num).
-                                                replaceAll("%lat%", lat).
-                                                replaceAll("%lon%", lon).
-                                                replaceAll("%region%", region).
-                                                replaceAll("%mag%", mag).
-                                                replaceAll("%depth%", depth).
-                                                replaceAll("%shindo%", shindo).
-                                                replaceAll("%type%", type),
+                                        replaceAll("%flag%", flag).
+                                        replaceAll("%report_time%", reportTime).
+                                        replaceAll("%origin_time%", originTime).
+                                        replaceAll("%num%", num).
+                                        replaceAll("%lat%", lat).
+                                        replaceAll("%lon%", lon).
+                                        replaceAll("%region%", region).
+                                        replaceAll("%mag%", mag).
+                                        replaceAll("%depth%", depth).
+                                        replaceAll("%shindo%", shindo).
+                                        replaceAll("%type%", type),
                                 forecastSubtitleMessage.
-                                                replaceAll("%flag%", flag).
-                                                replaceAll("%report_time%", reportTime).
-                                                replaceAll("%origin_time%", originTime).
-                                                replaceAll("%num%", num).
-                                                replaceAll("%lat%", lat).
-                                                replaceAll("%lon%", lon).
-                                                replaceAll("%region%", region).
-                                                replaceAll("%mag%", mag).
-                                                replaceAll("%depth%", depth).
-                                                replaceAll("%shindo%", shindo).
-                                                replaceAll("%type%", type),
+                                        replaceAll("%flag%", flag).
+                                        replaceAll("%report_time%", reportTime).
+                                        replaceAll("%origin_time%", originTime).
+                                        replaceAll("%num%", num).
+                                        replaceAll("%lat%", lat).
+                                        replaceAll("%lon%", lon).
+                                        replaceAll("%region%", region).
+                                        replaceAll("%mag%", mag).
+                                        replaceAll("%depth%", depth).
+                                        replaceAll("%shindo%", shindo).
+                                        replaceAll("%type%", type),
                                 10, 70, 20
                         );
                     }
@@ -717,25 +759,25 @@ public final class MCEEW extends JavaPlugin {
                 if (titleBool) {
                     player.sendTitle(
                             sichuanTitleMessage.
-                                            replaceAll("%report_time%", reportTime).
-                                            replaceAll("%origin_time%", originTime).
-                                            replaceAll("%num%", num).
-                                            replaceAll("%lat%", lat).
-                                            replaceAll("%lon%", lon).
-                                            replaceAll("%region%", region).
-                                            replaceAll("%mag%", mag).
-                                            replaceAll("%depth%", depth).
-                                            replaceAll("%shindo%", intensity),
+                                    replaceAll("%report_time%", reportTime).
+                                    replaceAll("%origin_time%", originTime).
+                                    replaceAll("%num%", num).
+                                    replaceAll("%lat%", lat).
+                                    replaceAll("%lon%", lon).
+                                    replaceAll("%region%", region).
+                                    replaceAll("%mag%", mag).
+                                    replaceAll("%depth%", depth).
+                                    replaceAll("%shindo%", intensity),
                             sichuanSubtitleMessage.
-                                            replaceAll("%report_time%", reportTime).
-                                            replaceAll("%origin_time%", originTime).
-                                            replaceAll("%num%", num).
-                                            replaceAll("%lat%", lat).
-                                            replaceAll("%lon%", lon).
-                                            replaceAll("%region%", region).
-                                            replaceAll("%mag%", mag).
-                                            replaceAll("%depth%", depth).
-                                            replaceAll("%shindo%", intensity),
+                                    replaceAll("%report_time%", reportTime).
+                                    replaceAll("%origin_time%", originTime).
+                                    replaceAll("%num%", num).
+                                    replaceAll("%lat%", lat).
+                                    replaceAll("%lon%", lon).
+                                    replaceAll("%region%", region).
+                                    replaceAll("%mag%", mag).
+                                    replaceAll("%depth%", depth).
+                                    replaceAll("%shindo%", intensity),
                             10, 70, 20
                     );
                 }
@@ -778,23 +820,23 @@ public final class MCEEW extends JavaPlugin {
                 if (titleBool) {
                     player.sendTitle(
                             fjTitleMessage.
-                                            replaceAll("%report_time%", reportTime).
-                                            replaceAll("%origin_time%", originTime).
-                                            replaceAll("%num%", num).
-                                            replaceAll("%lat%", lat).
-                                            replaceAll("%lon%", lon).
-                                            replaceAll("%region%", region).
-                                            replaceAll("%mag%", mag).
-                                            replaceAll("%type%", type),
+                                    replaceAll("%report_time%", reportTime).
+                                    replaceAll("%origin_time%", originTime).
+                                    replaceAll("%num%", num).
+                                    replaceAll("%lat%", lat).
+                                    replaceAll("%lon%", lon).
+                                    replaceAll("%region%", region).
+                                    replaceAll("%mag%", mag).
+                                    replaceAll("%type%", type),
                             fjSubtitleMessage.
-                                            replaceAll("%report_time%", reportTime).
-                                            replaceAll("%origin_time%", originTime).
-                                            replaceAll("%num%", num).
-                                            replaceAll("%lat%", lat).
-                                            replaceAll("%lon%", lon).
-                                            replaceAll("%region%", region).
-                                            replaceAll("%mag%", mag).
-                                            replaceAll("%type%", type),
+                                    replaceAll("%report_time%", reportTime).
+                                    replaceAll("%origin_time%", originTime).
+                                    replaceAll("%num%", num).
+                                    replaceAll("%lat%", lat).
+                                    replaceAll("%lon%", lon).
+                                    replaceAll("%region%", region).
+                                    replaceAll("%mag%", mag).
+                                    replaceAll("%type%", type),
                             10, 70, 20
                     );
                 }
@@ -839,25 +881,25 @@ public final class MCEEW extends JavaPlugin {
                 if (titleBool) {
                     player.sendTitle(
                             cwaTitleMessage.
-                                            replaceAll("%report_time%", reportTime).
-                                            replaceAll("%origin_time%", originTime).
-                                            replaceAll("%num%", num).
-                                            replaceAll("%lat%", lat).
-                                            replaceAll("%lon%", lon).
-                                            replaceAll("%region%", region).
-                                            replaceAll("%mag%", mag).
-                                            replaceAll("%depth%", depth).
-                                            replaceAll("%shindo%", shindo),
+                                    replaceAll("%report_time%", reportTime).
+                                    replaceAll("%origin_time%", originTime).
+                                    replaceAll("%num%", num).
+                                    replaceAll("%lat%", lat).
+                                    replaceAll("%lon%", lon).
+                                    replaceAll("%region%", region).
+                                    replaceAll("%mag%", mag).
+                                    replaceAll("%depth%", depth).
+                                    replaceAll("%shindo%", shindo),
                             cwaSubtitleMessage.
-                                            replaceAll("%report_time%", reportTime).
-                                            replaceAll("%origin_time%", originTime).
-                                            replaceAll("%num%", num).
-                                            replaceAll("%lat%", lat).
-                                            replaceAll("%lon%", lon).
-                                            replaceAll("%region%", region).
-                                            replaceAll("%mag%", mag).
-                                            replaceAll("%depth%", depth).
-                                            replaceAll("%shindo%", shindo),
+                                    replaceAll("%report_time%", reportTime).
+                                    replaceAll("%origin_time%", originTime).
+                                    replaceAll("%num%", num).
+                                    replaceAll("%lat%", lat).
+                                    replaceAll("%lon%", lon).
+                                    replaceAll("%region%", region).
+                                    replaceAll("%mag%", mag).
+                                    replaceAll("%depth%", depth).
+                                    replaceAll("%shindo%", shindo),
                             10, 70, 20
                     );
                 }
@@ -902,30 +944,93 @@ public final class MCEEW extends JavaPlugin {
                 if (titleBool) {
                     player.sendTitle(
                             cencTitleMessage.
-                                            replaceAll("%report_time%", reportTime).
-                                            replaceAll("%origin_time%", originTime).
-                                            replaceAll("%num%", num).
-                                            replaceAll("%lat%", lat).
-                                            replaceAll("%lon%", lon).
-                                            replaceAll("%region%", region).
-                                            replaceAll("%mag%", mag).
-                                            replaceAll("%depth%", depth).
-                                            replaceAll("%shindo%", intensity),
+                                    replaceAll("%report_time%", reportTime).
+                                    replaceAll("%origin_time%", originTime).
+                                    replaceAll("%num%", num).
+                                    replaceAll("%lat%", lat).
+                                    replaceAll("%lon%", lon).
+                                    replaceAll("%region%", region).
+                                    replaceAll("%mag%", mag).
+                                    replaceAll("%depth%", depth).
+                                    replaceAll("%shindo%", intensity),
                             cencSubtitleMessage.
-                                            replaceAll("%report_time%", reportTime).
-                                            replaceAll("%origin_time%", originTime).
-                                            replaceAll("%num%", num).
-                                            replaceAll("%lat%", lat).
-                                            replaceAll("%lon%", lon).
-                                            replaceAll("%region%", region).
-                                            replaceAll("%mag%", mag).
-                                            replaceAll("%depth%", depth).
-                                            replaceAll("%shindo%", intensity),
+                                    replaceAll("%report_time%", reportTime).
+                                    replaceAll("%origin_time%", originTime).
+                                    replaceAll("%num%", num).
+                                    replaceAll("%lat%", lat).
+                                    replaceAll("%lon%", lon).
+                                    replaceAll("%region%", region).
+                                    replaceAll("%mag%", mag).
+                                    replaceAll("%depth%", depth).
+                                    replaceAll("%shindo%", intensity),
                             10, 70, 20
                     );
                 }
                 if (alertBool) {
                     playSound(cencAlertSoundType, cencAlertSoundVolume, cencAlertSoundPitch, player);
+                }
+            }
+        });
+    }
+
+    private void cqEewAction(String reportTime, String originTime, String num, String lat, String lon, String region, String mag, String depth, String intensity) {
+        if (broadcastBool) {
+            sendConsoleMessage(
+                    cqBroadcastMessage.
+                            replaceAll("%report_time%", reportTime).
+                            replaceAll("%origin_time%", originTime).
+                            replaceAll("%num%", num).
+                            replaceAll("%lat%", lat).
+                            replaceAll("%lon%", lon).
+                            replaceAll("%region%", region).
+                            replaceAll("%mag%", mag).
+                            replaceAll("%depth%", depth).
+                            replaceAll("%shindo%", intensity)
+            );
+        }
+        forEachPlayer(player -> {
+            if (canReceive(player, "mceew.notify.cq")) {
+                if (broadcastBool) {
+                    player.sendMessage(
+                            cqBroadcastMessage.
+                                    replaceAll("%report_time%", reportTime).
+                                    replaceAll("%origin_time%", originTime).
+                                    replaceAll("%num%", num).
+                                    replaceAll("%lat%", lat).
+                                    replaceAll("%lon%", lon).
+                                    replaceAll("%region%", region).
+                                    replaceAll("%mag%", mag).
+                                    replaceAll("%depth%", depth).
+                                    replaceAll("%shindo%", intensity)
+                    );
+                }
+                if (titleBool) {
+                    player.sendTitle(
+                            cqTitleMessage.
+                                    replaceAll("%report_time%", reportTime).
+                                    replaceAll("%origin_time%", originTime).
+                                    replaceAll("%num%", num).
+                                    replaceAll("%lat%", lat).
+                                    replaceAll("%lon%", lon).
+                                    replaceAll("%region%", region).
+                                    replaceAll("%mag%", mag).
+                                    replaceAll("%depth%", depth).
+                                    replaceAll("%shindo%", intensity),
+                            cqSubtitleMessage.
+                                    replaceAll("%report_time%", reportTime).
+                                    replaceAll("%origin_time%", originTime).
+                                    replaceAll("%num%", num).
+                                    replaceAll("%lat%", lat).
+                                    replaceAll("%lon%", lon).
+                                    replaceAll("%region%", region).
+                                    replaceAll("%mag%", mag).
+                                    replaceAll("%depth%", depth).
+                                    replaceAll("%shindo%", intensity),
+                            10, 70, 20
+                    );
+                }
+                if (alertBool) {
+                    playSound(cqAlertSoundType, cqAlertSoundVolume, cqAlertSoundPitch, player);
                 }
             }
         });
@@ -1012,6 +1117,9 @@ public final class MCEEW extends JavaPlugin {
                 } else if (args[1].equalsIgnoreCase("cenc")) {
                     eewTest(5);
                     return true;
+                } else if (args[1].equalsIgnoreCase("cq")) {
+                    eewTest(6);
+                    return true;
                 }
             } else {
                 sender.sendMessage("§a[MCEEW] §3/eew test forecast§a - Send JMA forecast EEW test.");
@@ -1020,6 +1128,7 @@ public final class MCEEW extends JavaPlugin {
                 sender.sendMessage("§a[MCEEW] §3/eew test fj§a - Send Taiwan/Fujian EEW test.");
                 sender.sendMessage("§a[MCEEW] §3/eew test cwa§a - Send Taiwan CWA EEW test.");
                 sender.sendMessage("§a[MCEEW] §3/eew test cenc§a - Send China CENC EEW test.");
+                sender.sendMessage("§a[MCEEW] §3/eew test cq§a - Send Chongqing EEW test.");
                 return true;
             }
         }
@@ -1034,6 +1143,7 @@ public final class MCEEW extends JavaPlugin {
         fjEewBoolean = getConfig().getBoolean("enable_fj");
         cwaEewBoolean = getConfig().getBoolean("enable_cwa");
         cencEewBoolean = getConfig().getBoolean("enable_cenceew");
+        cqEewBoolean = getConfig().getBoolean("enable_cq");
         broadcastBool = getConfig().getBoolean("Action.broadcast");
         titleBool = getConfig().getBoolean("Action.title");
         alertBool = getConfig().getBoolean("Action.alert");
@@ -1060,6 +1170,9 @@ public final class MCEEW extends JavaPlugin {
         cencBroadcastMessage = Objects.requireNonNull(getConfig().getString("Message.CencEEW.broadcast")).replace("&", "§");
         cencTitleMessage = Objects.requireNonNull(getConfig().getString("Message.CencEEW.title")).replace("&", "§");
         cencSubtitleMessage = Objects.requireNonNull(getConfig().getString("Message.CencEEW.subtitle")).replace("&", "§");
+        cqBroadcastMessage = Objects.requireNonNull(getConfig().getString("Message.Chongqing.broadcast")).replace("&", "§");
+        cqTitleMessage = Objects.requireNonNull(getConfig().getString("Message.Chongqing.title")).replace("&", "§");
+        cqSubtitleMessage = Objects.requireNonNull(getConfig().getString("Message.Chongqing.subtitle")).replace("&", "§");
         alertAlertSoundType = getConfig().getString("Sound.Alert.type");
         alertAlertSoundVolume = getConfig().getDouble("Sound.Alert.volume");
         alertAlertSoundPitch = getConfig().getDouble("Sound.Alert.pitch");
@@ -1078,6 +1191,9 @@ public final class MCEEW extends JavaPlugin {
         cencAlertSoundType = getConfig().getString("Sound.CencEEW.type");
         cencAlertSoundVolume = getConfig().getDouble("Sound.CencEEW.volume");
         cencAlertSoundPitch = getConfig().getDouble("Sound.CencEEW.pitch");
+        cqAlertSoundType = getConfig().getString("Sound.Chongqing.type");
+        cqAlertSoundVolume = getConfig().getDouble("Sound.Chongqing.volume");
+        cqAlertSoundPitch = getConfig().getDouble("Sound.Chongqing.pitch");
         configVersion = getConfig().getInt("config-version");
     }
 
