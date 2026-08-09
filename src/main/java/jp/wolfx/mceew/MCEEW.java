@@ -2,20 +2,13 @@ package jp.wolfx.mceew;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
-import net.kyori.adventure.title.Title;
+import jp.wolfx.mceew.scheduler.PlatformScheduler;
 import org.bukkit.Bukkit;
-import org.bukkit.NamespacedKey;
-import org.bukkit.Registry;
-import org.bukkit.Sound;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
-import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bstats.bukkit.Metrics;
-import org.jetbrains.annotations.NotNull;
 
 import javax.naming.directory.Attribute;
 import javax.naming.directory.Attributes;
@@ -35,8 +28,13 @@ import java.util.concurrent.TimeUnit;
 import java.net.http.HttpClient;
 import java.net.http.WebSocket;
 import java.util.concurrent.CompletionStage;
+import java.util.function.Consumer;
+import java.util.regex.Pattern;
 
 public final class MCEEW extends JavaPlugin {
+    private static final Pattern SOUND_KEY_PATTERN = Pattern.compile(
+            "(?:[a-z0-9._-]+:)?[a-z0-9/._-]+"
+    );
     private int configVersion;
     private static final int currentConfig = 8;
     private boolean jpEewBoolean;
@@ -94,23 +92,16 @@ public final class MCEEW extends JavaPlugin {
     private JsonObject cencEqlistData = null;
     private final ArrayList<String> jmaEqlistInfo = new ArrayList<>();
     private final ArrayList<String> cencEqlistInfo = new ArrayList<>();
-    private final String version = getPluginMeta().getVersion();
+    private String version;
     private static final HttpClient client = HttpClient.newHttpClient();
-    private final boolean folia = isFolia();
+    private PlatformScheduler platformScheduler;
 
     @Override
     public void onEnable() {
+        version = getDescription().getVersion();
+        platformScheduler = PlatformScheduler.create(this);
         loadEew(true);
         new Metrics(this, 17261);
-    }
-
-    private boolean isFolia() {
-        try {
-            Class.forName("io.papermc.paper.threadedregions.scheduler.AsyncScheduler");
-            return true;
-        } catch (ClassNotFoundException e) {
-            return false;
-        }
     }
 
     private void eewTest(int flag) {
@@ -190,7 +181,7 @@ public final class MCEEW extends JavaPlugin {
             String originTime = getDate("yyyy/MM/dd HH:mm:ss", timeFormat, "Asia/Tokyo", originTimeStr);
             jmaEewAction(flags, reportTime, originTime, num, lat, lon, region, mag, depth, getShindoColor(shindo), type);
         }
-        Bukkit.getServer().broadcast(Component.text("Warning: This is an Earthquake Early Warning test.", NamedTextColor.YELLOW));
+        broadcastMessage("§eWarning: This is an Earthquake Early Warning test.");
     }
 
     private String fetchVersionFromDnsTxt() throws Exception {
@@ -267,6 +258,19 @@ public final class MCEEW extends JavaPlugin {
         return player.hasPermission("mceew.notify.all") && player.hasPermission(node);
     }
 
+    private void sendConsoleMessage(String message) {
+        platformScheduler.runGlobal(() -> Bukkit.getConsoleSender().sendMessage(message));
+    }
+
+    private void forEachPlayer(Consumer<Player> action) {
+        platformScheduler.forEachPlayer(action);
+    }
+
+    private void broadcastMessage(String message) {
+        sendConsoleMessage(message);
+        forEachPlayer(player -> player.sendMessage(message));
+    }
+
     private String getDate(String pattern, String timeFormat, String timezone, String originTime) {
         DateTimeFormatter originTime1 = DateTimeFormatter.ofPattern(pattern);
         ZonedDateTime originTime2 = ZonedDateTime.parse(originTime, originTime1.withZone(ZoneId.of(timezone)));
@@ -274,13 +278,20 @@ public final class MCEEW extends JavaPlugin {
     }
 
     private void playSound(String alertSoundType, double alertSoundVolume, double alertSoundPitch, Player player) {
-        NamespacedKey key = NamespacedKey.minecraft(alertSoundType);
-        Sound alertPlayedSound = Registry.SOUNDS.get(key);
-        if (alertPlayedSound == null) {
+        if (alertSoundType == null || !SOUND_KEY_PATTERN.matcher(alertSoundType).matches()) {
             getLogger().warning("Unknown sound type: " + alertSoundType);
             return;
         }
-        player.playSound(player.getLocation(), alertPlayedSound, (float) alertSoundVolume, (float) alertSoundPitch);
+        try {
+            player.playSound(
+                    player.getLocation(),
+                    alertSoundType,
+                    (float) alertSoundVolume,
+                    (float) alertSoundPitch
+            );
+        } catch (IllegalArgumentException exception) {
+            getLogger().warning("Unknown sound type: " + alertSoundType);
+        }
     }
 
     private boolean isFresh(String reportTimeStr, String pattern, ZoneId zone) {
@@ -297,27 +308,16 @@ public final class MCEEW extends JavaPlugin {
     }
 
     private void cancelScheduler() {
-        if (!folia) {
-            Bukkit.getScheduler().cancelTasks(this);
-        } else {
-            Bukkit.getAsyncScheduler().cancelTasks(this);
-        }
+        platformScheduler.cancelTasks();
     }
 
     private void mceewScheduler(boolean first) {
-        if (!folia) {
-            Bukkit.getScheduler().runTaskAsynchronously(this, () -> wsClient(first));
-            if (first) {
-                getLogger().info("Using Bukkit API for scheduler.");
-                Bukkit.getScheduler().runTaskAsynchronously(this, this::updater);
-            }
-        } else {
-            Plugin plugin = this;
-            Bukkit.getAsyncScheduler().runNow(plugin, task1 -> wsClient(first));
-            if (first) {
-                getLogger().info("Using Folia API for scheduler.");
-                Bukkit.getAsyncScheduler().runNow(plugin, task2 -> updater());
-            }
+        platformScheduler.runAsync(() -> wsClient(first));
+        if (first) {
+            getLogger().info(platformScheduler.isFolia()
+                    ? "Using Folia API for scheduler."
+                    : "Using Bukkit API for scheduler.");
+            platformScheduler.runAsync(this::updater);
         }
     }
 
@@ -362,7 +362,7 @@ public final class MCEEW extends JavaPlugin {
         if (type) {
             wsClient(false);
         } else {
-            loadEew(false);
+            platformScheduler.runGlobal(() -> loadEew(false));
         }
     }
 
@@ -481,7 +481,7 @@ public final class MCEEW extends JavaPlugin {
         String info = jmaEqlistData.get("No1").getAsJsonObject().get("info").getAsString();
         String originTime = getDate("yyyy/MM/dd HH:mm:ss", timeFormat, "Asia/Tokyo", timeStr);
         if (jmaEqlistMd5 != null && jmaEqlistBoolean) {
-            Bukkit.getConsoleSender().sendMessage(
+            sendConsoleMessage(
                     jmaEqlistBroadcastMessage.
                             replaceAll("%origin_time%", originTime).
                             replaceAll("%region%", region).
@@ -492,7 +492,7 @@ public final class MCEEW extends JavaPlugin {
                             replaceAll("%shindo%", getShindoColor(shindo)).
                             replaceAll("%info%", info)
             );
-            for (Player player : Bukkit.getServer().getOnlinePlayers()) {
+            forEachPlayer(player -> {
                 if (canReceive(player, "mceew.notify.jma.eqlist")) {
                     player.sendMessage(
                             jmaEqlistBroadcastMessage.
@@ -506,7 +506,7 @@ public final class MCEEW extends JavaPlugin {
                                     replaceAll("%info%", info)
                     );
                 }
-            }
+            });
         }
         jmaEqlistMd5 = jmaEqlistData.get("md5").getAsString();
         jmaEqlistInfo.clear();
@@ -521,23 +521,18 @@ public final class MCEEW extends JavaPlugin {
     }
 
     private void cencEqlistExecute(Boolean cencEqlistBoolean) {
-        String type = cencEqlistData.get("No1").getAsJsonObject().get("type").getAsString();
+        String sourceType = cencEqlistData.get("No1").getAsJsonObject().get("type").getAsString();
         String timeStr = cencEqlistData.get("No1").getAsJsonObject().get("time").getAsString();
         String region = cencEqlistData.get("No1").getAsJsonObject().get("location").getAsString();
         String mag = cencEqlistData.get("No1").getAsJsonObject().get("magnitude").getAsString();
-        String depth = cencEqlistData.get("No1").getAsJsonObject().get("depth").getAsString();
+        String depth = cencEqlistData.get("No1").getAsJsonObject().get("depth").getAsString() + "km";
         String latitude = cencEqlistData.get("No1").getAsJsonObject().get("latitude").getAsString();
         String longitude = cencEqlistData.get("No1").getAsJsonObject().get("longitude").getAsString();
         String originTime = getDate("yyyy-MM-dd HH:mm:ss", timeFormat, "Asia/Shanghai", timeStr);
         String intensity = cencEqlistData.get("No1").getAsJsonObject().get("intensity").getAsString();
-        depth += "km";
-        if (Objects.equals(type, "reviewed")) {
-            type = "正式测定";
-        } else {
-            type = "自动测定";
-        }
+        String type = Objects.equals(sourceType, "reviewed") ? "正式测定" : "自动测定";
         if (cencEqlistMd5 != null && cencEqlistBoolean) {
-            Bukkit.getConsoleSender().sendMessage(
+            sendConsoleMessage(
                     cencEqlistBroadcastMessage.
                             replaceAll("%flag%", type).
                             replaceAll("%origin_time%", originTime).
@@ -548,7 +543,7 @@ public final class MCEEW extends JavaPlugin {
                             replaceAll("%lon%", longitude).
                             replaceAll("%shindo%", getIntensityColor(intensity))
             );
-            for (Player player : Bukkit.getServer().getOnlinePlayers()) {
+            forEachPlayer(player -> {
                 if (canReceive(player, "mceew.notify.cenc.eqlist")) {
                     player.sendMessage(
                             cencEqlistBroadcastMessage.
@@ -562,7 +557,7 @@ public final class MCEEW extends JavaPlugin {
                                     replaceAll("%shindo%", getIntensityColor(intensity))
                     );
                 }
-            }
+            });
         }
         cencEqlistMd5 = cencEqlistData.get("md5").getAsString();
         cencEqlistInfo.clear();
@@ -683,7 +678,7 @@ public final class MCEEW extends JavaPlugin {
     private void jmaEewAction(String flag, String reportTime, String originTime, String num, String lat, String lon, String region, String mag, String depth, String shindo, String type) {
         if (broadcastBool) {
             if (Objects.equals(flag, "警報")) {
-                Bukkit.getConsoleSender().sendMessage(
+                sendConsoleMessage(
                         alertBroadcastMessage.
                                 replaceAll("%flag%", flag).
                                 replaceAll("%report_time%", reportTime).
@@ -698,7 +693,7 @@ public final class MCEEW extends JavaPlugin {
                                 replaceAll("%type%", type)
                 );
             } else {
-                Bukkit.getConsoleSender().sendMessage(
+                sendConsoleMessage(
                         forecastBroadcastMessage.
                                 replaceAll("%flag%", flag).
                                 replaceAll("%report_time%", reportTime).
@@ -714,7 +709,7 @@ public final class MCEEW extends JavaPlugin {
                 );
             }
         }
-        for (Player player : Bukkit.getServer().getOnlinePlayers()) {
+        forEachPlayer(player -> {
             if (broadcastBool) {
                 if (Objects.equals(flag, "警報")) {
                     if (canReceive(player, "mceew.notify.jma.alert")) {
@@ -755,9 +750,8 @@ public final class MCEEW extends JavaPlugin {
             if (titleBool) {
                 if (Objects.equals(flag, "警報")) {
                     if (canReceive(player, "mceew.notify.jma.alert")) {
-                        player.showTitle(
-                                Title.title(
-                                        Component.text(alertTitleMessage.
+                        player.sendTitle(
+                                alertTitleMessage.
                                                 replaceAll("%flag%", flag).
                                                 replaceAll("%report_time%", reportTime).
                                                 replaceAll("%origin_time%", originTime).
@@ -768,8 +762,8 @@ public final class MCEEW extends JavaPlugin {
                                                 replaceAll("%mag%", mag).
                                                 replaceAll("%depth%", depth).
                                                 replaceAll("%shindo%", shindo).
-                                                replaceAll("%type%", type)),
-                                        Component.text(alertSubtitleMessage.
+                                                replaceAll("%type%", type),
+                                alertSubtitleMessage.
                                                 replaceAll("%flag%", flag).
                                                 replaceAll("%report_time%", reportTime).
                                                 replaceAll("%origin_time%", originTime).
@@ -780,15 +774,14 @@ public final class MCEEW extends JavaPlugin {
                                                 replaceAll("%mag%", mag).
                                                 replaceAll("%depth%", depth).
                                                 replaceAll("%shindo%", shindo).
-                                                replaceAll("%type%", type))
-                                )
+                                                replaceAll("%type%", type),
+                                10, 70, 20
                         );
                     }
                 } else {
                     if (canReceive(player, "mceew.notify.jma.forecast")) {
-                        player.showTitle(
-                                Title.title(
-                                        Component.text(forecastTitleMessage.
+                        player.sendTitle(
+                                forecastTitleMessage.
                                                 replaceAll("%flag%", flag).
                                                 replaceAll("%report_time%", reportTime).
                                                 replaceAll("%origin_time%", originTime).
@@ -799,8 +792,8 @@ public final class MCEEW extends JavaPlugin {
                                                 replaceAll("%mag%", mag).
                                                 replaceAll("%depth%", depth).
                                                 replaceAll("%shindo%", shindo).
-                                                replaceAll("%type%", type)),
-                                        Component.text(forecastSubtitleMessage.
+                                                replaceAll("%type%", type),
+                                forecastSubtitleMessage.
                                                 replaceAll("%flag%", flag).
                                                 replaceAll("%report_time%", reportTime).
                                                 replaceAll("%origin_time%", originTime).
@@ -811,8 +804,8 @@ public final class MCEEW extends JavaPlugin {
                                                 replaceAll("%mag%", mag).
                                                 replaceAll("%depth%", depth).
                                                 replaceAll("%shindo%", shindo).
-                                                replaceAll("%type%", type))
-                                )
+                                                replaceAll("%type%", type),
+                                10, 70, 20
                         );
                     }
                 }
@@ -828,12 +821,12 @@ public final class MCEEW extends JavaPlugin {
                     }
                 }
             }
-        }
+        });
     }
 
     private void scEewAction(String reportTime, String originTime, String num, String lat, String lon, String region, String mag, String depth, String intensity) {
         if (broadcastBool) {
-            Bukkit.getConsoleSender().sendMessage(
+            sendConsoleMessage(
                     sichuanBroadcastMessage.
                             replaceAll("%report_time%", reportTime).
                             replaceAll("%origin_time%", originTime).
@@ -846,7 +839,7 @@ public final class MCEEW extends JavaPlugin {
                             replaceAll("%shindo%", intensity)
             );
         }
-        for (Player player : Bukkit.getServer().getOnlinePlayers()) {
+        forEachPlayer(player -> {
             if (canReceive(player, "mceew.notify.sc")) {
                 if (broadcastBool) {
                     player.sendMessage(
@@ -863,9 +856,8 @@ public final class MCEEW extends JavaPlugin {
                     );
                 }
                 if (titleBool) {
-                    player.showTitle(
-                            Title.title(
-                                    Component.text(sichuanTitleMessage.
+                    player.sendTitle(
+                            sichuanTitleMessage.
                                             replaceAll("%report_time%", reportTime).
                                             replaceAll("%origin_time%", originTime).
                                             replaceAll("%num%", num).
@@ -874,8 +866,8 @@ public final class MCEEW extends JavaPlugin {
                                             replaceAll("%region%", region).
                                             replaceAll("%mag%", mag).
                                             replaceAll("%depth%", depth).
-                                            replaceAll("%shindo%", intensity)),
-                                    Component.text(sichuanSubtitleMessage.
+                                            replaceAll("%shindo%", intensity),
+                            sichuanSubtitleMessage.
                                             replaceAll("%report_time%", reportTime).
                                             replaceAll("%origin_time%", originTime).
                                             replaceAll("%num%", num).
@@ -884,20 +876,20 @@ public final class MCEEW extends JavaPlugin {
                                             replaceAll("%region%", region).
                                             replaceAll("%mag%", mag).
                                             replaceAll("%depth%", depth).
-                                            replaceAll("%shindo%", intensity))
-                            )
+                                            replaceAll("%shindo%", intensity),
+                            10, 70, 20
                     );
                 }
                 if (alertBool) {
                     playSound(scAlertSoundType, scAlertSoundVolume, scAlertSoundPitch, player);
                 }
             }
-        }
+        });
     }
 
     private void fjEewAction(String reportTime, String originTime, String num, String lat, String lon, String region, String mag, String type) {
         if (broadcastBool) {
-            Bukkit.getConsoleSender().sendMessage(
+            sendConsoleMessage(
                     fjBroadcastMessage.
                             replaceAll("%report_time%", reportTime).
                             replaceAll("%origin_time%", originTime).
@@ -909,7 +901,7 @@ public final class MCEEW extends JavaPlugin {
                             replaceAll("%type%", type)
             );
         }
-        for (Player player : Bukkit.getServer().getOnlinePlayers()) {
+        forEachPlayer(player -> {
             if (canReceive(player, "mceew.notify.fj")) {
                 if (broadcastBool) {
                     player.sendMessage(
@@ -925,9 +917,8 @@ public final class MCEEW extends JavaPlugin {
                     );
                 }
                 if (titleBool) {
-                    player.showTitle(
-                            Title.title(
-                                    Component.text(fjTitleMessage.
+                    player.sendTitle(
+                            fjTitleMessage.
                                             replaceAll("%report_time%", reportTime).
                                             replaceAll("%origin_time%", originTime).
                                             replaceAll("%num%", num).
@@ -935,8 +926,8 @@ public final class MCEEW extends JavaPlugin {
                                             replaceAll("%lon%", lon).
                                             replaceAll("%region%", region).
                                             replaceAll("%mag%", mag).
-                                            replaceAll("%type%", type)),
-                                    Component.text(fjSubtitleMessage.
+                                            replaceAll("%type%", type),
+                            fjSubtitleMessage.
                                             replaceAll("%report_time%", reportTime).
                                             replaceAll("%origin_time%", originTime).
                                             replaceAll("%num%", num).
@@ -944,20 +935,20 @@ public final class MCEEW extends JavaPlugin {
                                             replaceAll("%lon%", lon).
                                             replaceAll("%region%", region).
                                             replaceAll("%mag%", mag).
-                                            replaceAll("%type%", type))
-                            )
+                                            replaceAll("%type%", type),
+                            10, 70, 20
                     );
                 }
                 if (alertBool) {
                     playSound(fjAlertSoundType, fjAlertSoundVolume, fjAlertSoundPitch, player);
                 }
             }
-        }
+        });
     }
 
     private void cwaEewAction(String reportTime, String originTime, String num, String lat, String lon, String region, String mag, String depth, String shindo) {
         if (broadcastBool) {
-            Bukkit.getConsoleSender().sendMessage(
+            sendConsoleMessage(
                     cwaBroadcastMessage.
                             replaceAll("%report_time%", reportTime).
                             replaceAll("%origin_time%", originTime).
@@ -970,7 +961,7 @@ public final class MCEEW extends JavaPlugin {
                             replaceAll("%shindo%", shindo)
             );
         }
-        for (Player player : Bukkit.getServer().getOnlinePlayers()) {
+        forEachPlayer(player -> {
             if (canReceive(player, "mceew.notify.cwa")) {
                 if (broadcastBool) {
                     player.sendMessage(
@@ -987,9 +978,8 @@ public final class MCEEW extends JavaPlugin {
                     );
                 }
                 if (titleBool) {
-                    player.showTitle(
-                            Title.title(
-                                    Component.text(cwaTitleMessage.
+                    player.sendTitle(
+                            cwaTitleMessage.
                                             replaceAll("%report_time%", reportTime).
                                             replaceAll("%origin_time%", originTime).
                                             replaceAll("%num%", num).
@@ -998,8 +988,8 @@ public final class MCEEW extends JavaPlugin {
                                             replaceAll("%region%", region).
                                             replaceAll("%mag%", mag).
                                             replaceAll("%depth%", depth).
-                                            replaceAll("%shindo%", shindo)),
-                                    Component.text(cwaSubtitleMessage.
+                                            replaceAll("%shindo%", shindo),
+                            cwaSubtitleMessage.
                                             replaceAll("%report_time%", reportTime).
                                             replaceAll("%origin_time%", originTime).
                                             replaceAll("%num%", num).
@@ -1008,20 +998,20 @@ public final class MCEEW extends JavaPlugin {
                                             replaceAll("%region%", region).
                                             replaceAll("%mag%", mag).
                                             replaceAll("%depth%", depth).
-                                            replaceAll("%shindo%", shindo))
-                            )
+                                            replaceAll("%shindo%", shindo),
+                            10, 70, 20
                     );
                 }
                 if (alertBool) {
                     playSound(cwaAlertSoundType, cwaAlertSoundVolume, cwaAlertSoundPitch, player);
                 }
             }
-        }
+        });
     }
 
     private void cencEewAction(String reportTime, String originTime, String num, String lat, String lon, String region, String mag, String depth, String intensity) {
         if (broadcastBool) {
-            Bukkit.getConsoleSender().sendMessage(
+            sendConsoleMessage(
                     cencBroadcastMessage.
                             replaceAll("%report_time%", reportTime).
                             replaceAll("%origin_time%", originTime).
@@ -1034,7 +1024,7 @@ public final class MCEEW extends JavaPlugin {
                             replaceAll("%shindo%", intensity)
             );
         }
-        for (Player player : Bukkit.getServer().getOnlinePlayers()) {
+        forEachPlayer(player -> {
             if (canReceive(player, "mceew.notify.cenc.eew")) {
                 if (broadcastBool) {
                     player.sendMessage(
@@ -1051,9 +1041,8 @@ public final class MCEEW extends JavaPlugin {
                     );
                 }
                 if (titleBool) {
-                    player.showTitle(
-                            Title.title(
-                                    Component.text(cencTitleMessage.
+                    player.sendTitle(
+                            cencTitleMessage.
                                             replaceAll("%report_time%", reportTime).
                                             replaceAll("%origin_time%", originTime).
                                             replaceAll("%num%", num).
@@ -1062,8 +1051,8 @@ public final class MCEEW extends JavaPlugin {
                                             replaceAll("%region%", region).
                                             replaceAll("%mag%", mag).
                                             replaceAll("%depth%", depth).
-                                            replaceAll("%shindo%", intensity)),
-                                    Component.text(cencSubtitleMessage.
+                                            replaceAll("%shindo%", intensity),
+                            cencSubtitleMessage.
                                             replaceAll("%report_time%", reportTime).
                                             replaceAll("%origin_time%", originTime).
                                             replaceAll("%num%", num).
@@ -1072,15 +1061,15 @@ public final class MCEEW extends JavaPlugin {
                                             replaceAll("%region%", region).
                                             replaceAll("%mag%", mag).
                                             replaceAll("%depth%", depth).
-                                            replaceAll("%shindo%", intensity))
-                            )
+                                            replaceAll("%shindo%", intensity),
+                            10, 70, 20
                     );
                 }
                 if (alertBool) {
                     playSound(cencAlertSoundType, cencAlertSoundVolume, cencAlertSoundPitch, player);
                 }
             }
-        }
+        });
     }
 
     private String getShindoColor(String shindo) {
@@ -1117,7 +1106,7 @@ public final class MCEEW extends JavaPlugin {
         return intensityColor[index] + intensity;
     }
 
-    public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String @NotNull [] args) {
+    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (args.length == 0) {
             sender.sendMessage("§a[MCEEW] Plugin version: v" + version);
             sender.sendMessage("§a[MCEEW] §3/eew§a - Show available commands");
@@ -1236,6 +1225,8 @@ public final class MCEEW extends JavaPlugin {
 
     @Override
     public void onDisable() {
-        cancelScheduler();
+        if (platformScheduler != null) {
+            cancelScheduler();
+        }
     }
 }
