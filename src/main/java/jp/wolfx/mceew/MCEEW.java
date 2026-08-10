@@ -33,8 +33,6 @@ public final class MCEEW extends JavaPlugin {
     private static final Pattern SOUND_KEY_PATTERN = Pattern.compile(
             "(?:[a-z0-9._-]+:)?[a-z0-9/._-]+"
     );
-    private int configVersion;
-    private static final int currentConfig = 9;
     private boolean jpEewBoolean;
     private boolean scEewBoolean;
     private boolean fjEewBoolean;
@@ -96,11 +94,13 @@ public final class MCEEW extends JavaPlugin {
     private static final HttpClient client = HttpClient.newHttpClient();
     private PlatformScheduler platformScheduler;
     private WebSocketConnectionManager webSocketManager;
+    private ConfigManager configManager;
 
     @Override
     public void onEnable() {
         version = getDescription().getVersion();
         platformScheduler = PlatformScheduler.create(this);
+        configManager = ConfigManager.forPlugin(this);
         webSocketManager = new WebSocketConnectionManager(
                 listener -> client.newWebSocketBuilder()
                         .buildAsync(URI.create("wss://ws-api.wolfx.jp/all_eew"), listener),
@@ -114,7 +114,9 @@ public final class MCEEW extends JavaPlugin {
                 5,
                 TimeUnit.SECONDS
         );
-        loadEew();
+        if (!prepareAndLoadConfiguration()) {
+            throw new IllegalStateException("Unable to prepare MCEEW configuration");
+        }
         getLogger().info(platformScheduler.isFolia()
                 ? "Using Folia API for scheduler."
                 : "Using Bukkit API for scheduler.");
@@ -362,10 +364,6 @@ public final class MCEEW extends JavaPlugin {
         } catch (Exception e) {
             getLogger().warning("Failed to check for plugin updates via DNS TXT.");
             getLogger().warning(String.valueOf(e));
-        }
-
-        if (currentConfig > configVersion) {
-            getLogger().warning("Configuration update detected, please delete the MCEEW configuration file to update it.");
         }
     }
 
@@ -1079,7 +1077,10 @@ public final class MCEEW extends JavaPlugin {
             sender.sendMessage("§a[MCEEW] §3/eew reload§a - Reload plugin configuration");
             return true;
         } else if (args[0].equalsIgnoreCase("reload") && sender.isOp()) {
-            loadEew();
+            if (!prepareAndLoadConfiguration()) {
+                sender.sendMessage("§c[MCEEW] Configuration reload failed; the existing file was left unchanged.");
+                return true;
+            }
             webSocketManager.restart();
             sender.sendMessage("§a[MCEEW] Configuration reloaded successfully.");
             return true;
@@ -1135,9 +1136,24 @@ public final class MCEEW extends JavaPlugin {
         return false;
     }
 
-    private void loadEew() {
-        saveDefaultConfig();
-        reloadConfig();
+    private synchronized boolean prepareAndLoadConfiguration() {
+        try {
+            configManager.prepareConfig();
+        } catch (ConfigManager.ConfigPreparationException error) {
+            return false;
+        }
+        try {
+            reloadConfig();
+            loadRuntimeConfiguration();
+            return true;
+        } catch (RuntimeException error) {
+            getLogger().log(java.util.logging.Level.SEVERE,
+                    "Configuration was prepared but could not be loaded into the runtime.", error);
+            return false;
+        }
+    }
+
+    private void loadRuntimeConfiguration() {
         jpEewBoolean = getConfig().getBoolean("enable_jp");
         scEewBoolean = getConfig().getBoolean("enable_sc");
         fjEewBoolean = getConfig().getBoolean("enable_fj");
@@ -1194,7 +1210,6 @@ public final class MCEEW extends JavaPlugin {
         cqAlertSoundType = getConfig().getString("Sound.Chongqing.type");
         cqAlertSoundVolume = getConfig().getDouble("Sound.Chongqing.volume");
         cqAlertSoundPitch = getConfig().getDouble("Sound.Chongqing.pitch");
-        configVersion = getConfig().getInt("config-version");
     }
 
     @Override
