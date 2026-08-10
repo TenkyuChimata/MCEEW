@@ -14,7 +14,6 @@
     <properties>
         <java.version>11</java.version>
         <spigot.version>1.13.2-R0.1-SNAPSHOT</spigot.version>
-        <folia.version>1.19.4-R0.1-SNAPSHOT</folia.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
@@ -137,7 +136,7 @@
                 <dependency>
                     <groupId>dev.folia</groupId>
                     <artifactId>folia-api</artifactId>
-                    <version>${folia.version}</version>
+                    <version>[26.1.2.build,)</version>
                     <scope>test</scope>
                 </dependency>
             </dependencies>
