@@ -14,18 +14,18 @@ jobs:
       contents: read
 
     steps:
-    - uses: actions/checkout@v6
-    - name: Set up JDK 17
+    - uses: actions/checkout@v7
+    - name: Set up JDK 25
       uses: actions/setup-java@v5
       with:
-        java-version: '17'
+        java-version: '25'
         distribution: 'temurin'
         cache: maven
 
     - name: Build against the Spigot baseline
       run: mvn -B clean verify --file pom.xml
 
-    - name: Verify Folia 1.19.4 scheduler signatures
+    - name: Verify Folia scheduler signatures
       run: mvn -B -Pfolia-compat test --file pom.xml
 
     - name: Inspect the common server Jar
