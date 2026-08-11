@@ -19,6 +19,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.LogRecord;
@@ -29,6 +30,47 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class WebSocketConnectionManagerTest {
+    @Test
+    void fragmentedTextIsCombinedAndEachFragmentRestoresDemand() {
+        FakeDelayScheduler scheduler = new FakeDelayScheduler();
+        FakeConnector connector = new FakeConnector(false);
+        List<String> messages = new ArrayList<>();
+        WebSocketConnectionManager manager = manager(
+                connector, scheduler, null, messages::add);
+        manager.start();
+
+        Attempt attempt = connector.attempts.get(0);
+        attempt.listener.onText(attempt.socket, "{\"type\":", false);
+        attempt.listener.onText(attempt.socket, "\"heartbeat\"}", true);
+
+        assertEquals(List.of("{\"type\":\"heartbeat\"}"), messages);
+        assertEquals(3, attempt.socket.requestCalls.get());
+    }
+
+    @Test
+    void rejectedApplicationMessageDoesNotDisconnectOrStopConsumption() {
+        FakeDelayScheduler scheduler = new FakeDelayScheduler();
+        FakeConnector connector = new FakeConnector(false);
+        List<String> messages = new ArrayList<>();
+        WebSocketConnectionManager manager = manager(
+                connector, scheduler, null, message -> {
+                    if (message.equals("bad")) {
+                        throw new IllegalArgumentException("malformed message");
+                    }
+                    messages.add(message);
+                });
+        manager.start();
+
+        Attempt attempt = connector.attempts.get(0);
+        attempt.listener.onText(attempt.socket, "bad", true);
+        attempt.listener.onText(attempt.socket, "good", true);
+
+        assertEquals(List.of("good"), messages);
+        assertFalse(attempt.socket.aborted);
+        assertEquals(0, scheduler.pendingWithDelay(TimeUnit.SECONDS.toMillis(5)));
+        assertEquals(3, attempt.socket.requestCalls.get());
+    }
+
     @Test
     void bootstrapQueriesWaitForSendCompletionAndTheFullPacingInterval() {
         FakeDelayScheduler scheduler = new FakeDelayScheduler();
@@ -202,6 +244,22 @@ class WebSocketConnectionManagerTest {
     }
 
     @Test
+    void peerNormalCloseSchedulesReconnect() {
+        FakeDelayScheduler scheduler = new FakeDelayScheduler();
+        FakeConnector connector = new FakeConnector(false);
+        WebSocketConnectionManager manager = manager(connector, scheduler);
+        manager.start();
+
+        Attempt attempt = connector.attempts.get(0);
+        attempt.listener.onClose(
+                attempt.socket, WebSocket.NORMAL_CLOSURE, "server maintenance");
+
+        assertEquals(1, scheduler.pendingWithDelay(TimeUnit.SECONDS.toMillis(5)));
+        scheduler.advanceBy(TimeUnit.SECONDS.toMillis(5));
+        assertEquals(2, connector.attempts.size());
+    }
+
+    @Test
     void staleCloseAndErrorCannotAffectTheReplacementConnection() {
         FakeDelayScheduler scheduler = new FakeDelayScheduler();
         FakeConnector connector = new FakeConnector(false);
@@ -298,6 +356,15 @@ class WebSocketConnectionManagerTest {
             WebSocketConnectionManager.Connector connector,
             FakeDelayScheduler scheduler,
             RecordingHandler handler) {
+        return manager(connector, scheduler, handler, ignored -> {
+        });
+    }
+
+    private WebSocketConnectionManager manager(
+            WebSocketConnectionManager.Connector connector,
+            FakeDelayScheduler scheduler,
+            RecordingHandler handler,
+            Consumer<String> messageConsumer) {
         Logger logger = Logger.getLogger(getClass().getName() + System.nanoTime());
         logger.setUseParentHandlers(false);
         logger.setLevel(handler == null ? Level.OFF : Level.ALL);
@@ -305,8 +372,7 @@ class WebSocketConnectionManagerTest {
             logger.addHandler(handler);
         }
         return new WebSocketConnectionManager(
-                connector, scheduler, ignored -> {
-                }, logger, 5, TimeUnit.SECONDS);
+                connector, scheduler, messageConsumer, logger, 5, TimeUnit.SECONDS);
     }
 
     private HttpResponse<Void> handshakeResponse(int statusCode) {
@@ -477,6 +543,7 @@ class WebSocketConnectionManagerTest {
         private final List<String> textMessages = new ArrayList<>();
         private final CompletableFuture<WebSocket> firstTextSend = new CompletableFuture<>();
         private final AtomicInteger closeCalls = new AtomicInteger();
+        private final AtomicInteger requestCalls = new AtomicInteger();
         private final boolean holdFirstTextSend;
         private int pendingTextSends;
         private int maxPendingTextSends;
@@ -522,6 +589,7 @@ class WebSocketConnectionManagerTest {
 
         @Override
         public void request(long n) {
+            requestCalls.incrementAndGet();
         }
 
         @Override

@@ -412,7 +412,7 @@ public final class WebSocketConnectionManager {
                 }
             }
             logger.info("Connected to WebSocket API.");
-            socket.request(1);
+            requestNext(token, socket);
             if (startBootstrap) {
                 sendBootstrapQuery(token, socket, 0);
             }
@@ -437,11 +437,12 @@ public final class WebSocketConnectionManager {
                         messageConsumer.accept(completeMessage);
                     }
                 }
-                socket.request(1);
             } catch (Throwable error) {
-                handleConnectionFailure(token, socket, error,
-                        "Failed to process a WebSocket API message.");
+                logger.log(Level.WARNING,
+                        "Failed to process a WebSocket API message; the message was ignored.",
+                        error);
             }
+            requestNext(token, socket);
             return CompletableFuture.completedFuture(null);
         }
 
@@ -462,8 +463,8 @@ public final class WebSocketConnectionManager {
             } else {
                 logger.warning("WebSocket API connection closed unexpectedly (status "
                         + statusCode + "): " + reason);
-                scheduleReconnect(token);
             }
+            scheduleReconnect(token);
             return CompletableFuture.completedFuture(null);
         }
 
@@ -471,6 +472,24 @@ public final class WebSocketConnectionManager {
         public void onError(WebSocket socket, Throwable error) {
             handleConnectionFailure(token, socket, error,
                     "WebSocket API connection failed.");
+        }
+
+        private void requestNext(long token, WebSocket socket) {
+            Throwable requestFailure = null;
+            synchronized (lock) {
+                if (!isCurrentSocket(token, socket)) {
+                    return;
+                }
+                try {
+                    socket.request(1);
+                } catch (Throwable error) {
+                    requestFailure = error;
+                }
+            }
+            if (requestFailure != null) {
+                handleConnectionFailure(token, socket, requestFailure,
+                        "Failed to request the next WebSocket API message.");
+            }
         }
     }
 }

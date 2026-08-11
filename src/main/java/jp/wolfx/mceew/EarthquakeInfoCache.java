@@ -3,12 +3,14 @@ package jp.wolfx.mceew;
 import com.google.gson.JsonObject;
 
 import java.util.Objects;
+import java.util.regex.Pattern;
 
 /**
  * Atomically published immutable snapshots shared by WebSocket and command threads.
  */
 final class EarthquakeInfoCache {
     static final String NOT_AVAILABLE = "[MCEEW] Earthquake information is not available yet.";
+    private static final Pattern MD5_PATTERN = Pattern.compile("[0-9a-fA-F]{32}");
 
     private volatile JmaSnapshot jma;
     private volatile CencSnapshot cenc;
@@ -28,6 +30,7 @@ final class EarthquakeInfoCache {
     }
 
     synchronized UpdateResult updateJma(JmaSnapshot snapshot) {
+        requireUsableMd5(snapshot.md5);
         UpdateResult result = classify(jma, snapshot.md5);
         jma = snapshot;
         return result;
@@ -38,6 +41,7 @@ final class EarthquakeInfoCache {
     }
 
     synchronized UpdateResult updateCenc(CencSnapshot snapshot) {
+        requireUsableMd5(snapshot.md5);
         UpdateResult result = classify(cenc, snapshot.md5);
         cenc = snapshot;
         return result;
@@ -66,6 +70,13 @@ final class EarthquakeInfoCache {
         return Objects.equals(previous.md5(), incomingMd5)
                 ? UpdateResult.UNCHANGED
                 : UpdateResult.CHANGED;
+    }
+
+    private void requireUsableMd5(String md5) {
+        if (md5 == null || !MD5_PATTERN.matcher(md5).matches()) {
+            throw new IllegalArgumentException(
+                    "Earthquake information md5 must contain 32 hexadecimal characters");
+        }
     }
 
     private interface Snapshot {
