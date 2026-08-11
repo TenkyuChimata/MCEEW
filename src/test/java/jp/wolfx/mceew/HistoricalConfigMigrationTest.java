@@ -15,9 +15,12 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Handler;
+import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 import java.util.stream.Stream;
 
@@ -220,6 +223,7 @@ class HistoricalConfigMigrationTest {
         assertEquals("CURRENT CWA VALUE", upgraded.getString("Message.Cwa.broadcast"));
         assertEquals("custom.current.sound", upgraded.getString("Sound.Cwa.type"));
         assertEquals(3.0, upgraded.getDouble("Sound.Cwa.volume"));
+        assertFalse(context.logs.contains("ENTITY_ZOMBIE_VILLAGER_AMBIENT"));
     }
 
     @Test
@@ -274,22 +278,117 @@ class HistoricalConfigMigrationTest {
     }
 
     @Test
-    void unknownLegacySoundEnumFailsBeforeMutationRatherThanGuessingAResourceKey()
+    void unknownSamePathLegacySoundUsesDefaultWithoutLosingTheOriginalValue()
             throws Exception {
         TestContext context = context("unknown-sound");
         YamlConfiguration configuration = loadResource("v6-v2.5.0.yml");
-        configuration.set("Sound.Alert.type", "ENTITY_ZOMBIE_VILLAGER_AMBIENT");
+        String unknownSound = "ENTITY_ZOMBIE_VILLAGER_AMBIENT";
+        configuration.set("Sound.Alert.type", unknownSound);
         writeBytes(context.configPath,
                 configuration.saveToString().getBytes(StandardCharsets.UTF_8));
         byte[] original = Files.readAllBytes(context.configPath);
 
-        ConfigManager.ConfigPreparationException error = assertThrows(
-                ConfigManager.ConfigPreparationException.class,
-                context.manager::prepareConfig);
+        ConfigManager.PrepareResult first = context.manager.prepareConfig();
+        YamlConfiguration upgraded = load(context.configPath);
 
-        assertEquals("v6 -> v7 sound migration validation", error.stage());
-        assertArrayEquals(original, Files.readAllBytes(context.configPath));
-        assertEquals(0, backupCount(context.dataDirectory));
+        assertEquals(ConfigManager.Outcome.UPGRADED, first.outcome());
+        assertEquals(ConfigManager.CURRENT_CONFIG_VERSION,
+                upgraded.getInt("config-version"));
+        assertEquals(loadDefaults().getString("Sound.Alert.type"),
+                upgraded.getString("Sound.Alert.type"));
+        assertEquals(unknownSound,
+                upgraded.getString("LegacySound.Sound.Alert.type"));
+        assertArrayEquals(original, Files.readAllBytes(expectedBackup(context, 6)));
+        assertEquals(1, context.logs.countContaining(unknownSound));
+        assertTrue(context.logs.contains("Sound.Alert.type"));
+
+        byte[] firstOutput = Files.readAllBytes(context.configPath);
+        assertEquals(ConfigManager.Outcome.UNCHANGED,
+                context.manager.prepareConfig().outcome());
+        assertArrayEquals(firstOutput, Files.readAllBytes(context.configPath));
+        assertEquals(1, context.logs.countContaining(unknownSound));
+        assertEquals(1, backupCount(context.dataDirectory));
+    }
+
+    @Test
+    void unknownFlatLegacySoundStaysAtItsOldPathAndBothCurrentPathsUseDefaults()
+            throws Exception {
+        TestContext context = context("unknown-flat-sound");
+        YamlConfiguration configuration = loadResource("legacy-flat-v1.1.0.yml");
+        String unknownSound = "ENTITY_ZOMBIE_VILLAGER_AMBIENT";
+        configuration.set("Sound.type", unknownSound);
+        writeBytes(context.configPath,
+                configuration.saveToString().getBytes(StandardCharsets.UTF_8));
+        byte[] original = Files.readAllBytes(context.configPath);
+
+        context.manager.prepareConfig();
+        YamlConfiguration upgraded = load(context.configPath);
+        YamlConfiguration defaults = loadDefaults();
+
+        assertEquals(ConfigManager.CURRENT_CONFIG_VERSION,
+                upgraded.getInt("config-version"));
+        assertEquals(unknownSound, upgraded.getString("Sound.type"));
+        assertEquals(defaults.getString("Sound.Alert.type"),
+                upgraded.getString("Sound.Alert.type"));
+        assertEquals(defaults.getString("Sound.Forecast.type"),
+                upgraded.getString("Sound.Forecast.type"));
+        assertArrayEquals(original, Files.readAllBytes(expectedBackup(context, null)));
+        assertEquals(1, context.logs.countContaining(unknownSound));
+        assertTrue(context.logs.contains("Sound.Alert.type"));
+        assertTrue(context.logs.contains("Sound.Forecast.type"));
+
+        byte[] firstOutput = Files.readAllBytes(context.configPath);
+        assertEquals(ConfigManager.Outcome.UNCHANGED,
+                context.manager.prepareConfig().outcome());
+        assertArrayEquals(firstOutput, Files.readAllBytes(context.configPath));
+        assertEquals(1, context.logs.countContaining(unknownSound));
+    }
+
+    @Test
+    void unknownTaiwanLegacySoundStaysAtItsOldPathAndCwaUsesDefault()
+            throws Exception {
+        TestContext context = context("unknown-taiwan-sound");
+        YamlConfiguration configuration = loadResource("v1-late-v2.2.3.yml");
+        String unknownSound = "ENTITY_ZOMBIE_VILLAGER_AMBIENT";
+        configuration.set("Sound.Taiwan.type", unknownSound);
+        configuration.set("Sound.Cwa.type", null);
+        writeBytes(context.configPath,
+                configuration.saveToString().getBytes(StandardCharsets.UTF_8));
+        byte[] original = Files.readAllBytes(context.configPath);
+
+        context.manager.prepareConfig();
+        YamlConfiguration upgraded = load(context.configPath);
+
+        assertEquals(unknownSound, upgraded.getString("Sound.Taiwan.type"));
+        assertEquals(loadDefaults().getString("Sound.Cwa.type"),
+                upgraded.getString("Sound.Cwa.type"));
+        assertArrayEquals(original, Files.readAllBytes(expectedBackup(context, 1)));
+        assertEquals(1, context.logs.countContaining(unknownSound));
+        assertTrue(context.logs.contains("Sound.Cwa.type"));
+
+        byte[] firstOutput = Files.readAllBytes(context.configPath);
+        assertEquals(ConfigManager.Outcome.UNCHANGED,
+                context.manager.prepareConfig().outcome());
+        assertArrayEquals(firstOutput, Files.readAllBytes(context.configPath));
+        assertEquals(1, context.logs.countContaining(unknownSound));
+    }
+
+    @Test
+    void recognizedLegacySoundStillConvertsExactly() throws Exception {
+        TestContext context = context("recognized-sound");
+        YamlConfiguration configuration = loadResource("v1-late-v2.2.3.yml");
+        configuration.set("Sound.Taiwan.type", "BLOCK_NOTE_BLOCK_PLING");
+        configuration.set("Sound.Cwa.type", null);
+        writeBytes(context.configPath,
+                configuration.saveToString().getBytes(StandardCharsets.UTF_8));
+
+        context.manager.prepareConfig();
+        YamlConfiguration upgraded = load(context.configPath);
+
+        assertEquals("block.note_block.pling", upgraded.getString("Sound.Cwa.type"));
+        assertEquals("block.note_block.pling",
+                upgraded.getString("Sound.Taiwan.type"));
+        assertFalse(context.logs.contains("Could not migrate legacy sound"));
     }
 
     @Test
@@ -339,13 +438,18 @@ class HistoricalConfigMigrationTest {
     private TestContext context(String name) throws IOException {
         Path dataDirectory = temporaryDirectory.resolve(name + "-" + System.nanoTime());
         byte[] defaults = defaultBytes();
+        Logger logger = Logger.getLogger(
+                getClass().getName() + "." + name + System.nanoTime());
+        logger.setUseParentHandlers(false);
+        CapturingHandler logs = new CapturingHandler();
+        logger.addHandler(logs);
         ConfigManager manager = new ConfigManager(
                 dataDirectory,
                 () -> new ByteArrayInputStream(defaults),
-                Logger.getLogger(getClass().getName() + "." + name + System.nanoTime()),
+                logger,
                 new ConfigManager.NioFileAccess()
         );
-        return new TestContext(dataDirectory, manager);
+        return new TestContext(dataDirectory, manager, logs);
     }
 
     private YamlConfiguration loadDefaults() throws Exception {
@@ -512,11 +616,39 @@ class HistoricalConfigMigrationTest {
         private final Path dataDirectory;
         private final Path configPath;
         private final ConfigManager manager;
+        private final CapturingHandler logs;
 
-        private TestContext(Path dataDirectory, ConfigManager manager) {
+        private TestContext(
+                Path dataDirectory, ConfigManager manager, CapturingHandler logs) {
             this.dataDirectory = dataDirectory;
             this.configPath = dataDirectory.resolve("config.yml");
             this.manager = manager;
+            this.logs = logs;
+        }
+    }
+
+    private static final class CapturingHandler extends Handler {
+        private final List<String> messages = new ArrayList<>();
+
+        @Override
+        public void publish(LogRecord record) {
+            messages.add(record.getMessage());
+        }
+
+        @Override
+        public void flush() {
+        }
+
+        @Override
+        public void close() {
+        }
+
+        private boolean contains(String text) {
+            return messages.stream().anyMatch(message -> message.contains(text));
+        }
+
+        private long countContaining(String text) {
+            return messages.stream().filter(message -> message.contains(text)).count();
         }
     }
 }

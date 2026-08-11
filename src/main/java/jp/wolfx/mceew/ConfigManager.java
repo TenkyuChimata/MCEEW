@@ -15,6 +15,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,14 +35,10 @@ final class ConfigManager {
     private static final Pattern CURRENT_SOUND_KEY = Pattern.compile(
             "(?:[a-z0-9._-]+:)?[a-z0-9/._-]+"
     );
-    private static final List<String> HISTORICAL_SOUND_PATHS = List.of(
+    private static final String PRESERVED_LEGACY_SOUND_ROOT = "LegacySound";
+    private static final List<String> HISTORICAL_DEPRECATED_SOUND_PATHS = List.of(
             "Sound.type",
-            "Sound.Alert.type",
-            "Sound.Forecast.type",
-            "Sound.Sichuan.type",
-            "Sound.Taiwan.type",
-            "Sound.Fjea.type",
-            "Sound.Cwa.type"
+            "Sound.Taiwan.type"
     );
     private static final List<String> HISTORICAL_RUNTIME_SOUND_PATHS = List.of(
             "Sound.Alert.type",
@@ -259,7 +256,6 @@ final class ConfigManager {
         }
         if (migrationStart < CURRENT_CONFIG_VERSION) {
             validateMigrationChain(migrationStart);
-            validateHistoricalSoundValues(user, migrationStart, originalVersion);
             if (legacyLayout != null) {
                 migrationChanged = applyLegacyMigration(user, legacyLayout);
             }
@@ -394,46 +390,6 @@ final class ConfigManager {
         return true;
     }
 
-    private void validateHistoricalSoundValues(
-            YamlConfiguration configuration,
-            int migrationStart,
-            Integer detectedVersion
-    ) throws ConfigPreparationException {
-        if (migrationStart > 6) {
-            return;
-        }
-        for (String path : HISTORICAL_RUNTIME_SOUND_PATHS) {
-            validateHistoricalSoundValue(configuration, path, detectedVersion);
-        }
-        if (configuration.get("Sound.Alert.type", null) == null
-                || configuration.get("Sound.Forecast.type", null) == null) {
-            validateHistoricalSoundValue(configuration, "Sound.type", detectedVersion);
-        }
-        if (configuration.get("Sound.Cwa.type", null) == null) {
-            validateHistoricalSoundValue(configuration, "Sound.Taiwan.type", detectedVersion);
-        }
-    }
-
-    private void validateHistoricalSoundValue(
-            YamlConfiguration configuration,
-            String path,
-            Integer detectedVersion
-    ) throws ConfigPreparationException {
-        Object value = configuration.get(path, null);
-        if (!(value instanceof String)) {
-            return;
-        }
-        String sound = (String) value;
-        if (LEGACY_SOUND_DEFAULT.equals(sound)
-                || CURRENT_SOUND_KEY.matcher(sound).matches()) {
-            return;
-        }
-        throw failure("v6 -> v7 sound migration validation", detectedVersion, null,
-                new IllegalStateException(
-                        "Historical sound value at " + path
-                                + " cannot be converted safely: " + sound));
-    }
-
     private void validateMigrationChain(int version) throws ConfigPreparationException {
         for (int from = version; from < CURRENT_CONFIG_VERSION; from++) {
             if (!migrations.containsKey(from)) {
@@ -473,10 +429,8 @@ final class ConfigManager {
                     "Message.subtitle", "Message.Alert.subtitle");
             changed |= copyIfAbsent(configuration,
                     "Message.subtitle", "Message.Forecast.subtitle");
-            changed |= copyIfAbsent(configuration,
-                    "Sound.type", "Sound.Alert.type");
-            changed |= copyIfAbsent(configuration,
-                    "Sound.type", "Sound.Forecast.type");
+            changed |= migrateMovedLegacySound(configuration,
+                    "Sound.type", "Sound.Alert.type", "Sound.Forecast.type");
             changed |= copyIfAbsent(configuration,
                     "Sound.volume", "Sound.Alert.volume");
             changed |= copyIfAbsent(configuration,
@@ -528,7 +482,7 @@ final class ConfigManager {
                 "Message.Taiwan.title", "Message.Cwa.title");
         changed |= copyIfAbsent(configuration,
                 "Message.Taiwan.subtitle", "Message.Cwa.subtitle");
-        changed |= copyIfAbsent(configuration,
+        changed |= migrateMovedLegacySound(configuration,
                 "Sound.Taiwan.type", "Sound.Cwa.type");
         changed |= copyIfAbsent(configuration,
                 "Sound.Taiwan.volume", "Sound.Cwa.volume");
@@ -544,13 +498,81 @@ final class ConfigManager {
 
     private boolean migrate6To7(YamlConfiguration configuration) {
         boolean changed = false;
-        for (String path : HISTORICAL_SOUND_PATHS) {
+        for (String path : HISTORICAL_DEPRECATED_SOUND_PATHS) {
             if (LEGACY_SOUND_DEFAULT.equals(configuration.get(path, null))) {
                 configuration.set(path, CURRENT_SOUND_DEFAULT);
                 changed = true;
             }
         }
+        for (String path : HISTORICAL_RUNTIME_SOUND_PATHS) {
+            changed |= migrateRuntimeLegacySound(configuration, path);
+        }
         return changed;
+    }
+
+    private boolean migrateMovedLegacySound(
+            YamlConfiguration configuration, String oldPath, String... currentPaths) {
+        Object oldValue = configuration.get(oldPath, null);
+        if (!(oldValue instanceof String)) {
+            return false;
+        }
+        String oldSound = (String) oldValue;
+        String migratedSound = null;
+        if (LEGACY_SOUND_DEFAULT.equals(oldSound)) {
+            migratedSound = CURRENT_SOUND_DEFAULT;
+        } else if (isCurrentSound(oldSound)) {
+            migratedSound = oldSound;
+        }
+
+        boolean changed = false;
+        List<String> fallbackPaths = new ArrayList<>();
+        for (String currentPath : currentPaths) {
+            if (isCurrentSound(configuration.get(currentPath, null))) {
+                continue;
+            }
+            if (migratedSound != null) {
+                configuration.set(currentPath, migratedSound);
+                changed = true;
+            } else {
+                fallbackPaths.add(currentPath);
+            }
+        }
+        if (!fallbackPaths.isEmpty()) {
+            warnLegacySoundFallback(oldSound, String.join(", ", fallbackPaths));
+        }
+        return changed;
+    }
+
+    private boolean migrateRuntimeLegacySound(
+            YamlConfiguration configuration, String currentPath) {
+        Object value = configuration.get(currentPath, null);
+        if (!(value instanceof String)) {
+            return false;
+        }
+        String oldSound = (String) value;
+        if (LEGACY_SOUND_DEFAULT.equals(oldSound)) {
+            configuration.set(currentPath, CURRENT_SOUND_DEFAULT);
+            return true;
+        }
+        if (isCurrentSound(oldSound)) {
+            return false;
+        }
+
+        String preservedPath = PRESERVED_LEGACY_SOUND_ROOT + "." + currentPath;
+        copyIfAbsent(configuration, currentPath, preservedPath);
+        configuration.set(currentPath, null);
+        warnLegacySoundFallback(oldSound, currentPath);
+        return true;
+    }
+
+    private boolean isCurrentSound(Object value) {
+        return value instanceof String
+                && CURRENT_SOUND_KEY.matcher((String) value).matches();
+    }
+
+    private void warnLegacySoundFallback(String oldSound, String currentPath) {
+        logger.warning("Could not migrate legacy sound '" + oldSound + "' for "
+                + currentPath + "; using the current default sound.");
     }
 
     private boolean migrate7To8(YamlConfiguration configuration) {
