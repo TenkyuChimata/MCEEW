@@ -8,11 +8,13 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 import java.util.logging.Handler;
 import java.util.logging.Level;
@@ -93,10 +95,11 @@ class ConfigManagerTest {
         FaultFileAccess files = new FaultFileAccess();
         TestContext context = context(files);
         writeConfig(context.configPath, config -> {
-            config.set("config-version", 7);
+            config.set("config-version", 1);
             config.set("enable_cq", null);
             config.set("custom-user-key", "preserve-me");
         });
+        removeMigration(context.manager, 7);
         byte[] original = Files.readAllBytes(context.configPath);
 
         ConfigManager.ConfigPreparationException error = assertThrows(
@@ -104,9 +107,9 @@ class ConfigManagerTest {
                 context.manager::prepareConfig);
 
         assertTrue(error.stage().contains("missing required step v7 -> v8"));
-        assertEquals(7, error.detectedVersion());
+        assertEquals(1, error.detectedVersion());
         assertArrayEquals(original, Files.readAllBytes(context.configPath));
-        assertEquals(7, load(context.configPath).getInt("config-version"));
+        assertEquals(1, load(context.configPath).getInt("config-version"));
         assertEquals("preserve-me", load(context.configPath).getString("custom-user-key"));
         assertEquals(0, files.writeCount);
         assertEquals(0, files.copyCount);
@@ -285,22 +288,25 @@ class ConfigManagerTest {
     }
 
     @Test
-    void missingVersionUsesGenericRepairAndPreservesUserValues() throws Exception {
-        TestContext context = context(new FaultFileAccess());
+    void unrecognizedMissingVersionFailsWithoutGenericRepairOrMutation() throws Exception {
+        FaultFileAccess files = new FaultFileAccess();
+        TestContext context = context(files);
         writeConfig(context.configPath, config -> {
             config.set("config-version", null);
             config.set("Message.Alert.title", "LEGACY CUSTOM TITLE");
             config.set("enable_cq", null);
         });
+        byte[] original = Files.readAllBytes(context.configPath);
 
-        ConfigManager.PrepareResult result = context.manager.prepareConfig();
-        YamlConfiguration upgraded = load(context.configPath);
+        ConfigManager.ConfigPreparationException error = assertThrows(
+                ConfigManager.ConfigPreparationException.class,
+                context.manager::prepareConfig);
 
-        assertEquals(ConfigManager.Outcome.UPGRADED, result.outcome());
-        assertEquals(9, upgraded.getInt("config-version"));
-        assertEquals("LEGACY CUSTOM TITLE", upgraded.getString("Message.Alert.title"));
-        assertTrue(upgraded.getBoolean("enable_cq"));
-        assertTrue(Files.exists(context.dataDirectory.resolve("config.yml.legacy.bak")));
+        assertEquals("legacy configuration schema detection", error.stage());
+        assertArrayEquals(original, Files.readAllBytes(context.configPath));
+        assertEquals(0, files.writeCount);
+        assertEquals(0, files.copyCount);
+        assertEquals(0, backupCount(context.dataDirectory));
     }
 
     @Test
@@ -413,6 +419,13 @@ class ConfigManagerTest {
         try (Stream<Path> files = Files.list(directory)) {
             return files.filter(path -> path.getFileName().toString().endsWith(".bak")).count();
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void removeMigration(ConfigManager manager, int version) throws Exception {
+        Field field = ConfigManager.class.getDeclaredField("migrations");
+        field.setAccessible(true);
+        ((Map<Integer, ?>) field.get(manager)).remove(version);
     }
 
     private static final class TestContext {

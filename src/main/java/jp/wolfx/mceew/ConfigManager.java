@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
 
 /**
  * Prepares config.yml before Bukkit exposes it to the plugin runtime.
@@ -28,6 +29,27 @@ import java.util.logging.Logger;
 final class ConfigManager {
     static final int CURRENT_CONFIG_VERSION = 9;
     private static final String CONFIG_NAME = "config.yml";
+    private static final String LEGACY_SOUND_DEFAULT = "BLOCK_NOTE_BLOCK_PLING";
+    private static final String CURRENT_SOUND_DEFAULT = "block.note_block.pling";
+    private static final Pattern CURRENT_SOUND_KEY = Pattern.compile(
+            "(?:[a-z0-9._-]+:)?[a-z0-9/._-]+"
+    );
+    private static final List<String> HISTORICAL_SOUND_PATHS = List.of(
+            "Sound.type",
+            "Sound.Alert.type",
+            "Sound.Forecast.type",
+            "Sound.Sichuan.type",
+            "Sound.Taiwan.type",
+            "Sound.Fjea.type",
+            "Sound.Cwa.type"
+    );
+    private static final List<String> HISTORICAL_RUNTIME_SOUND_PATHS = List.of(
+            "Sound.Alert.type",
+            "Sound.Forecast.type",
+            "Sound.Sichuan.type",
+            "Sound.Fjea.type",
+            "Sound.Cwa.type"
+    );
 
     @FunctionalInterface
     interface DefaultsProvider {
@@ -62,6 +84,11 @@ final class ConfigManager {
         REPAIRED,
         RECOVERED_INVALID_YAML,
         FUTURE_VERSION
+    }
+
+    private enum LegacyLayout {
+        FLAT_JAPAN_EEW,
+        STRUCTURED_MULTI_SOURCE
     }
 
     static final class PrepareResult {
@@ -155,6 +182,13 @@ final class ConfigManager {
         this.defaultsProvider = Objects.requireNonNull(defaultsProvider, "defaultsProvider");
         this.logger = Objects.requireNonNull(logger, "logger");
         this.files = Objects.requireNonNull(files, "files");
+        migrations.put(1, this::migrate1To2);
+        migrations.put(2, this::migrate2To3);
+        migrations.put(3, this::migrate3To4);
+        migrations.put(4, this::migrate4To5);
+        migrations.put(5, this::migrate5To6);
+        migrations.put(6, this::migrate6To7);
+        migrations.put(7, this::migrate7To8);
         migrations.put(8, this::migrate8To9);
     }
 
@@ -190,7 +224,13 @@ final class ConfigManager {
             return new PrepareResult(Outcome.RECOVERED_INVALID_YAML, null, 0, backup);
         }
 
-        Integer originalVersion = readVersion(user.get("config-version", null));
+        Object rawVersion = user.get("config-version", null);
+        Integer originalVersion = readVersion(rawVersion);
+        if (rawVersion != null && originalVersion == null) {
+            throw failure("config-version validation", null, null,
+                    new IllegalStateException(
+                            "config-version must be a non-negative whole number"));
+        }
         if (originalVersion != null && originalVersion > CURRENT_CONFIG_VERSION) {
             int invalidValues = countInvalidValues(user, defaults.configuration, true);
             if (invalidValues > 0) {
@@ -206,9 +246,24 @@ final class ConfigManager {
         }
 
         boolean migrationChanged = false;
-        if (originalVersion != null && originalVersion < CURRENT_CONFIG_VERSION) {
-            validateMigrationChain(originalVersion);
-            migrationChanged = applyMigrations(user, originalVersion);
+        LegacyLayout legacyLayout = null;
+        int migrationStart = originalVersion == null ? 1 : originalVersion;
+        if (originalVersion == null) {
+            legacyLayout = detectLegacyLayout(user);
+            if (legacyLayout == null) {
+                throw failure("legacy configuration schema detection", null, null,
+                        new IllegalStateException(
+                                "The unversioned configuration does not match a supported "
+                                        + "historical bundled schema"));
+            }
+        }
+        if (migrationStart < CURRENT_CONFIG_VERSION) {
+            validateMigrationChain(migrationStart);
+            validateHistoricalSoundValues(user, migrationStart, originalVersion);
+            if (legacyLayout != null) {
+                migrationChanged = applyLegacyMigration(user, legacyLayout);
+            }
+            migrationChanged |= applyMigrations(user, migrationStart);
         }
         int repairedValues = repairFromDefaults(user, defaults.configuration);
         boolean versionChanged = originalVersion == null
@@ -287,6 +342,98 @@ final class ConfigManager {
         return integer;
     }
 
+    private LegacyLayout detectLegacyLayout(YamlConfiguration configuration) {
+        boolean flatJapanEew = hasAll(configuration,
+                "EEW",
+                "time_format",
+                "Action.broadcast",
+                "Action.title",
+                "Action.alert",
+                "Action.notification",
+                "Message.broadcast",
+                "Message.title",
+                "Message.subtitle",
+                "Sound.type",
+                "Sound.volume",
+                "Sound.pitch"
+        );
+
+        boolean structuredMultiSource = hasAll(configuration,
+                "EEW",
+                "enable_jma",
+                "enable_sc",
+                "time_format",
+                "time_format_final",
+                "Action.final",
+                "Message.Alert.broadcast",
+                "Message.Forecast.broadcast",
+                "Message.Final.broadcast",
+                "Message.Sichuan.broadcast",
+                "Color.Shindo",
+                "Color.Intensity",
+                "Sound.Alert.type",
+                "Sound.Forecast.type",
+                "Sound.Sichuan.type",
+                "Version.2.0.0"
+        );
+
+        if (flatJapanEew == structuredMultiSource) {
+            return null;
+        }
+        return flatJapanEew
+                ? LegacyLayout.FLAT_JAPAN_EEW
+                : LegacyLayout.STRUCTURED_MULTI_SOURCE;
+    }
+
+    private boolean hasAll(YamlConfiguration configuration, String... paths) {
+        for (String path : paths) {
+            if (configuration.get(path, null) == null) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private void validateHistoricalSoundValues(
+            YamlConfiguration configuration,
+            int migrationStart,
+            Integer detectedVersion
+    ) throws ConfigPreparationException {
+        if (migrationStart > 6) {
+            return;
+        }
+        for (String path : HISTORICAL_RUNTIME_SOUND_PATHS) {
+            validateHistoricalSoundValue(configuration, path, detectedVersion);
+        }
+        if (configuration.get("Sound.Alert.type", null) == null
+                || configuration.get("Sound.Forecast.type", null) == null) {
+            validateHistoricalSoundValue(configuration, "Sound.type", detectedVersion);
+        }
+        if (configuration.get("Sound.Cwa.type", null) == null) {
+            validateHistoricalSoundValue(configuration, "Sound.Taiwan.type", detectedVersion);
+        }
+    }
+
+    private void validateHistoricalSoundValue(
+            YamlConfiguration configuration,
+            String path,
+            Integer detectedVersion
+    ) throws ConfigPreparationException {
+        Object value = configuration.get(path, null);
+        if (!(value instanceof String)) {
+            return;
+        }
+        String sound = (String) value;
+        if (LEGACY_SOUND_DEFAULT.equals(sound)
+                || CURRENT_SOUND_KEY.matcher(sound).matches()) {
+            return;
+        }
+        throw failure("v6 -> v7 sound migration validation", detectedVersion, null,
+                new IllegalStateException(
+                        "Historical sound value at " + path
+                                + " cannot be converted safely: " + sound));
+    }
+
     private void validateMigrationChain(int version) throws ConfigPreparationException {
         for (int from = version; from < CURRENT_CONFIG_VERSION; from++) {
             if (!migrations.containsKey(from)) {
@@ -310,9 +457,149 @@ final class ConfigManager {
         return changed;
     }
 
+    private boolean applyLegacyMigration(
+            YamlConfiguration configuration, LegacyLayout layout) {
+        if (layout == LegacyLayout.FLAT_JAPAN_EEW) {
+            boolean changed = copyIfAbsent(configuration, "EEW", "enable_jp");
+            changed |= copyIfAbsent(configuration,
+                    "Message.broadcast", "Message.Alert.broadcast");
+            changed |= copyIfAbsent(configuration,
+                    "Message.broadcast", "Message.Forecast.broadcast");
+            changed |= copyIfAbsent(configuration,
+                    "Message.title", "Message.Alert.title");
+            changed |= copyIfAbsent(configuration,
+                    "Message.title", "Message.Forecast.title");
+            changed |= copyIfAbsent(configuration,
+                    "Message.subtitle", "Message.Alert.subtitle");
+            changed |= copyIfAbsent(configuration,
+                    "Message.subtitle", "Message.Forecast.subtitle");
+            changed |= copyIfAbsent(configuration,
+                    "Sound.type", "Sound.Alert.type");
+            changed |= copyIfAbsent(configuration,
+                    "Sound.type", "Sound.Forecast.type");
+            changed |= copyIfAbsent(configuration,
+                    "Sound.volume", "Sound.Alert.volume");
+            changed |= copyIfAbsent(configuration,
+                    "Sound.volume", "Sound.Forecast.volume");
+            changed |= copyIfAbsent(configuration,
+                    "Sound.pitch", "Sound.Alert.pitch");
+            changed |= copyIfAbsent(configuration,
+                    "Sound.pitch", "Sound.Forecast.pitch");
+            return changed;
+        }
+        return copyIfAbsent(configuration, "EEW", "enable_jp");
+    }
+
+    private boolean migrate1To2(YamlConfiguration configuration) {
+        boolean jmaPathExisted = configuration.get("Action.jma", null) != null;
+        boolean changed = copyIfAbsent(configuration, "Action.final", "Action.jma");
+        changed |= copyIfAbsent(configuration,
+                "Message.Final.broadcast", "Message.Jma.broadcast");
+        changed |= copyIfAbsent(configuration, "enable_cwb", "enable_cwa");
+
+        Object globalValue = configuration.get("EEW", null);
+        if (globalValue instanceof Boolean) {
+            boolean globalEnabled = (Boolean) globalValue;
+            changed |= applyBooleanGate(configuration, "enable_jp", globalEnabled, true);
+            changed |= applyBooleanGate(configuration, "enable_sc", globalEnabled, false);
+            if (!jmaPathExisted) {
+                changed |= applyBooleanGate(
+                        configuration, "Action.jma", globalEnabled, false);
+            }
+        }
+        return changed;
+    }
+
+    private boolean migrate2To3(YamlConfiguration configuration) {
+        // v3 only changes bundled message defaults.
+        return false;
+    }
+
+    private boolean migrate3To4(YamlConfiguration configuration) {
+        // v4 replaces the removed CWA source with a distinct Fujian source. It is not a rename.
+        return false;
+    }
+
+    private boolean migrate4To5(YamlConfiguration configuration) {
+        // CWA is added back in v5. Preserve CWA values retained from v1-v3 configurations.
+        boolean changed = copyIfAbsent(configuration,
+                "Message.Taiwan.broadcast", "Message.Cwa.broadcast");
+        changed |= copyIfAbsent(configuration,
+                "Message.Taiwan.title", "Message.Cwa.title");
+        changed |= copyIfAbsent(configuration,
+                "Message.Taiwan.subtitle", "Message.Cwa.subtitle");
+        changed |= copyIfAbsent(configuration,
+                "Sound.Taiwan.type", "Sound.Cwa.type");
+        changed |= copyIfAbsent(configuration,
+                "Sound.Taiwan.volume", "Sound.Cwa.volume");
+        changed |= copyIfAbsent(configuration,
+                "Sound.Taiwan.pitch", "Sound.Cwa.pitch");
+        return changed;
+    }
+
+    private boolean migrate5To6(YamlConfiguration configuration) {
+        // v6 only changes the bundled CWA message default.
+        return false;
+    }
+
+    private boolean migrate6To7(YamlConfiguration configuration) {
+        boolean changed = false;
+        for (String path : HISTORICAL_SOUND_PATHS) {
+            if (LEGACY_SOUND_DEFAULT.equals(configuration.get(path, null))) {
+                configuration.set(path, CURRENT_SOUND_DEFAULT);
+                changed = true;
+            }
+        }
+        return changed;
+    }
+
+    private boolean migrate7To8(YamlConfiguration configuration) {
+        // v8 adds CENC EEW keys; generic recursive default repair supplies them.
+        return false;
+    }
+
     private boolean migrate8To9(YamlConfiguration configuration) {
         // v9 only adds keys; the generic recursive default repair supplies them.
         return false;
+    }
+
+    private boolean copyIfAbsent(
+            YamlConfiguration configuration, String oldPath, String newPath) {
+        Object oldValue = configuration.get(oldPath, null);
+        if (oldValue == null || configuration.get(newPath, null) != null) {
+            return false;
+        }
+        configuration.set(newPath, oldValue);
+        return true;
+    }
+
+    private boolean applyBooleanGate(
+            YamlConfiguration configuration,
+            String path,
+            boolean gate,
+            boolean createWhenMissing
+    ) {
+        Object value = configuration.get(path, null);
+        if (value == null) {
+            if (createWhenMissing) {
+                configuration.set(path, gate);
+                return true;
+            }
+            return false;
+        }
+        if (!(value instanceof Boolean)) {
+            if (!gate) {
+                configuration.set(path, false);
+                return true;
+            }
+            return false;
+        }
+        boolean converted = gate && (Boolean) value;
+        if (converted == (Boolean) value) {
+            return false;
+        }
+        configuration.set(path, converted);
+        return true;
     }
 
     private int repairFromDefaults(

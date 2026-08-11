@@ -1,0 +1,46 @@
+########################
+# %flag% 予報 or 警報
+# %report_time% EEW report time
+# %origin_time% Time of Earthquake
+# %num% Number of reports
+# %lat% Latitude of the epicenter
+# %lon% Longitude of the epicenter
+# %region% Name of the epicenter
+# %mag% Magnitude of earthquake
+# %depth% Depth of earthquake
+# %shindo% Shindo of earthquake
+# %type% 最終報 or 訓練 or 訓練 (最終報) or 取消
+# \n Change to next line
+########################
+
+# Whether to enable EEW
+EEW: true
+
+# Set the time format
+time_format: "yyyy年MM月dd日 HH時mm分ss秒"
+
+Action:
+  # Whether to broadcast messages to chat
+  broadcast: true
+  # Whether to broadcast messages to title
+  title: true
+  # Whether to enable sound alert
+  alert: true
+  # Whether to broadcast a notification to the console every time the API is updated
+  notification: false
+
+Message:
+  # Set the message to be broadcast to chat
+  broadcast: "&c緊急地震速報 (%flag%) | 第%num%報 %type%\n &e%origin_time% &f発生\n &f震央: &e%region% (北緯: &e%lat%度 東経: &e%lon%度)\n &fマグニチュード: &e%mag%\n &f深さ: &e%depth%\n &f最大震度: &e%shindo%\n &f更新時間: &e%report_time%"
+  # Set the message to be broadcast to title
+  title: "&c緊急地震速報 (%flag%)"
+  # Set the message to be broadcast to subtitle
+  subtitle: "&e%region%で震度%shindo%の地震"
+
+Sound:
+  # Set the alert sound type
+  type: "BLOCK_NOTE_BLOCK_PLING"
+  # Set the alert sound volume
+  volume: 1000.0
+  # Set the alert sound pitch
+  pitch: 1.0
