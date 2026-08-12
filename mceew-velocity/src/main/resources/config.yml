@@ -1,6 +1,7 @@
+# MCEEW Velocity configuration
+# One proxy-global Wolfx runtime serves every configured backend target.
 platform-config-version: 1
 
-# Proxy-global services. Exactly one Wolfx/cache/parser pipeline is created per proxy.
 global:
   enabled: true
   sources:
@@ -11,13 +12,85 @@ global:
     cenc: true
     chongqing: true
 
-# Delivery targeting is reserved for a later phase; no targeting is active yet.
+# User-visible defaults match the Bukkit distribution. Source channel values,
+# when present, override these defaults.
+notifications:
+  time-format: "yyyy年MM月dd日 HH時mm分ss秒"
+  defaults:
+    chat: true
+    title: true
+    sound: true
+  sources:
+    jma-alert:
+      message: "&c緊急地震速報 (%flag%) | 第%num%報 %type%\n &e%origin_time% &f発生\n &f震央: &e%region% (北緯: &e%lat%度 東経: &e%lon%度)\n &fマグニチュード: &e%mag%\n &f深さ: &e%depth%\n &f最大震度: &r%shindo%\n &f更新時間: &e%report_time%"
+      title: "&c緊急地震速報 (%flag%)"
+      subtitle: "&e%region%で震度%shindo%&eの地震"
+      sound:
+        key: block.note_block.pling
+        volume: 1000.0
+        pitch: 1.0
+    jma-forecast:
+      message: "&e緊急地震速報 (%flag%) | 第%num%報 %type%\n &e%origin_time% &f発生\n &f震央: &e%region% (北緯: &e%lat%度 東経: &e%lon%度)\n &fマグニチュード: &e%mag%\n &f深さ: &e%depth%\n &f最大震度: &r%shindo%\n &f更新時間: &e%report_time%"
+      title: "&e緊急地震速報 (%flag%)"
+      subtitle: "&e%region%で震度%shindo%&eの地震"
+      sound:
+        key: block.note_block.pling
+        volume: 1000.0
+        pitch: 1.0
+    sichuan:
+      message: "&c四川地震预警 | 第%num%报\n &e%origin_time% &f发生\n &f震中: &e%region% (北纬: &e%lat%度 东经: &e%lon%度)\n &f震级: &e%mag%\n &f深度: &e%depth%\n &f最大烈度: &r%shindo%\n &f更新时间: &e%report_time%"
+      title: "&c四川地震预警"
+      subtitle: "&e%region%发生烈度%shindo%&e的地震"
+      sound:
+        key: block.note_block.pling
+        volume: 1000.0
+        pitch: 1.0
+    fujian:
+      message: "&c福建地震預警 | 第%num%報 %type%\n &e%origin_time% &f發生\n &f震央: &e%region% (北緯: &e%lat%度 東經: &e%lon%度)\n &f規模: &e%mag%\n &f更新時間: &e%report_time%"
+      title: "&c福建地震預警"
+      subtitle: "&e%region%发生震级%mag%地震"
+      sound:
+        key: block.note_block.pling
+        volume: 1000.0
+        pitch: 1.0
+    cwa:
+      message: "&c台灣地震預警 | 第%num%報\n &e%origin_time% &f發生\n &f震央: &e%region% (北緯: &e%lat%度 東經: &e%lon%度)\n &f規模: &e%mag%\n &f深度: &e%depth%\n &f最大震度: &r%shindo%\n &f更新時間: &e%report_time%"
+      title: "&c台灣地震預警"
+      subtitle: "&e%region%发生芮氏規模%mag%地震"
+      sound:
+        key: block.note_block.pling
+        volume: 1000.0
+        pitch: 1.0
+    cenc-eew:
+      message: "&c中国地震台网地震预警 | 第%num%报\n &e%origin_time% &f发生\n &f震中: &e%region% (北纬: &e%lat%度 东经: &e%lon%度)\n &f震级: &e%mag%\n &f深度: &e%depth%\n &f最大烈度: &r%shindo%\n &f更新时间: &e%report_time%"
+      title: "&c中国地震台网地震预警"
+      subtitle: "&e%region%发生震级%mag%地震"
+      sound:
+        key: block.note_block.pling
+        volume: 1000.0
+        pitch: 1.0
+    chongqing:
+      message: "&c重庆地震预警 | 第%num%报\n &e%origin_time% &f发生\n &f震中: &e%region% (北纬: &e%lat%度 东经: &e%lon%度)\n &f震级: &e%mag%\n &f深度: &e%depth%\n &f最大烈度: &r%shindo%\n &f更新时间: &e%report_time%"
+      title: "&c重庆地震预警"
+      subtitle: "&e%region%发生震级%mag%地震"
+      sound:
+        key: block.note_block.pling
+        volume: 1000.0
+        pitch: 1.0
+    jma-eqlist:
+      message: "&e地震情報\n &e%origin_time% &f発生\n &f震央: &e%region% (北緯: &e%lat%度 東経: &e%lon%度)\n &fマグニチュード: &e%mag%\n &f深さ: &e%depth%\n &f最大震度: &r%shindo%\n &f津波情報: &e%info%"
+    cenc-eqlist:
+      message: "&e中国地震台网 (%flag%)\n &e%origin_time% &f发生\n &f震中: &e%region% (北纬: &e%lat%度 东经: &e%lon%度)\n &f震级: &e%mag%\n &f深度: &e%depth%\n &f最大烈度: &r%shindo%"
+
+# A source-specific target completely replaces the default target.
 targets:
   default:
     mode: all
   sources: {}
 
+# Named groups expand to backend server names for selected targets.
 groups: {}
 
-# Future server entries may override delivery only, never WebSocket/cache/parser ownership.
+# Server entries may override delivery channels only. Operational source and
+# WebSocket settings always remain proxy-global under global.*.
 servers: {}

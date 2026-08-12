@@ -9,6 +9,7 @@ final class VelocityConfigSnapshot {
     private final boolean cwaEnabled;
     private final boolean cencEnabled;
     private final boolean chongqingEnabled;
+    private final VelocityNotificationConfig notificationConfig;
 
     VelocityConfigSnapshot(
             int platformConfigVersion,
@@ -20,6 +21,21 @@ final class VelocityConfigSnapshot {
             boolean cencEnabled,
             boolean chongqingEnabled
     ) {
+        this(platformConfigVersion, runtimeEnabled, jmaEnabled, sichuanEnabled,
+                fujianEnabled, cwaEnabled, cencEnabled, chongqingEnabled, null);
+    }
+
+    VelocityConfigSnapshot(
+            int platformConfigVersion,
+            boolean runtimeEnabled,
+            boolean jmaEnabled,
+            boolean sichuanEnabled,
+            boolean fujianEnabled,
+            boolean cwaEnabled,
+            boolean cencEnabled,
+            boolean chongqingEnabled,
+            VelocityNotificationConfig notificationConfig
+    ) {
         this.platformConfigVersion = platformConfigVersion;
         this.runtimeEnabled = runtimeEnabled;
         this.jmaEnabled = jmaEnabled;
@@ -28,6 +44,7 @@ final class VelocityConfigSnapshot {
         this.cwaEnabled = cwaEnabled;
         this.cencEnabled = cencEnabled;
         this.chongqingEnabled = chongqingEnabled;
+        this.notificationConfig = notificationConfig;
     }
 
     int platformConfigVersion() {
@@ -60,5 +77,16 @@ final class VelocityConfigSnapshot {
 
     boolean chongqingEnabled() {
         return chongqingEnabled;
+    }
+
+    VelocityNotificationConfig notificationConfig() {
+        if (notificationConfig == null) {
+            throw new IllegalStateException("Notification configuration is unavailable");
+        }
+        return notificationConfig;
+    }
+
+    VelocityNotificationConfig notificationConfigOrNull() {
+        return notificationConfig;
     }
 }

@@ -144,6 +144,25 @@ class VelocityMessageProcessorTest {
         assertTrue(processor.hasCencCacheValue());
     }
 
+    @Test
+    void earthquakeListResultAndLatestAccessorsExposeOnlyImmutablePresentation() {
+        VelocityMessageProcessor processor = new VelocityMessageProcessor(
+                false, false, false, false, false, false,
+                "yyyy年MM月dd日 HH時mm分ss秒");
+
+        ProcessingResult jma = processor.process(fixture("jma_eqlist"));
+        ProcessingResult cenc = processor.process(fixture("cenc_eqlist"));
+
+        assertNotNull(jma.earthquakeList());
+        assertNotNull(cenc.earthquakeList());
+        assertEquals("2024年01月01日 16時10分08秒 能登半島沖 §d7",
+                jma.earthquakeList().render("%origin_time% %region% %shindo%"));
+        assertEquals(jma.earthquakeList().render("%region%"),
+                processor.latestJmaEarthquakeList().orElseThrow().render("%region%"));
+        assertEquals(cenc.earthquakeList().render("%region%"),
+                processor.latestCencEarthquakeList().orElseThrow().render("%region%"));
+    }
+
     private static VelocityMessageProcessor processor(
             boolean[] flags,
             VelocityMessageProcessor.FreshnessEvaluator freshness

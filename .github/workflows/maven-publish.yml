@@ -141,6 +141,8 @@ jobs:
         grep -Fx 'jp/wolfx/mceew/velocity/libs/snakeyaml/Yaml.class' <<<"$jar_entries"
         test "$(grep -Fxc 'jp/wolfx/mceew/websocket/WebSocketConnectionManager.class' <<<"$jar_entries")" -eq 1
         test "$(grep -Fxc 'jp/wolfx/mceew/velocity/MCEEWVelocity.class' <<<"$jar_entries")" -eq 1
+        test "$(grep -Fxc 'jp/wolfx/mceew/velocity/VelocityTargetResolver.class' <<<"$jar_entries")" -eq 1
+        test "$(grep -Fxc 'jp/wolfx/mceew/velocity/VelocityNotificationDispatcher.class' <<<"$jar_entries")" -eq 1
 
         if grep -Eq '(^|/)[^/]*Test[^/]*\.class$|^runtime-smoke/|(^|/)mceew-core-[^/]*\.jar$' <<<"$jar_entries"; then
           echo "The Velocity Jar contains tests, fixtures, or a nested core Jar."
@@ -157,6 +159,13 @@ jobs:
         test "$metadata_main" = 'jp.wolfx.mceew.velocity.MCEEWVelocity'
         unzip -p "$velocity_jar" config.yml | grep -Fx 'platform-config-version: 1'
         unzip -p "$velocity_jar" config.yml | grep -Fx '  enabled: true'
+        unzip -p "$velocity_jar" config.yml | grep -Fx 'notifications:'
+        unzip -p "$velocity_jar" config.yml | grep -Fx '    jma-alert:'
+        unzip -p "$velocity_jar" config.yml | grep -Fx '    cenc-eqlist:'
+
+        compile_api="$(mvn -q -pl mceew-velocity help:evaluate \
+          -Dexpression=velocity.api.version -DforceStdout)"
+        test "$compile_api" = '3.4.0'
 
         class_dir="$(mktemp -d)"
         trap 'rm -rf "$class_dir"' EXIT
@@ -175,6 +184,15 @@ jobs:
             exit 1
           fi
         done < <(find "$class_dir/jp/wolfx/mceew" -name '*.class' -type f ! -path '*/libs/*' -print)
+
+        while IFS= read -r class_file; do
+          if grep -aEq 'com/velocitypowered/proxy/|java/lang/reflect|MinecraftPacket' \
+            "$class_file"; then
+            echo "$class_file references Velocity internals, reflection, or packet classes."
+            exit 1
+          fi
+        done < <(find "$class_dir/jp/wolfx/mceew/velocity" -name '*.class' -type f \
+          ! -path '*/libs/*' -print)
 
     - name: Assemble Velocity runtime smoke fixture
       shell: bash

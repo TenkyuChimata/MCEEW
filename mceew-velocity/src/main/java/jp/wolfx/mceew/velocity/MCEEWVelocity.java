@@ -42,7 +42,9 @@ public final class MCEEWVelocity {
             ProxyServer proxyServer,
             Logger logger,
             @DataDirectory Path dataDirectory) {
-        this(proxyServer, logger, dataDirectory, VelocityMceewRuntime::production);
+        this(proxyServer, logger, dataDirectory,
+                (config, scheduler, platformLogger) -> VelocityMceewRuntime.production(
+                        config, scheduler, platformLogger, proxyServer));
     }
 
     MCEEWVelocity(

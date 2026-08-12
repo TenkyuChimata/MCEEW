@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test;
 
 class VelocityModulePurityTest {
     @Test
-    void velocityProductionBytecodeIsJava17AndContainsNoBukkitFamilyReferences() throws Exception {
+    void velocityProductionBytecodeIsJava17AndUsesNoServerApisOrVelocityInternals() throws Exception {
         Path output = Path.of(requiredSystemProperty("mceew.velocity.output"));
         List<Path> classes = classFiles(output);
         assertFalse(classes.isEmpty(), "No Velocity production classes were compiled");
@@ -28,14 +28,10 @@ class VelocityModulePurityTest {
                     "io/papermc",
                     "dev/folia",
                     "org/bstats",
-                    "net/kyori/adventure",
-                    "com/velocitypowered/api/proxy/Player",
-                    "com/velocitypowered/api/proxy/server/RegisteredServer",
-                    "getAllPlayers",
-                    "hasPermission",
-                    "sendMessage",
-                    "showTitle",
-                    "playSound"));
+                    "com/velocitypowered/proxy/",
+                    "java/lang/reflect",
+                    "MinecraftPacket",
+                    "PluginMessageEvent"));
         }
     }
 

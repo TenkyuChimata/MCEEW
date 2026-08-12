@@ -1,5 +1,6 @@
 package jp.wolfx.mceew.velocity;
 
+import com.velocitypowered.api.proxy.ProxyServer;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.util.Objects;
@@ -17,19 +18,26 @@ final class VelocityMceewRuntime implements AutoCloseable {
     private final VelocityMessageProcessor messageProcessor;
     private final VelocityJulLogger coreLogger;
     private final WebSocketConnectionManager webSocketManager;
+    private final VelocityNotificationOrchestrator notificationOrchestrator;
 
     private State state = State.NEW;
 
     static VelocityMceewRuntime production(
             VelocityConfigSnapshot config,
             VelocityDelayScheduler delayScheduler,
-            Logger logger
+            Logger logger,
+            ProxyServer proxyServer
     ) {
         HttpClient httpClient = HttpClient.newHttpClient();
         WebSocketConnectionManager.Connector connector = listener -> httpClient
                 .newWebSocketBuilder()
                 .buildAsync(WOLFX_ENDPOINT, listener);
-        return new VelocityMceewRuntime(config, delayScheduler, connector, logger);
+        VelocityNotificationDispatcher dispatcher = new VelocityNotificationDispatcher(
+                proxyServer, logger, delayScheduler, config.notificationConfig());
+        VelocityNotificationOrchestrator orchestrator = new VelocityNotificationOrchestrator(
+                config.notificationConfig(), dispatcher);
+        return new VelocityMceewRuntime(
+                config, delayScheduler, connector, logger, orchestrator);
     }
 
     VelocityMceewRuntime(
@@ -38,24 +46,46 @@ final class VelocityMceewRuntime implements AutoCloseable {
             WebSocketConnectionManager.Connector connector,
             Logger logger
     ) {
+        this(config, delayScheduler, connector, logger, null);
+    }
+
+    VelocityMceewRuntime(
+            VelocityConfigSnapshot config,
+            VelocityDelayScheduler delayScheduler,
+            WebSocketConnectionManager.Connector connector,
+            Logger logger,
+            VelocityNotificationOrchestrator notificationOrchestrator
+    ) {
         Objects.requireNonNull(config, "config");
         Objects.requireNonNull(delayScheduler, "delayScheduler");
         Objects.requireNonNull(connector, "connector");
+        VelocityNotificationConfig notificationConfig = config.notificationConfigOrNull();
         messageProcessor = new VelocityMessageProcessor(
                 config.jmaEnabled(),
                 config.sichuanEnabled(),
                 config.fujianEnabled(),
                 config.cwaEnabled(),
                 config.cencEnabled(),
-                config.chongqingEnabled());
+                config.chongqingEnabled(),
+                notificationConfig == null
+                        ? "yyyy/MM/dd HH:mm:ss"
+                        : notificationConfig.timeFormat());
+        this.notificationOrchestrator = notificationOrchestrator;
         coreLogger = new VelocityJulLogger(Objects.requireNonNull(logger, "logger"));
         webSocketManager = new WebSocketConnectionManager(
                 connector,
                 delayScheduler,
-                messageProcessor::process,
+                this::processMessage,
                 coreLogger.logger(),
                 RECONNECT_DELAY_SECONDS,
                 TimeUnit.SECONDS);
+    }
+
+    private void processMessage(String message) {
+        VelocityMessageProcessor.ProcessingResult result = messageProcessor.process(message);
+        if (notificationOrchestrator != null) {
+            notificationOrchestrator.accept(result);
+        }
     }
 
     void start() {
@@ -82,9 +112,15 @@ final class VelocityMceewRuntime implements AutoCloseable {
             state = State.CLOSED;
         }
         try {
-            webSocketManager.stop();
+            if (notificationOrchestrator != null) {
+                notificationOrchestrator.close();
+            }
         } finally {
-            coreLogger.close();
+            try {
+                webSocketManager.stop();
+            } finally {
+                coreLogger.close();
+            }
         }
     }
 

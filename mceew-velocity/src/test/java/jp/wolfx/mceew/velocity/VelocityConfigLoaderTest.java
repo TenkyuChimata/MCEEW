@@ -10,6 +10,10 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Set;
+import jp.wolfx.mceew.notification.NotificationIntent;
+import jp.wolfx.mceew.notification.NotificationIntentFactory;
+import jp.wolfx.mceew.notification.NotificationSource;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -156,6 +160,145 @@ class VelocityConfigLoaderTest {
         assertArrayEquals(original, Files.readAllBytes(config));
     }
 
+    @Test
+    void phaseTwoConfigInheritsNotificationDefaultsWithoutRewrite() throws Exception {
+        byte[] original = validConfig("all").getBytes(StandardCharsets.UTF_8);
+        Path config = writeConfig(original);
+
+        VelocityConfigSnapshot snapshot = new VelocityConfigLoader(config.getParent()).load();
+
+        VelocityChannelPolicy policy = snapshot.notificationConfig()
+                .proxyChannels(NotificationSource.JMA_ALERT);
+        assertTrue(policy.chat());
+        assertTrue(policy.title());
+        assertTrue(policy.sound());
+        assertEquals("yyyy年MM月dd日 HH時mm分ss秒",
+                snapshot.notificationConfig().timeFormat());
+        assertArrayEquals(original, Files.readAllBytes(config));
+    }
+
+    @Test
+    void bundledJmaAlertProfilePreservesBukkitLegacyGoldenText() throws Exception {
+        VelocityConfigSnapshot snapshot = new VelocityConfigLoader(
+                temporaryDirectory.resolve("mceew")).load();
+
+        NotificationIntent intent = NotificationIntentFactory.jma(
+                "警報", "report", "origin", "7", "35.0", "139.0", "Region",
+                "6.0", "10km", "§c6弱", "最終報", true, true, true,
+                snapshot.notificationConfig().source(NotificationSource.JMA_ALERT).profile(),
+                snapshot.notificationConfig().source(NotificationSource.JMA_FORECAST).profile());
+
+        assertEquals("§c緊急地震速報 (警報) | 第7報 最終報\n"
+                        + " §eorigin §f発生\n"
+                        + " §f震央: §eRegion (北緯: §e35.0度 東経: §e139.0度)\n"
+                        + " §fマグニチュード: §e6.0\n"
+                        + " §f深さ: §e10km\n"
+                        + " §f最大震度: §r§c6弱\n"
+                        + " §f更新時間: §ereport",
+                intent.getChat().render());
+        assertEquals("§c緊急地震速報 (警報)", intent.getTitle().renderTitle());
+    }
+
+    @Test
+    void channelPrecedenceIsServerSourceThenServerThenSourceThenGlobal() throws Exception {
+        String content = validConfig("all")
+                .replace("servers: {}", ""
+                        + "notifications:\n"
+                        + "  defaults:\n"
+                        + "    chat: false\n"
+                        + "    title: false\n"
+                        + "    sound: false\n"
+                        + "  sources:\n"
+                        + "    jma-alert:\n"
+                        + "      channels:\n"
+                        + "        chat: true\n"
+                        + "        title: true\n"
+                        + "        sound: true\n"
+                        + "servers:\n"
+                        + "  server-only:\n"
+                        + "    notifications:\n"
+                        + "      chat: false\n"
+                        + "      title: false\n"
+                        + "      sound: false\n"
+                        + "  server-source:\n"
+                        + "    notifications:\n"
+                        + "      chat: false\n"
+                        + "      title: false\n"
+                        + "      sound: false\n"
+                        + "    sources:\n"
+                        + "      jma-alert:\n"
+                        + "        chat: true\n"
+                        + "        title: true\n"
+                        + "        sound: true");
+        VelocityConfigSnapshot snapshot = new VelocityConfigLoader(
+                writeConfig(content.getBytes(StandardCharsets.UTF_8)).getParent()).load();
+        VelocityNotificationConfig notifications = snapshot.notificationConfig();
+
+        assertPolicy(notifications.proxyChannels(NotificationSource.SICHUAN_EEW), false);
+        assertPolicy(notifications.proxyChannels(NotificationSource.JMA_ALERT), true);
+        assertPolicy(notifications.playerChannels(
+                NotificationSource.JMA_ALERT, "server-only"), false);
+        assertPolicy(notifications.playerChannels(
+                NotificationSource.JMA_ALERT, "SERVER-SOURCE"), true);
+        assertPolicy(notifications.playerChannels(NotificationSource.JMA_ALERT, null), true);
+    }
+
+    @Test
+    void wrongNotificationChannelTypeFailsWithoutRewrite() throws IOException {
+        String content = validConfig("all").replace("servers: {}", ""
+                + "notifications:\n"
+                + "  defaults:\n"
+                + "    chat: yes-please\n"
+                + "servers: {}");
+        byte[] original = content.getBytes(StandardCharsets.UTF_8);
+        Path config = writeConfig(original);
+
+        VelocityConfigException error = assertThrows(
+                VelocityConfigException.class,
+                () -> new VelocityConfigLoader(config.getParent()).load());
+
+        assertTrue(error.getMessage().contains("notifications.defaults.chat must be a boolean"));
+        assertArrayEquals(original, Files.readAllBytes(config));
+    }
+
+    @Test
+    void unknownTargetGroupFailsValidation() throws IOException {
+        String content = validConfig("selected").replace(
+                "    mode: selected\n",
+                "    mode: selected\n    groups:\n      - missing\n");
+        Path config = writeConfig(content.getBytes(StandardCharsets.UTF_8));
+
+        VelocityConfigException error = assertThrows(
+                VelocityConfigException.class,
+                () -> new VelocityConfigLoader(config.getParent()).load());
+
+        assertTrue(error.getMessage().contains("references unknown group: missing"));
+    }
+
+    @Test
+    void sourceTargetIsCompleteReplacementAndNamesAreCaseNormalized() throws Exception {
+        String content = validConfig("none")
+                .replace("  sources: {}", ""
+                        + "  sources:\n"
+                        + "    jma-alert:\n"
+                        + "      mode: selected\n"
+                        + "      servers:\n"
+                        + "        - Lobby\n"
+                        + "      groups:\n"
+                        + "        - Primary")
+                .replace("groups: {}", "groups:\n  primary:\n    - Survival");
+        VelocityConfigSnapshot snapshot = new VelocityConfigLoader(
+                writeConfig(content.getBytes(StandardCharsets.UTF_8)).getParent()).load();
+
+        VelocityTargetConfig targets = snapshot.notificationConfig().targets();
+        assertEquals(VelocityTargetConfig.Mode.NONE,
+                targets.targetFor(NotificationSource.SICHUAN_EEW).mode());
+        assertEquals(VelocityTargetConfig.Mode.SELECTED,
+                targets.targetFor(NotificationSource.JMA_ALERT).mode());
+        assertEquals(Set.of("lobby", "survival"),
+                targets.selectedServers(NotificationSource.JMA_ALERT));
+    }
+
     private Path writeConfig(byte[] content) throws IOException {
         Path dataDirectory = temporaryDirectory.resolve("mceew");
         Files.createDirectories(dataDirectory);
@@ -205,5 +348,11 @@ class VelocityConfigLoaderTest {
         assertEquals(expected, snapshot.cwaEnabled());
         assertEquals(expected, snapshot.cencEnabled());
         assertEquals(expected, snapshot.chongqingEnabled());
+    }
+
+    private static void assertPolicy(VelocityChannelPolicy policy, boolean expected) {
+        assertEquals(expected, policy.chat());
+        assertEquals(expected, policy.title());
+        assertEquals(expected, policy.sound());
     }
 }

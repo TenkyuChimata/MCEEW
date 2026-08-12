@@ -276,7 +276,7 @@ final class TestVelocityApi {
         return null;
     }
 
-    private static Object defaultValue(Class<?> type) {
+    static Object defaultValue(Class<?> type) {
         if (!type.isPrimitive()) {
             return null;
         }
