@@ -6,6 +6,8 @@
 version: 2
 updates:
   - package-ecosystem: maven
-    directory: "/"
+    directories:
+      - "/"
+      - "/mceew-bukkit"
     schedule:
       interval: "daily"

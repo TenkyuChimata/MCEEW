@@ -28,14 +28,48 @@ jobs:
     - name: Verify Folia scheduler signatures
       run: mvn -B -Pfolia-compat test --file pom.xml
 
-    - name: Inspect the common server Jar
+    - name: Inspect the Bukkit server Jar
       shell: bash
       run: |
-        plugin_jar="$(find target -maxdepth 1 -name 'MCEEW-*.jar' -print -quit)"
-        test -n "$plugin_jar"
-        if jar tf "$plugin_jar" | grep -Eq '^(org/bukkit|io/papermc|net/kyori)/'; then
+        shopt -s nullglob
+        plugin_jars=(mceew-bukkit/target/MCEEW-*.jar)
+        if (( ${#plugin_jars[@]} != 1 )); then
+          echo "Expected exactly one Bukkit distribution Jar, found ${#plugin_jars[@]}."
+          exit 1
+        fi
+        plugin_jar="${plugin_jars[0]}"
+        jar_entries="$(jar tf "$plugin_jar")"
+
+        if grep -Eq '^(org/bukkit|io/papermc|com/destroystokyo|dev/folia|net/minecraft|org/spigotmc|net/kyori)/' <<<"$jar_entries"; then
           echo "The plugin Jar contains a server API or Adventure implementation."
           exit 1
         fi
+
+        if grep -Eq '^(com/google/gson|org/bstats)/' <<<"$jar_entries"; then
+          echo "The plugin Jar contains an unrelocated Gson or bStats class."
+          exit 1
+        fi
+        grep -Fx 'jp/wolfx/mceew/libs/gson/Gson.class' <<<"$jar_entries"
+        grep -Fx 'jp/wolfx/mceew/libs/bstats/bukkit/Metrics.class' <<<"$jar_entries"
+
+        if grep -Eq '(^|/)[^/]*Test[^/]*\.class$|^config-history/|^websocket/' <<<"$jar_entries"; then
+          echo "The production Jar contains tests or test fixtures."
+          exit 1
+        fi
+
+        unzip -p "$plugin_jar" plugin.yml | grep -Fx 'version: 2.7.0'
+        unzip -p "$plugin_jar" plugin.yml | grep -Fx 'main: jp.wolfx.mceew.MCEEW'
         unzip -p "$plugin_jar" plugin.yml | grep -Fx 'folia-supported: true'
         unzip -p "$plugin_jar" plugin.yml | grep -Fx 'api-version: 1.13'
+        unzip -p "$plugin_jar" config.yml | grep -Fx 'config-version: 9'
+
+        class_dir="$(mktemp -d)"
+        trap 'rm -rf "$class_dir"' EXIT
+        unzip -q "$plugin_jar" 'jp/wolfx/mceew/*.class' -d "$class_dir"
+        while IFS= read -r class_file; do
+          major="$(od -An -tu2 -j6 -N2 --endian=big "$class_file" | tr -d ' ')"
+          if [[ "$major" != 55 ]]; then
+            echo "$class_file targets class major $major instead of 55."
+            exit 1
+          fi
+        done < <(find "$class_dir/jp/wolfx/mceew" -name '*.class' -type f ! -path '*/libs/*' -print)
