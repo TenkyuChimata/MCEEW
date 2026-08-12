@@ -17,6 +17,8 @@ import jp.wolfx.mceew.notification.NotificationSource;
 final class VelocityNotificationOrchestrator implements AutoCloseable {
     private static final String JMA_TIME_PATTERN = "yyyy/MM/dd HH:mm:ss";
     private static final String CHINA_TIME_PATTERN = "yyyy-MM-dd HH:mm:ss";
+    private static final String TEST_WARNING =
+            "§eWarning: This is an Earthquake Early Warning test.";
 
     private final VelocityNotificationConfig config;
     private final VelocityNotificationDispatcher dispatcher;
@@ -35,6 +37,118 @@ final class VelocityNotificationOrchestrator implements AutoCloseable {
         } else if (result.outcome() == VelocityMessageProcessor.Outcome.CACHE_CHANGED) {
             dispatcher.dispatch(earthquakeList(result.earthquakeList()));
         }
+    }
+
+    void dispatchTest(String sourceKey) {
+        VelocityNotificationEvent event;
+        switch (sourceKey) {
+            case "forecast":
+                event = testJma(
+                        NotificationSource.JMA_FORECAST,
+                        "予報", "2024/02/29 18:36:36", "2024/02/29 18:35:38",
+                        "6", "35.4", "140.6", "千葉県東方沖", "4.7", "10km",
+                        LegacyTextFormatter.shindo("3"), "");
+                break;
+            case "alert":
+                event = testJma(
+                        NotificationSource.JMA_ALERT,
+                        "警報", "2024/01/01 16:14:18", "2024/01/01 16:10:08",
+                        "46", "37.6", "137.2", "能登半島沖", "7.4", "10km",
+                        LegacyTextFormatter.shindo("7"), "最終報");
+                break;
+            case "sc":
+                event = testRegional(
+                        NotificationSource.SICHUAN_EEW,
+                        "2024-02-28 21:23:37", "2024-02-28 21:23:30", "1",
+                        "29.3", "102.82", "四川雅安市汉源县", "3.3", "10km",
+                        LegacyTextFormatter.intensity("5"));
+                break;
+            case "fj":
+                event = testFujian();
+                break;
+            case "cwa":
+                event = testRegional(
+                        NotificationSource.CWA_EEW,
+                        "2024-04-03 07:58:27", "2024-04-03 07:58:10", "2",
+                        "23.89", "121.56", "花蓮縣壽豐鄉", "6.8", "20km",
+                        LegacyTextFormatter.shindo("6弱"));
+                break;
+            case "cenc":
+                event = testRegional(
+                        NotificationSource.CENC_EEW,
+                        "2025-09-12 05:50:58", "2025-09-12 05:50:58", "1",
+                        "33.002", "102.89", "四川阿坝州红原县", "4.4", "5km",
+                        LegacyTextFormatter.intensity("6.1"));
+                break;
+            case "cq":
+                event = testRegional(
+                        NotificationSource.CHONGQING_EEW,
+                        "2026-08-07 13:08:30", "2026-08-07 13:08:30", "1",
+                        "28.517", "104.673", "四川宜宾市高县", "4.8", "4km",
+                        LegacyTextFormatter.intensity("6.6"));
+                break;
+            default:
+                throw new IllegalArgumentException("Unknown test source: " + sourceKey);
+        }
+        dispatcher.dispatchTest(event, TEST_WARNING);
+    }
+
+    private VelocityNotificationEvent testJma(
+            NotificationSource source,
+            String flag,
+            String reportTime,
+            String rawOriginTime,
+            String reportNumber,
+            String latitude,
+            String longitude,
+            String region,
+            String magnitude,
+            String depth,
+            String shindo,
+            String reportType
+    ) {
+        NotificationProfile alert = config.source(NotificationSource.JMA_ALERT).profile();
+        NotificationProfile forecast = config.source(NotificationSource.JMA_FORECAST).profile();
+        String originTime = formatTime(JMA_TIME_PATTERN, "Asia/Tokyo", rawOriginTime);
+        return deferred(source, VelocityNotificationEvent.DeliveryStyle.JMA, channels ->
+                NotificationIntentFactory.jma(
+                        flag, reportTime, originTime, reportNumber, latitude, longitude,
+                        region, magnitude, depth, shindo, reportType,
+                        channels.chat(), channels.title(), channels.sound(), alert, forecast));
+    }
+
+    private VelocityNotificationEvent testRegional(
+            NotificationSource source,
+            String reportTime,
+            String rawOriginTime,
+            String reportNumber,
+            String latitude,
+            String longitude,
+            String region,
+            String magnitude,
+            String depth,
+            String intensity
+    ) {
+        NotificationProfile profile = config.source(source).profile();
+        String originTime = formatTime(CHINA_TIME_PATTERN, "Asia/Shanghai", rawOriginTime);
+        return deferred(source, VelocityNotificationEvent.DeliveryStyle.REGIONAL, channels ->
+                NotificationIntentFactory.regional(
+                        source, reportTime, originTime, reportNumber, latitude, longitude,
+                        region, magnitude, depth, intensity,
+                        channels.chat(), channels.title(), channels.sound(), profile));
+    }
+
+    private VelocityNotificationEvent testFujian() {
+        NotificationProfile profile = config.source(NotificationSource.FUJIAN_EEW).profile();
+        String originTime = formatTime(
+                CHINA_TIME_PATTERN, "Asia/Shanghai", "2024-02-29 13:26:28");
+        return deferred(
+                NotificationSource.FUJIAN_EEW,
+                VelocityNotificationEvent.DeliveryStyle.REGIONAL,
+                channels -> NotificationIntentFactory.fujian(
+                        "2024-02-29 13:27:40", originTime, "4", "23.47", "120.26",
+                        "台湾嘉义县", "4.4", "最終報",
+                        channels.chat(), channels.title(), channels.sound(), profile));
     }
 
     private VelocityNotificationEvent realtime(RealtimeEewEvent event) {

@@ -60,6 +60,27 @@ final class VelocityNotificationDispatcher implements AutoCloseable {
         }
     }
 
+    void dispatchTest(VelocityNotificationEvent event, String warning) {
+        Objects.requireNonNull(event, "event");
+        Objects.requireNonNull(warning, "warning");
+        if (closed.get()) {
+            return;
+        }
+        try {
+            scheduler.schedule(() -> {
+                if (closed.get()) {
+                    return;
+                }
+                deliverIfActive(event);
+                deliverTestWarning(warning);
+            }, 0L, TimeUnit.NANOSECONDS);
+        } catch (IllegalStateException error) {
+            if (!closed.get()) {
+                throw error;
+            }
+        }
+    }
+
     private void deliverIfActive(VelocityNotificationEvent event) {
         if (closed.get()) {
             return;
@@ -98,6 +119,29 @@ final class VelocityNotificationDispatcher implements AutoCloseable {
         } catch (RuntimeException error) {
             logger.warn("MCEEW Velocity could not deliver {} to the proxy console.",
                     VelocityNotificationSources.key(event.source()), error);
+        }
+    }
+
+    private void deliverTestWarning(String warning) {
+        if (closed.get()) {
+            return;
+        }
+        try {
+            proxyServer.getConsoleCommandSource().sendMessage(component(warning));
+        } catch (RuntimeException error) {
+            logger.warn("MCEEW Velocity could not deliver the test warning to the proxy console.",
+                    error);
+        }
+        for (Player player : proxyServer.getAllPlayers()) {
+            if (closed.get()) {
+                return;
+            }
+            try {
+                player.sendMessage(component(warning));
+            } catch (RuntimeException error) {
+                logger.warn("MCEEW Velocity could not deliver the test warning to player {}.",
+                        player.getUniqueId(), error);
+            }
         }
     }
 

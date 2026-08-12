@@ -68,6 +68,10 @@ class MCEEWVelocityLifecycleTest {
         assertEquals(1, connector.connectionCount());
         assertEquals(runtimeIdentity, plugin.operationalRuntimeIdentity());
         assertEquals(1, ((VelocityMceewRuntime) runtimeIdentity).coreLogHandlerCount());
+        assertTrue(plugin.isCommandRegistered());
+        assertTrue(scheduler.commandManager().hasCommand("eew"));
+        assertTrue(scheduler.commandManager().hasCommand("mceew"));
+        assertEquals(1, scheduler.commandManager().registrations());
     }
 
     @Test
@@ -104,6 +108,10 @@ class MCEEWVelocityLifecycleTest {
         assertEquals(1, logger.infoCountContaining("platform shell shut down"));
         assertEquals(1, connector.attempt(0).socket().closeCalls());
         assertEquals(0, runtime.coreLogHandlerCount());
+        assertFalse(plugin.isCommandRegistered());
+        assertFalse(scheduler.commandManager().hasCommand("eew"));
+        assertFalse(scheduler.commandManager().hasCommand("mceew"));
+        assertEquals(1, scheduler.commandManager().unregistrations());
     }
 
     @Test
@@ -157,6 +165,7 @@ class MCEEWVelocityLifecycleTest {
         assertEquals(-1, plugin.loadedPlatformConfigVersion());
         assertEquals(1, logger.errorCountContaining("runtime remains inactive"));
         assertEquals(0, connector.connectionCount());
+        assertTrue(plugin.isCommandRegistered());
     }
 
     @Test
@@ -192,6 +201,31 @@ class MCEEWVelocityLifecycleTest {
         assertEquals("SHUTDOWN", plugin.lifecycleStateName());
         assertFalse(plugin.isOperational());
         assertFalse(Files.exists(temporaryDirectory.resolve("mceew")));
+    }
+
+    @Test
+    void commandRegistrationFailurePreventsOperationalRuntimeStartup() {
+        TestVelocityApi.RecordingScheduler scheduler = new TestVelocityApi.RecordingScheduler();
+        scheduler.commandManager().failRegistration(
+                new IllegalArgumentException("deliberate alias collision"));
+        TestVelocityApi.CapturingLogger logger = TestVelocityApi.logger();
+        AtomicInteger runtimeCreations = new AtomicInteger();
+        MCEEWVelocity plugin = new MCEEWVelocity(
+                TestVelocityApi.proxyServer(scheduler), logger.proxy(),
+                temporaryDirectory.resolve("command-registration-failure"),
+                (config, delayScheduler, platformLogger) -> {
+                    runtimeCreations.incrementAndGet();
+                    throw new AssertionError("runtime must not be created");
+                });
+
+        plugin.onProxyInitialize(new ProxyInitializeEvent());
+
+        assertEquals("FAILED", plugin.lifecycleStateName());
+        assertFalse(plugin.isCommandRegistered());
+        assertFalse(plugin.hasOperationalRuntime());
+        assertEquals(0, runtimeCreations.get());
+        assertEquals(1, logger.errorCountContaining("command registration failed"));
+        assertFalse(Files.exists(temporaryDirectory.resolve("command-registration-failure")));
     }
 
     private static void writeConfig(Path dataDirectory, boolean enabled) throws IOException {

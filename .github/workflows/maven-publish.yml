@@ -141,6 +141,7 @@ jobs:
         grep -Fx 'jp/wolfx/mceew/velocity/libs/snakeyaml/Yaml.class' <<<"$jar_entries"
         test "$(grep -Fxc 'jp/wolfx/mceew/websocket/WebSocketConnectionManager.class' <<<"$jar_entries")" -eq 1
         test "$(grep -Fxc 'jp/wolfx/mceew/velocity/MCEEWVelocity.class' <<<"$jar_entries")" -eq 1
+        test "$(grep -Fxc 'jp/wolfx/mceew/velocity/VelocityCommand.class' <<<"$jar_entries")" -eq 1
         test "$(grep -Fxc 'jp/wolfx/mceew/velocity/VelocityTargetResolver.class' <<<"$jar_entries")" -eq 1
         test "$(grep -Fxc 'jp/wolfx/mceew/velocity/VelocityNotificationDispatcher.class' <<<"$jar_entries")" -eq 1
 
@@ -193,6 +194,16 @@ jobs:
           fi
         done < <(find "$class_dir/jp/wolfx/mceew/velocity" -name '*.class' -type f \
           ! -path '*/libs/*' -print)
+
+        command_registration="$(javap -classpath "$velocity_jar" -c -p \
+          jp.wolfx.mceew.velocity.MCEEWVelocity)"
+        grep -F 'CommandManager.metaBuilder:(Ljava/lang/String;)' <<<"$command_registration"
+        grep -F 'CommandManager.register:(Lcom/velocitypowered/api/command/CommandMeta;Lcom/velocitypowered/api/command/Command;)V' \
+          <<<"$command_registration"
+        if grep -Fq 'CommandManager.register:(Ljava/lang/String;' <<<"$command_registration"; then
+          echo "The Velocity plugin uses the deprecated string command registration overload."
+          exit 1
+        fi
 
     - name: Assemble Velocity runtime smoke fixture
       shell: bash
@@ -291,11 +302,14 @@ jobs:
 
         cd "$runtime"
         set -o pipefail
-        (sleep 5; echo shutdown) | timeout 30s java -jar velocity.jar 2>&1 | tee runtime.log
+        (sleep 5; echo eew; echo mceew; echo 'eew reload'; sleep 2; echo shutdown) | \
+          timeout 30s java -jar velocity.jar 2>&1 | tee runtime.log
 
         grep -F 'Loaded plugin mceew ' runtime.log
         grep -F 'MCEEW Velocity ' runtime.log | grep -F 'platform shell initialized.'
         grep -F 'MCEEW Velocity operational runtime is disabled by configuration.' runtime.log
+        test "$(grep -Fc '[MCEEW] Plugin version: v' runtime.log)" -ge 2
+        grep -F '[MCEEW] Configuration reloaded successfully.' runtime.log
         grep -F 'MCEEW Velocity scheduler smoke task executed.' runtime.log
         grep -F 'MCEEW Velocity platform shell shut down.' runtime.log
         grep -F 'MCEEW Velocity scheduler smoke probe shut down.' runtime.log

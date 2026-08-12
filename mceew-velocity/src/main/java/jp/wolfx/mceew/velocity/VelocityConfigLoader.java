@@ -44,6 +44,11 @@ final class VelocityConfigLoader {
     }
 
     VelocityConfigSnapshot load() throws VelocityConfigException {
+        return loadSnapshot();
+    }
+
+    /** Reads, parses, and validates a complete immutable snapshot without applying it. */
+    VelocityConfigSnapshot loadSnapshot() throws VelocityConfigException {
         Path configPath = dataDirectory.resolve(CONFIG_FILE_NAME);
         try {
             Files.createDirectories(dataDirectory);

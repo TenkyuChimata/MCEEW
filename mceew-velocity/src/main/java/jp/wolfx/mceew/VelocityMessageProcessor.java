@@ -25,6 +25,36 @@ public final class VelocityMessageProcessor {
         boolean isFresh(String reportTime, String pattern, ZoneId zone);
     }
 
+    /** Immutable source-gate and presentation policy captured for one application message. */
+    public static final class ProcessingPolicy {
+        private final boolean jmaEnabled;
+        private final boolean sichuanEnabled;
+        private final boolean fujianEnabled;
+        private final boolean cwaEnabled;
+        private final boolean cencEnabled;
+        private final boolean chongqingEnabled;
+        private final String outputTimeFormat;
+
+        public ProcessingPolicy(
+                boolean jmaEnabled,
+                boolean sichuanEnabled,
+                boolean fujianEnabled,
+                boolean cwaEnabled,
+                boolean cencEnabled,
+                boolean chongqingEnabled,
+                String outputTimeFormat
+        ) {
+            this.jmaEnabled = jmaEnabled;
+            this.sichuanEnabled = sichuanEnabled;
+            this.fujianEnabled = fujianEnabled;
+            this.cwaEnabled = cwaEnabled;
+            this.cencEnabled = cencEnabled;
+            this.chongqingEnabled = chongqingEnabled;
+            this.outputTimeFormat = Objects.requireNonNull(
+                    outputTimeFormat, "outputTimeFormat");
+        }
+    }
+
     public enum Outcome {
         FRESH_REALTIME,
         STALE_REALTIME,
@@ -99,14 +129,8 @@ public final class VelocityMessageProcessor {
 
     private final WolfxMessageRouter router = new WolfxMessageRouter();
     private final EarthquakeInfoCache earthquakeInfoCache = new EarthquakeInfoCache();
-    private final boolean jmaEnabled;
-    private final boolean sichuanEnabled;
-    private final boolean fujianEnabled;
-    private final boolean cwaEnabled;
-    private final boolean cencEnabled;
-    private final boolean chongqingEnabled;
+    private final ProcessingPolicy defaultPolicy;
     private final FreshnessEvaluator freshnessEvaluator;
-    private final String outputTimeFormat;
 
     public VelocityMessageProcessor(
             boolean jmaEnabled,
@@ -163,17 +187,19 @@ public final class VelocityMessageProcessor {
             String outputTimeFormat,
             FreshnessEvaluator freshnessEvaluator
     ) {
-        this.jmaEnabled = jmaEnabled;
-        this.sichuanEnabled = sichuanEnabled;
-        this.fujianEnabled = fujianEnabled;
-        this.cwaEnabled = cwaEnabled;
-        this.cencEnabled = cencEnabled;
-        this.chongqingEnabled = chongqingEnabled;
-        this.outputTimeFormat = Objects.requireNonNull(outputTimeFormat, "outputTimeFormat");
+        defaultPolicy = new ProcessingPolicy(
+                jmaEnabled, sichuanEnabled, fujianEnabled,
+                cwaEnabled, cencEnabled, chongqingEnabled, outputTimeFormat);
         this.freshnessEvaluator = Objects.requireNonNull(freshnessEvaluator, "freshnessEvaluator");
     }
 
     public ProcessingResult process(String message) {
+        return process(message, defaultPolicy);
+    }
+
+    /** Processes one message entirely against the supplied immutable configuration policy. */
+    public ProcessingResult process(String message, ProcessingPolicy policy) {
+        Objects.requireNonNull(policy, "policy");
         WolfxMessageRouter.RoutedMessage routed = router.route(message);
         WolfxMessageRouter.MessageType type = routed.getType();
         switch (type) {
@@ -183,11 +209,11 @@ public final class VelocityMessageProcessor {
             case CWA_EEW:
             case CENC_EEW:
             case CHONGQING_EEW:
-                return processRealtime(routed);
+                return processRealtime(routed, policy);
             case JMA_EARTHQUAKE_LIST:
-                return cacheJma(routed.getPayload());
+                return cacheJma(routed.getPayload(), policy);
             case CENC_EARTHQUAKE_LIST:
-                return cacheCenc(routed.getPayload());
+                return cacheCenc(routed.getPayload(), policy);
             case HEARTBEAT:
             case UNKNOWN:
                 return result(type, Outcome.IGNORED, null, null);
@@ -218,9 +244,12 @@ public final class VelocityMessageProcessor {
                 : Optional.of(cencPresentation(snapshot));
     }
 
-    private ProcessingResult processRealtime(WolfxMessageRouter.RoutedMessage routed) {
+    private ProcessingResult processRealtime(
+            WolfxMessageRouter.RoutedMessage routed,
+            ProcessingPolicy policy
+    ) {
         WolfxMessageRouter.MessageType type = routed.getType();
-        if (!sourceEnabled(type)) {
+        if (!sourceEnabled(type, policy)) {
             return result(type, Outcome.DISABLED_REALTIME, null, null);
         }
 
@@ -235,30 +264,33 @@ public final class VelocityMessageProcessor {
         return result(type, Outcome.FRESH_REALTIME, event, null);
     }
 
-    private boolean sourceEnabled(WolfxMessageRouter.MessageType type) {
+    private boolean sourceEnabled(
+            WolfxMessageRouter.MessageType type,
+            ProcessingPolicy policy
+    ) {
         switch (type) {
             case JMA_EEW:
-                return jmaEnabled;
+                return policy.jmaEnabled;
             case SICHUAN_EEW:
-                return sichuanEnabled;
+                return policy.sichuanEnabled;
             case FUJIAN_EEW:
-                return fujianEnabled;
+                return policy.fujianEnabled;
             case CWA_EEW:
-                return cwaEnabled;
+                return policy.cwaEnabled;
             case CENC_EEW:
-                return cencEnabled;
+                return policy.cencEnabled;
             case CHONGQING_EEW:
-                return chongqingEnabled;
+                return policy.chongqingEnabled;
             default:
                 throw new IllegalArgumentException("Not a real-time source: " + type);
         }
     }
 
-    private ProcessingResult cacheJma(JsonObject data) {
+    private ProcessingResult cacheJma(JsonObject data, ProcessingPolicy policy) {
         JsonObject latest = data.get("No1").getAsJsonObject();
         String originTime = EarthquakeTimeFormatter.format(
                 JMA_TIME_PATTERN,
-                outputTimeFormat,
+                policy.outputTimeFormat,
                 TOKYO.getId(),
                 latest.get("time_full").getAsString());
         EarthquakeInfoCache.JmaSnapshot snapshot = new EarthquakeInfoCache.JmaSnapshot(
@@ -278,11 +310,11 @@ public final class VelocityMessageProcessor {
                 jmaPresentation(snapshot));
     }
 
-    private ProcessingResult cacheCenc(JsonObject data) {
+    private ProcessingResult cacheCenc(JsonObject data, ProcessingPolicy policy) {
         JsonObject latest = data.get("No1").getAsJsonObject();
         String originTime = EarthquakeTimeFormatter.format(
                 CHINA_TIME_PATTERN,
-                outputTimeFormat,
+                policy.outputTimeFormat,
                 SHANGHAI.getId(),
                 latest.get("time").getAsString());
         EarthquakeInfoCache.CencSnapshot snapshot = EarthquakeInfoCache.CencSnapshot.fromEqlist(

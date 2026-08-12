@@ -1,5 +1,11 @@
 package jp.wolfx.mceew.velocity;
 
+import com.velocitypowered.api.command.Command;
+import com.velocitypowered.api.command.CommandManager;
+import com.velocitypowered.api.command.CommandMeta;
+import com.velocitypowered.api.command.CommandSource;
+import com.velocitypowered.api.command.SimpleCommand;
+import com.velocitypowered.api.proxy.ConsoleCommandSource;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.scheduler.ScheduledTask;
 import com.velocitypowered.api.scheduler.Scheduler;
@@ -10,9 +16,14 @@ import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
+import net.kyori.adventure.text.Component;
 import org.slf4j.Logger;
 
 final class TestVelocityApi {
@@ -28,6 +39,9 @@ final class TestVelocityApi {
                 scheduler.schedulerRequests++;
                 return scheduler;
             }
+            if ("getCommandManager".equals(method.getName())) {
+                return scheduler.commandManager().proxy();
+            }
             return defaultValue(method.getReturnType());
         };
         return (ProxyServer) Proxy.newProxyInstance(
@@ -36,6 +50,82 @@ final class TestVelocityApi {
 
     static CapturingLogger logger() {
         return new CapturingLogger();
+    }
+
+    static CommandSource commandSource(Set<String> permissions, List<Component> messages) {
+        return commandSource(CommandSource.class, permissions, messages);
+    }
+
+    static ConsoleCommandSource consoleCommandSource(
+            Set<String> permissions, List<Component> messages) {
+        return (ConsoleCommandSource) commandSource(
+                ConsoleCommandSource.class, permissions, messages);
+    }
+
+    static CommandSource failingCommandSource(
+            Set<String> permissions, RuntimeException sendFailure) {
+        InvocationHandler handler = (proxy, method, arguments) -> {
+            if (method.getDeclaringClass() == Object.class) {
+                return objectMethod(proxy, method, arguments);
+            }
+            if ("hasPermission".equals(method.getName())) {
+                return permissions.contains((String) arguments[0]);
+            }
+            if ("sendMessage".equals(method.getName())) {
+                throw sendFailure;
+            }
+            return defaultValue(method.getReturnType());
+        };
+        return (CommandSource) Proxy.newProxyInstance(
+                CommandSource.class.getClassLoader(),
+                new Class<?>[]{CommandSource.class}, handler);
+    }
+
+    private static CommandSource commandSource(
+            Class<? extends CommandSource> type,
+            Set<String> permissions,
+            List<Component> messages
+    ) {
+        InvocationHandler handler = (proxy, method, arguments) -> {
+            if (method.getDeclaringClass() == Object.class) {
+                return objectMethod(proxy, method, arguments);
+            }
+            if ("hasPermission".equals(method.getName())) {
+                return permissions.contains((String) arguments[0]);
+            }
+            if ("sendMessage".equals(method.getName())) {
+                messages.add((Component) arguments[0]);
+                return null;
+            }
+            return defaultValue(method.getReturnType());
+        };
+        return (CommandSource) Proxy.newProxyInstance(
+                type.getClassLoader(),
+                new Class<?>[]{type},
+                handler);
+    }
+
+    static SimpleCommand.Invocation invocation(
+            CommandSource source, String alias, String... arguments) {
+        InvocationHandler handler = (proxy, method, values) -> {
+            if (method.getDeclaringClass() == Object.class) {
+                return objectMethod(proxy, method, values);
+            }
+            switch (method.getName()) {
+                case "source":
+                    return source;
+                case "alias":
+                    return alias;
+                case "arguments":
+                    return arguments;
+                default:
+                    return defaultValue(method.getReturnType());
+            }
+        };
+        return (SimpleCommand.Invocation) Proxy.newProxyInstance(
+                SimpleCommand.Invocation.class.getClassLoader(),
+                new Class<?>[]{SimpleCommand.Invocation.class},
+                handler);
     }
 
     static final class CapturingLogger implements InvocationHandler {
@@ -108,6 +198,7 @@ final class TestVelocityApi {
 
     static final class RecordingScheduler implements Scheduler {
         private final List<RecordingTask> tasks = new ArrayList<>();
+        private final RecordingCommandManager commandManager = new RecordingCommandManager();
         private int schedulerRequests;
         private long lastDelay;
         private TimeUnit lastDelayUnit;
@@ -145,6 +236,10 @@ final class TestVelocityApi {
 
         int schedulerRequests() {
             return schedulerRequests;
+        }
+
+        RecordingCommandManager commandManager() {
+            return commandManager;
         }
 
         long lastDelay() {
@@ -260,6 +355,168 @@ final class TestVelocityApi {
             TimeUnit delayUnit() {
                 return delayUnit;
             }
+        }
+    }
+
+    static final class RecordingCommandManager implements InvocationHandler {
+        private final Map<String, Command> commands = new LinkedHashMap<>();
+        private final Map<String, CommandMeta> metadata = new LinkedHashMap<>();
+        private final CommandManager proxy = (CommandManager) Proxy.newProxyInstance(
+                CommandManager.class.getClassLoader(),
+                new Class<?>[]{CommandManager.class},
+                this);
+        private int registrations;
+        private int unregistrations;
+        private RuntimeException registrationFailure;
+
+        CommandManager proxy() {
+            return proxy;
+        }
+
+        SimpleCommand command(String alias) {
+            return (SimpleCommand) commands.get(normalize(alias));
+        }
+
+        boolean hasCommand(String alias) {
+            return commands.containsKey(normalize(alias));
+        }
+
+        int registrations() {
+            return registrations;
+        }
+
+        int unregistrations() {
+            return unregistrations;
+        }
+
+        void failRegistration(RuntimeException failure) {
+            registrationFailure = failure;
+        }
+
+        @Override
+        public Object invoke(Object proxy, Method method, Object[] arguments) {
+            if (method.getDeclaringClass() == Object.class) {
+                return objectMethod(proxy, method, arguments);
+            }
+            switch (method.getName()) {
+                case "metaBuilder":
+                    if (arguments[0] instanceof String) {
+                        return commandMetaBuilder((String) arguments[0]);
+                    }
+                    break;
+                case "register":
+                    if (arguments.length == 2 && arguments[0] instanceof CommandMeta) {
+                        register((CommandMeta) arguments[0], (Command) arguments[1]);
+                        return null;
+                    }
+                    break;
+                case "unregister":
+                    if (arguments[0] instanceof CommandMeta) {
+                        unregister((CommandMeta) arguments[0]);
+                    } else {
+                        unregister((String) arguments[0]);
+                    }
+                    return null;
+                case "getCommandMeta":
+                    return metadata.get(normalize((String) arguments[0]));
+                case "getAliases":
+                    return Collections.unmodifiableSet(commands.keySet());
+                case "hasCommand":
+                    return hasCommand((String) arguments[0]);
+                default:
+                    break;
+            }
+            return defaultValue(method.getReturnType());
+        }
+
+        private void register(CommandMeta meta, Command command) {
+            if (registrationFailure != null) {
+                throw registrationFailure;
+            }
+            for (String alias : meta.getAliases()) {
+                if (commands.containsKey(normalize(alias))) {
+                    throw new IllegalArgumentException("Alias already registered: " + alias);
+                }
+            }
+            for (String alias : meta.getAliases()) {
+                String normalized = normalize(alias);
+                commands.put(normalized, command);
+                metadata.put(normalized, meta);
+            }
+            registrations++;
+        }
+
+        private void unregister(CommandMeta meta) {
+            for (String alias : meta.getAliases()) {
+                commands.remove(normalize(alias));
+                metadata.remove(normalize(alias));
+            }
+            unregistrations++;
+        }
+
+        private void unregister(String alias) {
+            CommandMeta meta = metadata.get(normalize(alias));
+            if (meta != null) {
+                unregister(meta);
+            }
+        }
+
+        private static CommandMeta.Builder commandMetaBuilder(String primaryAlias) {
+            class BuilderHandler implements InvocationHandler {
+                private final List<String> aliases = new ArrayList<>(List.of(primaryAlias));
+                private Object plugin;
+
+                @Override
+                public Object invoke(Object proxy, Method method, Object[] arguments) {
+                    if (method.getDeclaringClass() == Object.class) {
+                        return objectMethod(proxy, method, arguments);
+                    }
+                    switch (method.getName()) {
+                        case "aliases":
+                            Collections.addAll(aliases, (String[]) arguments[0]);
+                            return proxy;
+                        case "plugin":
+                            plugin = arguments[0];
+                            return proxy;
+                        case "hint":
+                            return proxy;
+                        case "build":
+                            return commandMeta(List.copyOf(aliases), plugin);
+                        default:
+                            return defaultValue(method.getReturnType());
+                    }
+                }
+            }
+            return (CommandMeta.Builder) Proxy.newProxyInstance(
+                    CommandMeta.Builder.class.getClassLoader(),
+                    new Class<?>[]{CommandMeta.Builder.class},
+                    new BuilderHandler());
+        }
+
+        private static CommandMeta commandMeta(List<String> aliases, Object plugin) {
+            InvocationHandler handler = (proxy, method, arguments) -> {
+                if (method.getDeclaringClass() == Object.class) {
+                    return objectMethod(proxy, method, arguments);
+                }
+                switch (method.getName()) {
+                    case "getAliases":
+                        return aliases;
+                    case "getHints":
+                        return List.of();
+                    case "getPlugin":
+                        return plugin;
+                    default:
+                        return defaultValue(method.getReturnType());
+                }
+            };
+            return (CommandMeta) Proxy.newProxyInstance(
+                    CommandMeta.class.getClassLoader(),
+                    new Class<?>[]{CommandMeta.class},
+                    handler);
+        }
+
+        private static String normalize(String alias) {
+            return alias.toLowerCase(Locale.ROOT);
         }
     }
 

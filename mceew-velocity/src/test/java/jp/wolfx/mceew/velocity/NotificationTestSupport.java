@@ -80,6 +80,8 @@ final class NotificationTestSupport {
             switch (method.getName()) {
                 case "getScheduler":
                     return scheduler;
+                case "getCommandManager":
+                    return scheduler.commandManager().proxy();
                 case "getAllPlayers":
                     List<Player> views = new ArrayList<>();
                     for (RecordingPlayer player : players) {
