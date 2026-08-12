@@ -41,7 +41,7 @@ class MceewCommandCharacterizationTest {
 
         assertTrue(command(harness, sender));
         assertEquals(List.of(
-                "§a[MCEEW] Plugin version: v2.7.0",
+                "§a[MCEEW] Plugin version: v" + MceewCharacterizationSupport.projectVersion(),
                 "§a[MCEEW] §3/eew§a - Show available commands",
                 "§a[MCEEW] §3/eew test§a - Send a test EEW alert",
                 "§a[MCEEW] §3/eew info§a - Display latest earthquake information",

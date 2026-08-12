@@ -94,7 +94,13 @@ jobs:
           exit 1
         fi
 
-        unzip -p "$plugin_jar" plugin.yml | grep -Fx 'version: 2.7.0'
+        expected_version="$(mvn -q -pl mceew-bukkit help:evaluate \
+          -Dexpression=project.version -DforceStdout)"
+        if [[ -z "$expected_version" ]]; then
+          echo "Maven returned an empty Bukkit project version."
+          exit 1
+        fi
+        unzip -p "$plugin_jar" plugin.yml | grep -Fx "version: $expected_version"
         unzip -p "$plugin_jar" plugin.yml | grep -Fx 'main: jp.wolfx.mceew.MCEEW'
         unzip -p "$plugin_jar" plugin.yml | grep -Fx 'folia-supported: true'
         unzip -p "$plugin_jar" plugin.yml | grep -Fx 'api-version: 1.13'

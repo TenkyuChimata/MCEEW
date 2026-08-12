@@ -50,6 +50,8 @@ class CompatibilityTest {
     @Test
     void pluginDescriptorKeepsCompatibilityAndCommandDeclarations() throws IOException {
         String descriptor = Files.readString(Path.of("target", "classes", "plugin.yml"));
+        assertTrue(descriptor.lines().anyMatch(line -> line.equals(
+                "version: " + MceewCharacterizationSupport.projectVersion())));
         assertTrue(descriptor.contains("api-version: 1.13"));
         assertTrue(descriptor.contains("folia-supported: true"));
         assertTrue(descriptor.contains("  eew:"));

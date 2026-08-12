@@ -6,12 +6,13 @@
 
     <groupId>jp.wolfx</groupId>
     <artifactId>mceew-parent</artifactId>
-    <version>2.8.0</version>
+    <version>${revision}</version>
     <packaging>pom</packaging>
 
     <name>MCEEW Parent</name>
 
     <properties>
+        <revision>2.8.0</revision>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 

@@ -32,6 +32,7 @@ import java.util.logging.Logger;
 
 final class MceewCharacterizationSupport {
     private static final String FIXTURE_ROOT = "websocket/current-schema/";
+    private static final String PROJECT_VERSION_PROPERTY = "mceew.project.version";
     private static final Unsafe UNSAFE = unsafe();
 
     private MceewCharacterizationSupport() {
@@ -186,7 +187,7 @@ final class MceewCharacterizationSupport {
             field(plugin, "platformScheduler", scheduler);
             field(plugin, "notificationDispatcher", new BukkitNotificationDispatcher(
                     scheduler, Logger.getLogger("MCEEW-characterization"), console::add));
-            field(plugin, "version", "2.7.0");
+            field(plugin, "version", projectVersion());
             javaPluginField(plugin, "newConfig", configuration);
             reloadRuntimeConfiguration();
         }
@@ -213,6 +214,15 @@ final class MceewCharacterizationSupport {
         EarthquakeInfoCache cache() {
             return (EarthquakeInfoCache) field(plugin, "earthquakeInfoCache");
         }
+    }
+
+    static String projectVersion() {
+        String version = System.getProperty(PROJECT_VERSION_PROPERTY);
+        if (version == null || version.isBlank()) {
+            throw new IllegalStateException(
+                    "Missing Maven test property: " + PROJECT_VERSION_PROPERTY);
+        }
+        return version;
     }
 
     static final class RecordingPlayer {
