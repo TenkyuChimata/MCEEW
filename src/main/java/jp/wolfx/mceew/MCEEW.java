@@ -95,6 +95,9 @@ public final class MCEEW extends JavaPlugin {
     private PlatformScheduler platformScheduler;
     private WebSocketConnectionManager webSocketManager;
     private ConfigManager configManager;
+    // TEST SEAM: null in production; lets characterization tests observe console output
+    // without booting a Bukkit server.
+    private Consumer<String> consoleMessageObserver;
 
     @Override
     public void onEnable() {
@@ -292,7 +295,16 @@ public final class MCEEW extends JavaPlugin {
     }
 
     private void sendConsoleMessage(String message) {
+        if (consoleMessageObserver != null) {
+            consoleMessageObserver.accept(message);
+            return;
+        }
         platformScheduler.runGlobal(() -> Bukkit.getConsoleSender().sendMessage(message));
+    }
+
+    // TEST SEAM: package-private and behavior-neutral unless explicitly installed by a test.
+    void observeConsoleMessages(Consumer<String> observer) {
+        consoleMessageObserver = observer;
     }
 
     private void forEachPlayer(Consumer<Player> action) {
@@ -328,11 +340,16 @@ public final class MCEEW extends JavaPlugin {
     }
 
     private boolean isFresh(String reportTimeStr, String pattern, ZoneId zone) {
+        return isFresh(reportTimeStr, pattern, zone, ZonedDateTime.now(zone));
+    }
+
+    // TEST SEAM: explicit time input makes the existing freshness calculation deterministic.
+    boolean isFresh(
+            String reportTimeStr, String pattern, ZoneId zone, ZonedDateTime now) {
         try {
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern(pattern);
             LocalDateTime reportTime = LocalDateTime.parse(reportTimeStr, formatter);
             ZonedDateTime reportZdt = reportTime.atZone(zone);
-            ZonedDateTime now = ZonedDateTime.now(zone);
             long diff = Math.abs(Duration.between(reportZdt, now).toMinutes());
             return diff <= 10;
         } catch (Exception e) {

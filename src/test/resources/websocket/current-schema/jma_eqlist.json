@@ -1,0 +1,14 @@
+{
+  "type": "jma_eqlist",
+  "md5": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "No1": {
+    "time_full": "2024/01/01 16:10:08",
+    "location": "能登半島沖",
+    "magnitude": "7.4",
+    "depth": "10km",
+    "latitude": "37.6",
+    "longitude": "137.2",
+    "shindo": "7",
+    "info": "津波警報等（大津波警報・津波警報あるいは津波注意報）を発表中"
+  }
+}

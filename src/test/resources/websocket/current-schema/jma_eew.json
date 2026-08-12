@@ -1,0 +1,17 @@
+{
+  "type": "jma_eew",
+  "Title": "緊急地震速報（警報）",
+  "AnnouncedTime": "2026/08/12 13:00:00",
+  "OriginTime": "2024/01/01 16:10:08",
+  "Serial": "46",
+  "Latitude": "37.6",
+  "Longitude": "137.2",
+  "Hypocenter": "能登半島沖",
+  "Magunitude": "7.4",
+  "Depth": "10",
+  "MaxIntensity": "7",
+  "isTraining": false,
+  "isAssumption": false,
+  "isFinal": true,
+  "isCancel": false
+}
