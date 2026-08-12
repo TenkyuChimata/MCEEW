@@ -1,5 +1,6 @@
 package jp.wolfx.mceew;
 
+import com.google.gson.JsonObject;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.junit.jupiter.api.Test;
 
@@ -124,6 +125,55 @@ class MceewNotificationCharacterizationTest {
         harness.routeFresh("cq_eew");
         assertTrue(harness.console.isEmpty());
         assertTrue(harness.player.chat.isEmpty());
+    }
+
+    @Test
+    void allRealtimeActionsDisabledPreserveCurrentPermissionQueryShape() {
+        YamlConfiguration config = MceewCharacterizationSupport.defaultConfiguration();
+        config.set("Action.broadcast", false);
+        config.set("Action.title", false);
+        config.set("Action.alert", false);
+
+        MceewCharacterizationSupport.Harness regional =
+                MceewCharacterizationSupport.harness(config);
+        regional.routeFresh("sc_eew");
+        assertEquals(List.of("mceew.notify.all", "mceew.notify.sc"),
+                List.copyOf(regional.player.queriedPermissions));
+        assertTrue(regional.console.isEmpty());
+        assertTrue(regional.player.chat.isEmpty());
+        assertTrue(regional.player.titles.isEmpty());
+        assertTrue(regional.player.sounds.isEmpty());
+
+        MceewCharacterizationSupport.Harness jma =
+                MceewCharacterizationSupport.harness(config);
+        jma.routeFresh("jma_eew");
+        assertTrue(jma.player.queriedPermissions.isEmpty());
+        assertTrue(jma.console.isEmpty());
+        assertTrue(jma.player.chat.isEmpty());
+        assertTrue(jma.player.titles.isEmpty());
+        assertTrue(jma.player.sounds.isEmpty());
+    }
+
+    @Test
+    void earthquakeListChangedNotificationsRemainIndependentOfBroadcastAction() {
+        YamlConfiguration config = MceewCharacterizationSupport.defaultConfiguration();
+        config.set("Action.broadcast", false);
+        MceewCharacterizationSupport.Harness harness =
+                MceewCharacterizationSupport.harness(config);
+        JsonObject jma = MceewCharacterizationSupport.fixture("jma_eqlist");
+        JsonObject cenc = MceewCharacterizationSupport.fixture("cenc_eqlist");
+
+        harness.route(jma.toString());
+        harness.route(cenc.toString());
+        jma.addProperty("md5", "11111111111111111111111111111111");
+        cenc.addProperty("md5", "22222222222222222222222222222222");
+        harness.route(jma.toString());
+        harness.route(cenc.toString());
+
+        assertEquals(2, harness.console.size());
+        assertEquals(harness.console, harness.player.chat);
+        assertTrue(harness.player.titles.isEmpty());
+        assertTrue(harness.player.sounds.isEmpty());
     }
 
     private static void assertPermissionDecision(

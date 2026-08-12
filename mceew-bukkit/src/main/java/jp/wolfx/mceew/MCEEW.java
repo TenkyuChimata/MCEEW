@@ -3,11 +3,14 @@ package jp.wolfx.mceew;
 import com.google.gson.JsonObject;
 import jp.wolfx.mceew.format.EarthquakeTimeFormatter;
 import jp.wolfx.mceew.format.LegacyTextFormatter;
-import jp.wolfx.mceew.format.PlaceholderRenderer;
 import jp.wolfx.mceew.message.FujianEewEvent;
 import jp.wolfx.mceew.message.JmaEewEvent;
 import jp.wolfx.mceew.message.RegionalEewEvent;
 import jp.wolfx.mceew.message.WolfxMessageRouter;
+import jp.wolfx.mceew.notification.NotificationIntent;
+import jp.wolfx.mceew.notification.NotificationIntentFactory;
+import jp.wolfx.mceew.notification.NotificationProfile;
+import jp.wolfx.mceew.notification.NotificationSource;
 import jp.wolfx.mceew.scheduler.PlatformScheduler;
 import jp.wolfx.mceew.websocket.WebSocketConnectionManager;
 import org.bukkit.Bukkit;
@@ -30,6 +33,7 @@ import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.net.http.HttpClient;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
 public final class MCEEW extends JavaPlugin {
@@ -457,15 +461,12 @@ public final class MCEEW extends JavaPlugin {
                 data.get("md5").getAsString(), originTime, region, mag, depth,
                 latitude, longitude, getShindoColor(shindo), info);
         EarthquakeInfoCache.UpdateResult update = earthquakeInfoCache.updateJma(snapshot);
-        if (update.shouldNotify(enabled)) {
-            String formatted = snapshot.format(jmaEqlistBroadcastMessage);
-            sendConsoleMessage(formatted);
-            forEachPlayer(player -> {
-                if (canReceive(player, "mceew.notify.jma.eqlist")) {
-                    player.sendMessage(formatted);
-                }
-            });
-        }
+        NotificationIntentFactory.earthquakeList(
+                NotificationSource.JMA_EARTHQUAKE_LIST,
+                update == EarthquakeInfoCache.UpdateResult.CHANGED,
+                enabled,
+                () -> snapshot.format(jmaEqlistBroadcastMessage)
+        ).ifPresent(this::deliverEarthquakeListNotification);
     }
 
     private void cencEqlistExecute(JsonObject data, boolean enabled) {
@@ -476,15 +477,12 @@ public final class MCEEW extends JavaPlugin {
         EarthquakeInfoCache.CencSnapshot snapshot = EarthquakeInfoCache.CencSnapshot.fromEqlist(
                 data, originTime, getIntensityColor(intensity));
         EarthquakeInfoCache.UpdateResult update = earthquakeInfoCache.updateCenc(snapshot);
-        if (update.shouldNotify(enabled)) {
-            String formatted = snapshot.format(cencEqlistBroadcastMessage);
-            sendConsoleMessage(formatted);
-            forEachPlayer(player -> {
-                if (canReceive(player, "mceew.notify.cenc.eqlist")) {
-                    player.sendMessage(formatted);
-                }
-            });
-        }
+        NotificationIntentFactory.earthquakeList(
+                NotificationSource.CENC_EARTHQUAKE_LIST,
+                update == EarthquakeInfoCache.UpdateResult.CHANGED,
+                enabled,
+                () -> snapshot.format(cencEqlistBroadcastMessage)
+        ).ifPresent(this::deliverEarthquakeListNotification);
     }
 
     private void scEewExecute(RegionalEewEvent event) {
@@ -567,305 +565,144 @@ public final class MCEEW extends JavaPlugin {
                 : earthquakeInfoCache.formatJma(jmaEqlistBroadcastMessage));
     }
 
-    private String renderJmaTemplate(
-            String template,
-            String flag,
-            String reportTime,
-            String originTime,
-            String num,
-            String lat,
-            String lon,
-            String region,
-            String mag,
-            String depth,
-            String shindo,
-            String type
-    ) {
-        return PlaceholderRenderer.render(
-                template,
-                "%flag%", flag,
-                "%report_time%", reportTime,
-                "%origin_time%", originTime,
-                "%num%", num,
-                "%lat%", lat,
-                "%lon%", lon,
-                "%region%", region,
-                "%mag%", mag,
-                "%depth%", depth,
-                "%shindo%", shindo,
-                "%type%", type);
-    }
-
-    private String renderRegionalTemplate(
-            String template,
-            String reportTime,
-            String originTime,
-            String num,
-            String lat,
-            String lon,
-            String region,
-            String mag,
-            String depth,
-            String shindo
-    ) {
-        return PlaceholderRenderer.render(
-                template,
-                "%report_time%", reportTime,
-                "%origin_time%", originTime,
-                "%num%", num,
-                "%lat%", lat,
-                "%lon%", lon,
-                "%region%", region,
-                "%mag%", mag,
-                "%depth%", depth,
-                "%shindo%", shindo);
-    }
-
-    private String renderFujianTemplate(
-            String template,
-            String reportTime,
-            String originTime,
-            String num,
-            String lat,
-            String lon,
-            String region,
-            String mag,
-            String type
-    ) {
-        return PlaceholderRenderer.render(
-                template,
-                "%report_time%", reportTime,
-                "%origin_time%", originTime,
-                "%num%", num,
-                "%lat%", lat,
-                "%lon%", lon,
-                "%region%", region,
-                "%mag%", mag,
-                "%type%", type);
-    }
-
     private void jmaEewAction(String flag, String reportTime, String originTime, String num, String lat, String lon, String region, String mag, String depth, String shindo, String type) {
-        if (broadcastBool) {
-            if (Objects.equals(flag, "警報")) {
-                sendConsoleMessage(
-                        renderJmaTemplate(alertBroadcastMessage, flag, reportTime,
-                                originTime, num, lat, lon, region, mag, depth, shindo, type)
-                );
-            } else {
-                sendConsoleMessage(
-                        renderJmaTemplate(forecastBroadcastMessage, flag, reportTime,
-                                originTime, num, lat, lon, region, mag, depth, shindo, type)
-                );
-            }
-        }
-        forEachPlayer(player -> {
-            if (broadcastBool) {
-                if (Objects.equals(flag, "警報")) {
-                    if (canReceive(player, "mceew.notify.jma.alert")) {
-                        player.sendMessage(
-                                renderJmaTemplate(alertBroadcastMessage, flag, reportTime,
-                                        originTime, num, lat, lon, region, mag, depth, shindo, type)
-                        );
-                    }
-                } else {
-                    if (canReceive(player, "mceew.notify.jma.forecast")) {
-                        player.sendMessage(
-                                renderJmaTemplate(forecastBroadcastMessage, flag, reportTime,
-                                        originTime, num, lat, lon, region, mag, depth, shindo, type)
-                        );
-                    }
-                }
-            }
-            if (titleBool) {
-                if (Objects.equals(flag, "警報")) {
-                    if (canReceive(player, "mceew.notify.jma.alert")) {
-                        player.sendTitle(
-                                renderJmaTemplate(alertTitleMessage, flag, reportTime,
-                                        originTime, num, lat, lon, region, mag, depth, shindo, type),
-                                renderJmaTemplate(alertSubtitleMessage, flag, reportTime,
-                                        originTime, num, lat, lon, region, mag, depth, shindo, type),
-                                10, 70, 20
-                        );
-                    }
-                } else {
-                    if (canReceive(player, "mceew.notify.jma.forecast")) {
-                        player.sendTitle(
-                                renderJmaTemplate(forecastTitleMessage, flag, reportTime,
-                                        originTime, num, lat, lon, region, mag, depth, shindo, type),
-                                renderJmaTemplate(forecastSubtitleMessage, flag, reportTime,
-                                        originTime, num, lat, lon, region, mag, depth, shindo, type),
-                                10, 70, 20
-                        );
-                    }
-                }
-            }
-            if (alertBool) {
-                if (Objects.equals(flag, "警報")) {
-                    if (canReceive(player, "mceew.notify.jma.alert")) {
-                        playSound(alertAlertSoundType, alertAlertSoundVolume, alertAlertSoundPitch, player);
-                    }
-                } else {
-                    if (canReceive(player, "mceew.notify.jma.forecast")) {
-                        playSound(forecastAlertSoundType, forecastAlertSoundVolume, forecastAlertSoundPitch, player);
-                    }
-                }
-            }
-        });
+        deliverJmaNotification(() -> NotificationIntentFactory.jma(
+                flag, reportTime, originTime, num, lat, lon, region, mag, depth, shindo, type,
+                broadcastBool, titleBool, alertBool,
+                notificationProfile(
+                        alertBroadcastMessage, alertTitleMessage, alertSubtitleMessage,
+                        alertAlertSoundType, alertAlertSoundVolume, alertAlertSoundPitch),
+                notificationProfile(
+                        forecastBroadcastMessage, forecastTitleMessage, forecastSubtitleMessage,
+                        forecastAlertSoundType, forecastAlertSoundVolume, forecastAlertSoundPitch)));
     }
 
     private void scEewAction(String reportTime, String originTime, String num, String lat, String lon, String region, String mag, String depth, String intensity) {
-        if (broadcastBool) {
-            sendConsoleMessage(
-                    renderRegionalTemplate(sichuanBroadcastMessage, reportTime,
-                            originTime, num, lat, lon, region, mag, depth, intensity)
-            );
-        }
-        forEachPlayer(player -> {
-            if (canReceive(player, "mceew.notify.sc")) {
-                if (broadcastBool) {
-                    player.sendMessage(
-                            renderRegionalTemplate(sichuanBroadcastMessage, reportTime,
-                                    originTime, num, lat, lon, region, mag, depth, intensity)
-                    );
-                }
-                if (titleBool) {
-                    player.sendTitle(
-                            renderRegionalTemplate(sichuanTitleMessage, reportTime,
-                                    originTime, num, lat, lon, region, mag, depth, intensity),
-                            renderRegionalTemplate(sichuanSubtitleMessage, reportTime,
-                                    originTime, num, lat, lon, region, mag, depth, intensity),
-                            10, 70, 20
-                    );
-                }
-                if (alertBool) {
-                    playSound(scAlertSoundType, scAlertSoundVolume, scAlertSoundPitch, player);
-                }
-            }
-        });
+        deliverRegionalNotification(NotificationSource.SICHUAN_EEW, () -> NotificationIntentFactory.regional(
+                NotificationSource.SICHUAN_EEW,
+                reportTime, originTime, num, lat, lon, region, mag, depth, intensity,
+                broadcastBool, titleBool, alertBool,
+                notificationProfile(
+                        sichuanBroadcastMessage, sichuanTitleMessage, sichuanSubtitleMessage,
+                        scAlertSoundType, scAlertSoundVolume, scAlertSoundPitch)));
     }
 
     private void fjEewAction(String reportTime, String originTime, String num, String lat, String lon, String region, String mag, String type) {
-        if (broadcastBool) {
-            sendConsoleMessage(
-                    renderFujianTemplate(fjBroadcastMessage, reportTime,
-                            originTime, num, lat, lon, region, mag, type)
-            );
-        }
-        forEachPlayer(player -> {
-            if (canReceive(player, "mceew.notify.fj")) {
-                if (broadcastBool) {
-                    player.sendMessage(
-                            renderFujianTemplate(fjBroadcastMessage, reportTime,
-                                    originTime, num, lat, lon, region, mag, type)
-                    );
-                }
-                if (titleBool) {
-                    player.sendTitle(
-                            renderFujianTemplate(fjTitleMessage, reportTime,
-                                    originTime, num, lat, lon, region, mag, type),
-                            renderFujianTemplate(fjSubtitleMessage, reportTime,
-                                    originTime, num, lat, lon, region, mag, type),
-                            10, 70, 20
-                    );
-                }
-                if (alertBool) {
-                    playSound(fjAlertSoundType, fjAlertSoundVolume, fjAlertSoundPitch, player);
-                }
-            }
-        });
+        deliverRegionalNotification(NotificationSource.FUJIAN_EEW, () -> NotificationIntentFactory.fujian(
+                reportTime, originTime, num, lat, lon, region, mag, type,
+                broadcastBool, titleBool, alertBool,
+                notificationProfile(
+                        fjBroadcastMessage, fjTitleMessage, fjSubtitleMessage,
+                        fjAlertSoundType, fjAlertSoundVolume, fjAlertSoundPitch)));
     }
 
     private void cwaEewAction(String reportTime, String originTime, String num, String lat, String lon, String region, String mag, String depth, String shindo) {
-        if (broadcastBool) {
-            sendConsoleMessage(
-                    renderRegionalTemplate(cwaBroadcastMessage, reportTime,
-                            originTime, num, lat, lon, region, mag, depth, shindo)
-            );
-        }
-        forEachPlayer(player -> {
-            if (canReceive(player, "mceew.notify.cwa")) {
-                if (broadcastBool) {
-                    player.sendMessage(
-                            renderRegionalTemplate(cwaBroadcastMessage, reportTime,
-                                    originTime, num, lat, lon, region, mag, depth, shindo)
-                    );
-                }
-                if (titleBool) {
-                    player.sendTitle(
-                            renderRegionalTemplate(cwaTitleMessage, reportTime,
-                                    originTime, num, lat, lon, region, mag, depth, shindo),
-                            renderRegionalTemplate(cwaSubtitleMessage, reportTime,
-                                    originTime, num, lat, lon, region, mag, depth, shindo),
-                            10, 70, 20
-                    );
-                }
-                if (alertBool) {
-                    playSound(cwaAlertSoundType, cwaAlertSoundVolume, cwaAlertSoundPitch, player);
-                }
-            }
-        });
+        deliverRegionalNotification(NotificationSource.CWA_EEW, () -> NotificationIntentFactory.regional(
+                NotificationSource.CWA_EEW,
+                reportTime, originTime, num, lat, lon, region, mag, depth, shindo,
+                broadcastBool, titleBool, alertBool,
+                notificationProfile(
+                        cwaBroadcastMessage, cwaTitleMessage, cwaSubtitleMessage,
+                        cwaAlertSoundType, cwaAlertSoundVolume, cwaAlertSoundPitch)));
     }
 
     private void cencEewAction(String reportTime, String originTime, String num, String lat, String lon, String region, String mag, String depth, String intensity) {
-        if (broadcastBool) {
-            sendConsoleMessage(
-                    renderRegionalTemplate(cencBroadcastMessage, reportTime,
-                            originTime, num, lat, lon, region, mag, depth, intensity)
-            );
-        }
+        deliverRegionalNotification(NotificationSource.CENC_EEW, () -> NotificationIntentFactory.regional(
+                NotificationSource.CENC_EEW,
+                reportTime, originTime, num, lat, lon, region, mag, depth, intensity,
+                broadcastBool, titleBool, alertBool,
+                notificationProfile(
+                        cencBroadcastMessage, cencTitleMessage, cencSubtitleMessage,
+                        cencAlertSoundType, cencAlertSoundVolume, cencAlertSoundPitch)));
+    }
+
+    private void cqEewAction(String reportTime, String originTime, String num, String lat, String lon, String region, String mag, String depth, String intensity) {
+        deliverRegionalNotification(NotificationSource.CHONGQING_EEW, () -> NotificationIntentFactory.regional(
+                NotificationSource.CHONGQING_EEW,
+                reportTime, originTime, num, lat, lon, region, mag, depth, intensity,
+                broadcastBool, titleBool, alertBool,
+                notificationProfile(
+                        cqBroadcastMessage, cqTitleMessage, cqSubtitleMessage,
+                        cqAlertSoundType, cqAlertSoundVolume, cqAlertSoundPitch)));
+    }
+
+    private NotificationProfile notificationProfile(
+            String broadcast,
+            String title,
+            String subtitle,
+            String soundKey,
+            double soundVolume,
+            double soundPitch
+    ) {
+        return new NotificationProfile(
+                broadcast, title, subtitle, soundKey, soundVolume, soundPitch);
+    }
+
+    private void deliverJmaNotification(Supplier<NotificationIntent> intentSupplier) {
+        deliverConsoleNotification(intentSupplier.get());
         forEachPlayer(player -> {
-            if (canReceive(player, "mceew.notify.cenc.eew")) {
-                if (broadcastBool) {
-                    player.sendMessage(
-                            renderRegionalTemplate(cencBroadcastMessage, reportTime,
-                                    originTime, num, lat, lon, region, mag, depth, intensity)
-                    );
+            NotificationIntent intent = intentSupplier.get();
+            if (intent.getChat() != null
+                    && canReceive(player, intent.getPermissionNode())) {
+                player.sendMessage(intent.getChat().render());
+            }
+            if (intent.getTitle() != null
+                    && canReceive(player, intent.getPermissionNode())) {
+                sendTitle(player, intent.getTitle());
+            }
+            if (intent.getSound() != null
+                    && canReceive(player, intent.getPermissionNode())) {
+                playSound(intent.getSound().getKey(), intent.getSound().getVolume(),
+                        intent.getSound().getPitch(), player);
+            }
+        });
+    }
+
+    private void deliverRegionalNotification(
+            NotificationSource source,
+            Supplier<NotificationIntent> intentSupplier
+    ) {
+        deliverConsoleNotification(intentSupplier.get());
+        forEachPlayer(player -> {
+            if (canReceive(player, source.getPermissionNode())) {
+                NotificationIntent intent = intentSupplier.get();
+                if (intent.getChat() != null) {
+                    player.sendMessage(intent.getChat().render());
                 }
-                if (titleBool) {
-                    player.sendTitle(
-                            renderRegionalTemplate(cencTitleMessage, reportTime,
-                                    originTime, num, lat, lon, region, mag, depth, intensity),
-                            renderRegionalTemplate(cencSubtitleMessage, reportTime,
-                                    originTime, num, lat, lon, region, mag, depth, intensity),
-                            10, 70, 20
-                    );
+                if (intent.getTitle() != null) {
+                    sendTitle(player, intent.getTitle());
                 }
-                if (alertBool) {
-                    playSound(cencAlertSoundType, cencAlertSoundVolume, cencAlertSoundPitch, player);
+                if (intent.getSound() != null) {
+                    playSound(intent.getSound().getKey(), intent.getSound().getVolume(),
+                            intent.getSound().getPitch(), player);
                 }
             }
         });
     }
 
-    private void cqEewAction(String reportTime, String originTime, String num, String lat, String lon, String region, String mag, String depth, String intensity) {
-        if (broadcastBool) {
-            sendConsoleMessage(
-                    renderRegionalTemplate(cqBroadcastMessage, reportTime,
-                            originTime, num, lat, lon, region, mag, depth, intensity)
-            );
-        }
+    private void deliverEarthquakeListNotification(NotificationIntent intent) {
+        deliverConsoleNotification(intent);
         forEachPlayer(player -> {
-            if (canReceive(player, "mceew.notify.cq")) {
-                if (broadcastBool) {
-                    player.sendMessage(
-                            renderRegionalTemplate(cqBroadcastMessage, reportTime,
-                                    originTime, num, lat, lon, region, mag, depth, intensity)
-                    );
-                }
-                if (titleBool) {
-                    player.sendTitle(
-                            renderRegionalTemplate(cqTitleMessage, reportTime,
-                                    originTime, num, lat, lon, region, mag, depth, intensity),
-                            renderRegionalTemplate(cqSubtitleMessage, reportTime,
-                                    originTime, num, lat, lon, region, mag, depth, intensity),
-                            10, 70, 20
-                    );
-                }
-                if (alertBool) {
-                    playSound(cqAlertSoundType, cqAlertSoundVolume, cqAlertSoundPitch, player);
-                }
+            if (canReceive(player, intent.getPermissionNode())) {
+                player.sendMessage(intent.getChat().render());
             }
         });
+    }
+
+    private void deliverConsoleNotification(NotificationIntent intent) {
+        if (intent.isConsoleDelivery()) {
+            sendConsoleMessage(intent.getChat().render());
+        }
+    }
+
+    private void sendTitle(Player player, NotificationIntent.TitleNotice title) {
+        player.sendTitle(
+                title.renderTitle(),
+                title.renderSubtitle(),
+                title.getFadeInTicks(),
+                title.getStayTicks(),
+                title.getFadeOutTicks()
+        );
     }
 
     private String getShindoColor(String shindo) {
