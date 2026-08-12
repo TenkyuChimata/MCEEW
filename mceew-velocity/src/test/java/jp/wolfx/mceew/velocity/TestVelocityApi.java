@@ -40,7 +40,10 @@ final class TestVelocityApi {
 
     static final class CapturingLogger implements InvocationHandler {
         private final List<String> infoMessages = new ArrayList<>();
+        private final List<String> warningMessages = new ArrayList<>();
         private final List<String> errorMessages = new ArrayList<>();
+        private final List<String> debugMessages = new ArrayList<>();
+        private final List<Throwable> throwables = new ArrayList<>();
         private final Logger proxy = (Logger) Proxy.newProxyInstance(
                 Logger.class.getClassLoader(), new Class<?>[]{Logger.class}, this);
 
@@ -56,6 +59,18 @@ final class TestVelocityApi {
             return countContaining(errorMessages, text);
         }
 
+        int warningCountContaining(String text) {
+            return countContaining(warningMessages, text);
+        }
+
+        int debugCountContaining(String text) {
+            return countContaining(debugMessages, text);
+        }
+
+        boolean capturedThrowable(Throwable expected) {
+            return throwables.contains(expected);
+        }
+
         @Override
         public Object invoke(Object proxy, Method method, Object[] arguments) {
             if (method.getDeclaringClass() == Object.class) {
@@ -64,8 +79,17 @@ final class TestVelocityApi {
             if (arguments != null && arguments.length > 0 && arguments[0] instanceof String) {
                 if ("info".equals(method.getName())) {
                     infoMessages.add((String) arguments[0]);
+                } else if ("warn".equals(method.getName())) {
+                    warningMessages.add((String) arguments[0]);
                 } else if ("error".equals(method.getName())) {
                     errorMessages.add((String) arguments[0]);
+                } else if ("debug".equals(method.getName())) {
+                    debugMessages.add((String) arguments[0]);
+                }
+                for (Object argument : arguments) {
+                    if (argument instanceof Throwable) {
+                        throwables.add((Throwable) argument);
+                    }
                 }
             }
             return defaultValue(method.getReturnType());

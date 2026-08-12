@@ -24,7 +24,18 @@ class VelocityModulePurityTest {
             byte[] bytes = Files.readAllBytes(classFile);
             assertEquals(61, classMajor(bytes), classFile + " must target Java 17");
             assertContainsNone(bytes, classFile, List.of(
-                    "org/bukkit", "io/papermc", "dev/folia", "org/bstats"));
+                    "org/bukkit",
+                    "io/papermc",
+                    "dev/folia",
+                    "org/bstats",
+                    "net/kyori/adventure",
+                    "com/velocitypowered/api/proxy/Player",
+                    "com/velocitypowered/api/proxy/server/RegisteredServer",
+                    "getAllPlayers",
+                    "hasPermission",
+                    "sendMessage",
+                    "showTitle",
+                    "playSound"));
         }
     }
 
@@ -44,7 +55,8 @@ class VelocityModulePurityTest {
                     "dev/folia",
                     "com/velocitypowered",
                     "net/kyori/adventure",
-                    "org/bstats"));
+                    "org/bstats",
+                    "org/slf4j"));
         }
     }
 

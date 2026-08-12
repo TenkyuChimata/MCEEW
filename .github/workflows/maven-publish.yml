@@ -156,24 +156,25 @@ jobs:
         test "$metadata_version" = "$expected_version"
         test "$metadata_main" = 'jp.wolfx.mceew.velocity.MCEEWVelocity'
         unzip -p "$velocity_jar" config.yml | grep -Fx 'platform-config-version: 1'
+        unzip -p "$velocity_jar" config.yml | grep -Fx '  enabled: true'
 
         class_dir="$(mktemp -d)"
         trap 'rm -rf "$class_dir"' EXIT
         unzip -q "$velocity_jar" 'jp/wolfx/mceew/*.class' -d "$class_dir"
+        core_jar=(mceew-core/target/mceew-core-*.jar)
+        core_entries="$(jar tf "${core_jar[0]}")"
         while IFS= read -r class_file; do
+          entry="${class_file#"$class_dir/"}"
           major="$(od -An -tu2 -j6 -N2 --endian=big "$class_file" | tr -d ' ')"
-          if [[ "$major" != 61 ]]; then
-            echo "$class_file targets class major $major instead of 61."
+          expected_major=61
+          if grep -Fxq "$entry" <<<"$core_entries"; then
+            expected_major=55
+          fi
+          if [[ "$major" != "$expected_major" ]]; then
+            echo "$class_file targets class major $major instead of $expected_major."
             exit 1
           fi
-        done < <(find "$class_dir/jp/wolfx/mceew/velocity" -name '*.class' -type f ! -path '*/libs/*' -print)
-        while IFS= read -r class_file; do
-          major="$(od -An -tu2 -j6 -N2 --endian=big "$class_file" | tr -d ' ')"
-          if [[ "$major" != 55 ]]; then
-            echo "$class_file targets class major $major instead of 55."
-            exit 1
-          fi
-        done < <(find "$class_dir/jp/wolfx/mceew" -name '*.class' -type f ! -path '*/velocity/*' -print)
+        done < <(find "$class_dir/jp/wolfx/mceew" -name '*.class' -type f ! -path '*/libs/*' -print)
 
     - name: Assemble Velocity runtime smoke fixture
       shell: bash
@@ -257,6 +258,18 @@ jobs:
         cp "${plugin_jars[0]}" "$runtime/plugins/"
         cp artifacts/mceew-phase1-runtime-smoke.jar "$runtime/plugins/"
         cp '${{ matrix.server }}' "$runtime/velocity.jar"
+        mkdir -p "$runtime/plugins/mceew"
+        cat > "$runtime/plugins/mceew/config.yml" <<'EOF'
+        platform-config-version: 1
+        global:
+          enabled: false
+        targets:
+          default:
+            mode: all
+          sources: {}
+        groups: {}
+        servers: {}
+        EOF
 
         cd "$runtime"
         set -o pipefail
@@ -264,11 +277,17 @@ jobs:
 
         grep -F 'Loaded plugin mceew ' runtime.log
         grep -F 'MCEEW Velocity ' runtime.log | grep -F 'platform shell initialized.'
+        grep -F 'MCEEW Velocity operational runtime is disabled by configuration.' runtime.log
         grep -F 'MCEEW Velocity scheduler smoke task executed.' runtime.log
         grep -F 'MCEEW Velocity platform shell shut down.' runtime.log
         grep -F 'MCEEW Velocity scheduler smoke probe shut down.' runtime.log
         test -f plugins/mceew/config.yml
         grep -Fx 'platform-config-version: 1' plugins/mceew/config.yml
+        grep -Fx '  enabled: false' plugins/mceew/config.yml
+        if grep -Fq 'Connected to WebSocket API.' runtime.log; then
+          echo "Velocity runtime smoke unexpectedly opened the Wolfx WebSocket."
+          exit 1
+        fi
         if grep -Eq 'NoClassDefFoundError|UnsupportedClassVersionError|NoSuchMethodError|AbstractMethodError|LinkageError' runtime.log; then
           echo "Velocity runtime smoke found a linkage failure."
           exit 1

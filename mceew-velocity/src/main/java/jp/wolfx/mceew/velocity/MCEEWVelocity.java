@@ -19,24 +19,44 @@ import org.slf4j.Logger;
         description = "Minecraft Earthquake Early Warning",
         authors = {"TenkyuChimata"})
 public final class MCEEWVelocity {
+    @FunctionalInterface
+    interface RuntimeFactory {
+        VelocityMceewRuntime create(
+                VelocityConfigSnapshot config,
+                VelocityDelayScheduler delayScheduler,
+                Logger logger);
+    }
+
     private final Object lifecycleLock = new Object();
     private final Logger logger;
     private final VelocityConfigLoader configLoader;
     private final VelocityDelayScheduler delayScheduler;
+    private final RuntimeFactory runtimeFactory;
 
     private LifecycleState lifecycleState = LifecycleState.UNINITIALIZED;
     private volatile VelocityConfigSnapshot configSnapshot;
+    private volatile VelocityMceewRuntime operationalRuntime;
 
     @Inject
     public MCEEWVelocity(
             ProxyServer proxyServer,
             Logger logger,
             @DataDirectory Path dataDirectory) {
+        this(proxyServer, logger, dataDirectory, VelocityMceewRuntime::production);
+    }
+
+    MCEEWVelocity(
+            ProxyServer proxyServer,
+            Logger logger,
+            Path dataDirectory,
+            RuntimeFactory runtimeFactory
+    ) {
         Objects.requireNonNull(proxyServer, "proxyServer");
         this.logger = Objects.requireNonNull(logger, "logger");
         Objects.requireNonNull(dataDirectory, "dataDirectory");
         this.configLoader = new VelocityConfigLoader(dataDirectory);
         this.delayScheduler = new VelocityDelayScheduler(proxyServer, this);
+        this.runtimeFactory = Objects.requireNonNull(runtimeFactory, "runtimeFactory");
     }
 
     @Subscribe
@@ -62,28 +82,62 @@ public final class MCEEWVelocity {
             return;
         }
 
+        VelocityMceewRuntime startedRuntime = null;
+        if (loaded.runtimeEnabled()) {
+            try {
+                startedRuntime = runtimeFactory.create(loaded, delayScheduler, logger);
+                startedRuntime.start();
+            } catch (RuntimeException | Error error) {
+                if (startedRuntime != null) {
+                    startedRuntime.close();
+                }
+                synchronized (lifecycleLock) {
+                    if (lifecycleState == LifecycleState.INITIALIZING) {
+                        lifecycleState = LifecycleState.FAILED;
+                    }
+                }
+                logger.error(
+                        "MCEEW Velocity operational runtime could not be started; runtime remains inactive.",
+                        error);
+                return;
+            }
+        }
+
         boolean activated = false;
         synchronized (lifecycleLock) {
             if (lifecycleState == LifecycleState.INITIALIZING) {
                 configSnapshot = loaded;
+                operationalRuntime = startedRuntime;
                 lifecycleState = LifecycleState.ACTIVE;
                 activated = true;
             }
         }
+        if (!activated && startedRuntime != null) {
+            startedRuntime.close();
+        }
         if (activated) {
             logger.info("MCEEW Velocity {} platform shell initialized.", VelocityBuildInfo.VERSION);
+            if (!loaded.runtimeEnabled()) {
+                logger.info("MCEEW Velocity operational runtime is disabled by configuration.");
+            }
         }
     }
 
     @Subscribe
     public void onProxyShutdown(ProxyShutdownEvent event) {
         Objects.requireNonNull(event, "event");
+        VelocityMceewRuntime runtime;
         synchronized (lifecycleLock) {
             if (lifecycleState == LifecycleState.SHUTDOWN) {
                 return;
             }
             lifecycleState = LifecycleState.SHUTDOWN;
             configSnapshot = null;
+            runtime = operationalRuntime;
+            operationalRuntime = null;
+        }
+        if (runtime != null) {
+            runtime.close();
         }
         delayScheduler.close();
         logger.info("MCEEW Velocity platform shell shut down.");
@@ -104,6 +158,20 @@ public final class MCEEWVelocity {
     int loadedPlatformConfigVersion() {
         VelocityConfigSnapshot snapshot = configSnapshot;
         return snapshot == null ? -1 : snapshot.platformConfigVersion();
+    }
+
+    boolean loadedRuntimeEnabled() {
+        VelocityConfigSnapshot snapshot = configSnapshot;
+        return snapshot != null && snapshot.runtimeEnabled();
+    }
+
+    boolean hasOperationalRuntime() {
+        VelocityMceewRuntime runtime = operationalRuntime;
+        return runtime != null && runtime.isActive();
+    }
+
+    Object operationalRuntimeIdentity() {
+        return operationalRuntime;
     }
 
     VelocityDelayScheduler delayScheduler() {

@@ -100,7 +100,18 @@ final class VelocityConfigLoader {
                     + "; expected " + CURRENT_PLATFORM_CONFIG_VERSION);
         }
 
-        requireMapping(root, "global");
+        Map<?, ?> global = requireMapping(root, "global");
+        boolean runtimeEnabled = optionalBoolean(global, "enabled", true, "global.enabled");
+        Map<?, ?> sources = optionalMapping(global, "sources", "global.sources");
+        boolean jmaEnabled = optionalBoolean(sources, "jma", true, "global.sources.jma");
+        boolean sichuanEnabled = optionalBoolean(
+                sources, "sichuan", true, "global.sources.sichuan");
+        boolean fujianEnabled = optionalBoolean(
+                sources, "fujian", true, "global.sources.fujian");
+        boolean cwaEnabled = optionalBoolean(sources, "cwa", true, "global.sources.cwa");
+        boolean cencEnabled = optionalBoolean(sources, "cenc", true, "global.sources.cenc");
+        boolean chongqingEnabled = optionalBoolean(
+                sources, "chongqing", true, "global.sources.chongqing");
         Map<?, ?> targets = requireMapping(root, "targets");
         Map<?, ?> defaultTarget = requireMapping(targets, "default");
         Object defaultMode = defaultTarget.get("mode");
@@ -112,7 +123,15 @@ final class VelocityConfigLoader {
         requireMapping(targets, "sources");
         requireMapping(root, "groups");
         requireMapping(root, "servers");
-        return new VelocityConfigSnapshot(version);
+        return new VelocityConfigSnapshot(
+                version,
+                runtimeEnabled,
+                jmaEnabled,
+                sichuanEnabled,
+                fujianEnabled,
+                cwaEnabled,
+                cencEnabled,
+                chongqingEnabled);
     }
 
     private static Map<?, ?> requireMapping(Map<?, ?> parent, String key)
@@ -122,5 +141,30 @@ final class VelocityConfigLoader {
             throw new VelocityConfigException(key + " must be a mapping");
         }
         return (Map<?, ?>) value;
+    }
+
+    private static Map<?, ?> optionalMapping(Map<?, ?> parent, String key, String path)
+            throws VelocityConfigException {
+        Object value = parent.get(key);
+        if (!parent.containsKey(key)) {
+            return Map.of();
+        }
+        if (!(value instanceof Map)) {
+            throw new VelocityConfigException(path + " must be a mapping");
+        }
+        return (Map<?, ?>) value;
+    }
+
+    private static boolean optionalBoolean(
+            Map<?, ?> parent, String key, boolean defaultValue, String path)
+            throws VelocityConfigException {
+        Object value = parent.get(key);
+        if (!parent.containsKey(key)) {
+            return defaultValue;
+        }
+        if (!(value instanceof Boolean)) {
+            throw new VelocityConfigException(path + " must be a boolean");
+        }
+        return (Boolean) value;
     }
 }

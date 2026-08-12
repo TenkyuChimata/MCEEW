@@ -2,6 +2,7 @@ package jp.wolfx.mceew.velocity;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -23,10 +24,14 @@ class VelocityConfigLoaderTest {
         VelocityConfigSnapshot snapshot = new VelocityConfigLoader(dataDirectory).load();
 
         assertEquals(1, snapshot.platformConfigVersion());
+        assertTrue(snapshot.runtimeEnabled());
+        assertAllSources(snapshot, true);
         Path config = dataDirectory.resolve("config.yml");
         assertTrue(Files.isRegularFile(config));
         String content = Files.readString(config);
         assertTrue(content.contains("platform-config-version: 1"));
+        assertTrue(content.contains("enabled: true"));
+        assertTrue(content.contains("chongqing: true"));
         assertTrue(content.contains("mode: all"));
     }
 
@@ -38,6 +43,63 @@ class VelocityConfigLoaderTest {
         VelocityConfigSnapshot snapshot = new VelocityConfigLoader(config.getParent()).load();
 
         assertEquals(1, snapshot.platformConfigVersion());
+        assertTrue(snapshot.runtimeEnabled());
+        assertAllSources(snapshot, true);
+        assertArrayEquals(original, Files.readAllBytes(config));
+    }
+
+    @Test
+    void explicitOperationalFlagsLoadWithoutRewriting() throws Exception {
+        byte[] original = operationalConfig(false).getBytes(StandardCharsets.UTF_8);
+        Path config = writeConfig(original);
+
+        VelocityConfigSnapshot snapshot = new VelocityConfigLoader(config.getParent()).load();
+
+        assertFalse(snapshot.runtimeEnabled());
+        assertAllSources(snapshot, false);
+        assertArrayEquals(original, Files.readAllBytes(config));
+    }
+
+    @Test
+    void missingOperationalKeysInPhaseOneConfigUseInMemoryDefaultsWithoutRewrite()
+            throws Exception {
+        byte[] original = validConfig("all").getBytes(StandardCharsets.UTF_8);
+        Path config = writeConfig(original);
+
+        VelocityConfigSnapshot snapshot = new VelocityConfigLoader(config.getParent()).load();
+
+        assertTrue(snapshot.runtimeEnabled());
+        assertAllSources(snapshot, true);
+        assertArrayEquals(original, Files.readAllBytes(config));
+    }
+
+    @Test
+    void wrongRuntimeBooleanTypeFailsWithoutRewriting() throws IOException {
+        byte[] original = operationalConfig(true)
+                .replace("enabled: true", "enabled: \"true\"")
+                .getBytes(StandardCharsets.UTF_8);
+        Path config = writeConfig(original);
+
+        VelocityConfigException error = assertThrows(
+                VelocityConfigException.class,
+                () -> new VelocityConfigLoader(config.getParent()).load());
+
+        assertTrue(error.getMessage().contains("global.enabled must be a boolean"));
+        assertArrayEquals(original, Files.readAllBytes(config));
+    }
+
+    @Test
+    void wrongSourceBooleanTypeFailsWithoutRewriting() throws IOException {
+        byte[] original = operationalConfig(true)
+                .replace("jma: true", "jma: yes-please")
+                .getBytes(StandardCharsets.UTF_8);
+        Path config = writeConfig(original);
+
+        VelocityConfigException error = assertThrows(
+                VelocityConfigException.class,
+                () -> new VelocityConfigLoader(config.getParent()).load());
+
+        assertTrue(error.getMessage().contains("global.sources.jma must be a boolean"));
         assertArrayEquals(original, Files.readAllBytes(config));
     }
 
@@ -115,5 +177,33 @@ class VelocityConfigLoaderTest {
                 + "  sources: {}\n"
                 + "groups: {}\n"
                 + "servers: {}\n";
+    }
+
+    private static String operationalConfig(boolean enabled) {
+        return "platform-config-version: 1\n"
+                + "global:\n"
+                + "  enabled: " + enabled + "\n"
+                + "  sources:\n"
+                + "    jma: " + enabled + "\n"
+                + "    sichuan: " + enabled + "\n"
+                + "    fujian: " + enabled + "\n"
+                + "    cwa: " + enabled + "\n"
+                + "    cenc: " + enabled + "\n"
+                + "    chongqing: " + enabled + "\n"
+                + "targets:\n"
+                + "  default:\n"
+                + "    mode: all\n"
+                + "  sources: {}\n"
+                + "groups: {}\n"
+                + "servers: {}\n";
+    }
+
+    private static void assertAllSources(VelocityConfigSnapshot snapshot, boolean expected) {
+        assertEquals(expected, snapshot.jmaEnabled());
+        assertEquals(expected, snapshot.sichuanEnabled());
+        assertEquals(expected, snapshot.fujianEnabled());
+        assertEquals(expected, snapshot.cwaEnabled());
+        assertEquals(expected, snapshot.cencEnabled());
+        assertEquals(expected, snapshot.chongqingEnabled());
     }
 }

@@ -1,7 +1,15 @@
 platform-config-version: 1
 
-# Proxy-global services will live here. They must not be duplicated per backend.
-global: {}
+# Proxy-global services. Exactly one Wolfx/cache/parser pipeline is created per proxy.
+global:
+  enabled: true
+  sources:
+    jma: true
+    sichuan: true
+    fujian: true
+    cwa: true
+    cenc: true
+    chongqing: true
 
 # Delivery targeting is reserved for a later phase; no targeting is active yet.
 targets:
