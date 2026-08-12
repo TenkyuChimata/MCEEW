@@ -1,7 +1,10 @@
 package jp.wolfx.mceew;
 
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
+import jp.wolfx.mceew.message.FujianEewEvent;
+import jp.wolfx.mceew.message.JmaEewEvent;
+import jp.wolfx.mceew.message.RegionalEewEvent;
+import jp.wolfx.mceew.message.WolfxMessageRouter;
 import jp.wolfx.mceew.scheduler.PlatformScheduler;
 import jp.wolfx.mceew.websocket.WebSocketConnectionManager;
 import org.bukkit.Bukkit;
@@ -30,6 +33,7 @@ import java.util.function.Consumer;
 import java.util.regex.Pattern;
 
 public final class MCEEW extends JavaPlugin {
+    private static final WolfxMessageRouter MESSAGE_ROUTER = new WolfxMessageRouter();
     private static final Pattern SOUND_KEY_PATTERN = Pattern.compile(
             "(?:[a-z0-9._-]+:)?[a-z0-9/._-]+"
     );
@@ -385,62 +389,75 @@ public final class MCEEW extends JavaPlugin {
     }
 
     private void handleWebSocketMessage(String message) {
-        JsonObject json = JsonParser.parseString(message).getAsJsonObject();
-        String type = json.get("type").getAsString();
-        if (Objects.equals(type, "heartbeat")) {
-            return;
-        }
-        if (Objects.equals(type, "jma_eew") && jpEewBoolean) {
-            jmaEewExecute(json);
-        }
-        if (Objects.equals(type, "jma_eqlist")) {
-            jmaEqlistExecute(json, jmaEqlistBoolean);
-        }
-        if (Objects.equals(type, "sc_eew") && scEewBoolean) {
-            scEewExecute(json);
-        }
-        if (Objects.equals(type, "fj_eew") && fjEewBoolean) {
-            fjEewExecute(json);
-        }
-        if (Objects.equals(type, "cwa_eew") && cwaEewBoolean) {
-            cwaEewExecute(json);
-        }
-        if (Objects.equals(type, "cenc_eew") && cencEewBoolean) {
-            cencEewExecute(json);
-        }
-        if (Objects.equals(type, "cq_eew") && cqEewBoolean) {
-            cqEewExecute(json);
-        }
-        if (Objects.equals(type, "cenc_eqlist")) {
-            cencEqlistExecute(json, cencEqlistBoolean);
+        WolfxMessageRouter.RoutedMessage routed = MESSAGE_ROUTER.route(message);
+        switch (routed.getType()) {
+            case JMA_EEW:
+                if (jpEewBoolean) {
+                    jmaEewExecute((JmaEewEvent) MESSAGE_ROUTER.parseRealtime(routed));
+                }
+                break;
+            case JMA_EARTHQUAKE_LIST:
+                jmaEqlistExecute(routed.getPayload(), jmaEqlistBoolean);
+                break;
+            case SICHUAN_EEW:
+                if (scEewBoolean) {
+                    scEewExecute((RegionalEewEvent) MESSAGE_ROUTER.parseRealtime(routed));
+                }
+                break;
+            case FUJIAN_EEW:
+                if (fjEewBoolean) {
+                    fjEewExecute((FujianEewEvent) MESSAGE_ROUTER.parseRealtime(routed));
+                }
+                break;
+            case CWA_EEW:
+                if (cwaEewBoolean) {
+                    cwaEewExecute((RegionalEewEvent) MESSAGE_ROUTER.parseRealtime(routed));
+                }
+                break;
+            case CENC_EEW:
+                if (cencEewBoolean) {
+                    cencEewExecute((RegionalEewEvent) MESSAGE_ROUTER.parseRealtime(routed));
+                }
+                break;
+            case CHONGQING_EEW:
+                if (cqEewBoolean) {
+                    cqEewExecute((RegionalEewEvent) MESSAGE_ROUTER.parseRealtime(routed));
+                }
+                break;
+            case CENC_EARTHQUAKE_LIST:
+                cencEqlistExecute(routed.getPayload(), cencEqlistBoolean);
+                break;
+            case HEARTBEAT:
+            case UNKNOWN:
+                break;
         }
     }
 
-    private void jmaEewExecute(JsonObject jmaEewData) {
+    private void jmaEewExecute(JmaEewEvent event) {
         String type = "";
-        String flag = jmaEewData.get("Title").getAsString().substring(7, 9);
-        String reportTime = jmaEewData.get("AnnouncedTime").getAsString();
-        String num = jmaEewData.get("Serial").getAsString();
-        String lat = jmaEewData.get("Latitude").getAsString();
-        String lon = jmaEewData.get("Longitude").getAsString();
-        String region = jmaEewData.get("Hypocenter").getAsString();
-        String mag = jmaEewData.get("Magunitude").getAsString();
-        String depth = jmaEewData.get("Depth").getAsString() + "km";
-        String shindo = jmaEewData.get("MaxIntensity").getAsString();
-        String originTime = getDate("yyyy/MM/dd HH:mm:ss", timeFormat, "Asia/Tokyo", jmaEewData.get("OriginTime").getAsString());
-        if (jmaEewData.get("isTraining").getAsBoolean()) {
+        String flag = event.getFlag();
+        String reportTime = event.getReportTime();
+        String num = event.getReportNumber();
+        String lat = event.getLatitude();
+        String lon = event.getLongitude();
+        String region = event.getRegion();
+        String mag = event.getMagnitude();
+        String depth = event.getDepth() + "km";
+        String shindo = event.getMaximumIntensity();
+        String originTime = getDate("yyyy/MM/dd HH:mm:ss", timeFormat, "Asia/Tokyo", event.getOriginTime());
+        if (event.isTraining()) {
             type = "訓練";
-        } else if (jmaEewData.get("isAssumption").getAsBoolean()) {
+        } else if (event.isAssumption()) {
             type = "仮定震源";
         }
-        if (jmaEewData.get("isFinal").getAsBoolean()) {
+        if (event.isFinalReport()) {
             if (!type.isEmpty()) {
                 type = type + " (最終報)";
             } else {
                 type = "最終報";
             }
         }
-        if (jmaEewData.get("isCancel").getAsBoolean()) {
+        if (event.isCancelled()) {
             type = "取消";
         }
         if (isFresh(reportTime, "yyyy/MM/dd HH:mm:ss", ZoneId.of("Asia/Tokyo"))) {
@@ -493,36 +510,31 @@ public final class MCEEW extends JavaPlugin {
         }
     }
 
-    private void scEewExecute(JsonObject scEewData) {
-        String reportTime = scEewData.get("ReportTime").getAsString();
-        String num = scEewData.get("ReportNum").getAsString();
-        String lat = scEewData.get("Latitude").getAsString();
-        String lon = scEewData.get("Longitude").getAsString();
-        String region = scEewData.get("HypoCenter").getAsString();
-        String mag = scEewData.get("Magunitude").getAsString();
-        String intensity = String.valueOf(Math.round(Float.parseFloat(scEewData.get("MaxIntensity").getAsString())));
-        String depth;
-        if (!scEewData.get("Depth").isJsonNull()) {
-            depth = scEewData.get("Depth").getAsString() + "km";
-        } else {
-            depth = "10km";
-        }
-        String originTime = getDate("yyyy-MM-dd HH:mm:ss", timeFormat, "Asia/Shanghai", scEewData.get("OriginTime").getAsString());
+    private void scEewExecute(RegionalEewEvent event) {
+        String reportTime = event.getReportTime();
+        String num = event.getReportNumber();
+        String lat = event.getLatitude();
+        String lon = event.getLongitude();
+        String region = event.getRegion();
+        String mag = event.getMagnitude();
+        String intensity = event.getMaximumIntensity();
+        String depth = event.getDepth() + "km";
+        String originTime = getDate("yyyy-MM-dd HH:mm:ss", timeFormat, "Asia/Shanghai", event.getOriginTime());
         if (isFresh(reportTime, "yyyy-MM-dd HH:mm:ss", ZoneId.of("Asia/Shanghai"))) {
             scEewAction(reportTime, originTime, num, lat, lon, region, mag, depth, getIntensityColor(intensity));
         }
     }
 
-    private void fjEewExecute(JsonObject fjEewData) {
+    private void fjEewExecute(FujianEewEvent event) {
         String type = "";
-        String reportTime = fjEewData.get("ReportTime").getAsString();
-        String num = fjEewData.get("ReportNum").getAsString();
-        String lat = fjEewData.get("Latitude").getAsString();
-        String lon = fjEewData.get("Longitude").getAsString();
-        String region = fjEewData.get("HypoCenter").getAsString();
-        String mag = fjEewData.get("Magunitude").getAsString();
-        String originTime = getDate("yyyy-MM-dd HH:mm:ss", timeFormat, "Asia/Shanghai", fjEewData.get("OriginTime").getAsString());
-        if (fjEewData.get("isFinal").getAsBoolean()) {
+        String reportTime = event.getReportTime();
+        String num = event.getReportNumber();
+        String lat = event.getLatitude();
+        String lon = event.getLongitude();
+        String region = event.getRegion();
+        String mag = event.getMagnitude();
+        String originTime = getDate("yyyy-MM-dd HH:mm:ss", timeFormat, "Asia/Shanghai", event.getOriginTime());
+        if (event.isFinalReport()) {
             type = "最終報";
         }
         if (isFresh(reportTime, "yyyy-MM-dd HH:mm:ss", ZoneId.of("Asia/Shanghai"))) {
@@ -530,56 +542,46 @@ public final class MCEEW extends JavaPlugin {
         }
     }
 
-    private void cwaEewExecute(JsonObject cwaEewData) {
-        String reportTime = cwaEewData.get("ReportTime").getAsString();
-        String num = cwaEewData.get("ReportNum").getAsString();
-        String lat = cwaEewData.get("Latitude").getAsString();
-        String lon = cwaEewData.get("Longitude").getAsString();
-        String region = cwaEewData.get("HypoCenter").getAsString();
-        String mag = cwaEewData.get("Magunitude").getAsString();
-        String depth = cwaEewData.get("Depth").getAsString() + "km";
-        String shindo = cwaEewData.get("MaxIntensity").getAsString();
-        String originTime = getDate("yyyy-MM-dd HH:mm:ss", timeFormat, "Asia/Shanghai", cwaEewData.get("OriginTime").getAsString());
+    private void cwaEewExecute(RegionalEewEvent event) {
+        String reportTime = event.getReportTime();
+        String num = event.getReportNumber();
+        String lat = event.getLatitude();
+        String lon = event.getLongitude();
+        String region = event.getRegion();
+        String mag = event.getMagnitude();
+        String depth = event.getDepth() + "km";
+        String shindo = event.getMaximumIntensity();
+        String originTime = getDate("yyyy-MM-dd HH:mm:ss", timeFormat, "Asia/Shanghai", event.getOriginTime());
         if (isFresh(reportTime, "yyyy-MM-dd HH:mm:ss", ZoneId.of("Asia/Shanghai"))) {
             cwaEewAction(reportTime, originTime, num, lat, lon, region, mag, depth, getShindoColor(shindo));
         }
     }
 
-    private void cencEewExecute(JsonObject cencEewData) {
-        String reportTime = cencEewData.get("ReportTime").getAsString();
-        String num = cencEewData.get("ReportNum").getAsString();
-        String lat = cencEewData.get("Latitude").getAsString();
-        String lon = cencEewData.get("Longitude").getAsString();
-        String region = cencEewData.get("HypoCenter").getAsString();
-        String mag = cencEewData.get("Magnitude").getAsString();
-        String intensity = String.valueOf(Math.round(Float.parseFloat(cencEewData.get("MaxIntensity").getAsString())));
-        String depth;
-        if (!cencEewData.get("Depth").isJsonNull()) {
-            depth = cencEewData.get("Depth").getAsString() + "km";
-        } else {
-            depth = "10km";
-        }
-        String originTime = getDate("yyyy-MM-dd HH:mm:ss", timeFormat, "Asia/Shanghai", cencEewData.get("OriginTime").getAsString());
+    private void cencEewExecute(RegionalEewEvent event) {
+        String reportTime = event.getReportTime();
+        String num = event.getReportNumber();
+        String lat = event.getLatitude();
+        String lon = event.getLongitude();
+        String region = event.getRegion();
+        String mag = event.getMagnitude();
+        String intensity = event.getMaximumIntensity();
+        String depth = event.getDepth() + "km";
+        String originTime = getDate("yyyy-MM-dd HH:mm:ss", timeFormat, "Asia/Shanghai", event.getOriginTime());
         if (isFresh(reportTime, "yyyy-MM-dd HH:mm:ss", ZoneId.of("Asia/Shanghai"))) {
             cencEewAction(reportTime, originTime, num, lat, lon, region, mag, depth, getIntensityColor(intensity));
         }
     }
 
-    private void cqEewExecute(JsonObject cqEewData) {
-        String reportTime = cqEewData.get("ReportTime").getAsString();
-        String num = cqEewData.get("ReportNum").getAsString();
-        String lat = cqEewData.get("Latitude").getAsString();
-        String lon = cqEewData.get("Longitude").getAsString();
-        String region = cqEewData.get("HypoCenter").getAsString();
-        String mag = cqEewData.get("Magnitude").getAsString();
-        String intensity = String.valueOf(Math.round(Float.parseFloat(cqEewData.get("MaxIntensity").getAsString())));
-        String depth;
-        if (!cqEewData.get("Depth").isJsonNull()) {
-            depth = cqEewData.get("Depth").getAsString() + "km";
-        } else {
-            depth = "10km";
-        }
-        String originTime = getDate("yyyy-MM-dd HH:mm:ss", timeFormat, "Asia/Shanghai", cqEewData.get("OriginTime").getAsString());
+    private void cqEewExecute(RegionalEewEvent event) {
+        String reportTime = event.getReportTime();
+        String num = event.getReportNumber();
+        String lat = event.getLatitude();
+        String lon = event.getLongitude();
+        String region = event.getRegion();
+        String mag = event.getMagnitude();
+        String intensity = event.getMaximumIntensity();
+        String depth = event.getDepth() + "km";
+        String originTime = getDate("yyyy-MM-dd HH:mm:ss", timeFormat, "Asia/Shanghai", event.getOriginTime());
         if (isFresh(reportTime, "yyyy-MM-dd HH:mm:ss", ZoneId.of("Asia/Shanghai"))) {
             cqEewAction(reportTime, originTime, num, lat, lon, region, mag, depth, getIntensityColor(intensity));
         }

@@ -40,7 +40,7 @@ jobs:
         core_jar="${core_jars[0]}"
         core_entries="$(jar tf "$core_jar")"
 
-        if grep -Eq '^(org/bukkit|io/papermc|dev/folia|com/velocitypowered)/' <<<"$core_entries"; then
+        if grep -Eq '^(org/bukkit|io/papermc|dev/folia|com/velocitypowered|net/kyori/adventure|org/bstats)/' <<<"$core_entries"; then
           echo "The core Jar contains a platform API class."
           exit 1
         fi
@@ -52,7 +52,7 @@ jobs:
         core_class_dir="$(mktemp -d)"
         trap 'rm -rf "$core_class_dir"' EXIT
         unzip -q "$core_jar" '*.class' -d "$core_class_dir"
-        if grep -aERq 'org/bukkit|io/papermc|dev/folia|com/velocitypowered' "$core_class_dir"; then
+        if grep -aERq 'org/bukkit|io/papermc|dev/folia|com/velocitypowered|net/kyori/adventure|org/bstats' "$core_class_dir"; then
           echo "Core bytecode references a platform API."
           exit 1
         fi

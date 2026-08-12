@@ -117,6 +117,31 @@ class MceewMessageRoutingTest {
     }
 
     @Test
+    void disabledRealtimeSourcesRemainUnparsed() {
+        Map<String, String> flagByType = Map.of(
+                "jma_eew", "jpEewBoolean",
+                "sc_eew", "scEewBoolean",
+                "fj_eew", "fjEewBoolean",
+                "cwa_eew", "cwaEewBoolean",
+                "cenc_eew", "cencEewBoolean",
+                "cq_eew", "cqEewBoolean"
+        );
+
+        for (Map.Entry<String, String> entry : flagByType.entrySet()) {
+            MceewCharacterizationSupport.Harness harness =
+                    MceewCharacterizationSupport.harness();
+            MceewCharacterizationSupport.field(harness.plugin, entry.getValue(), false);
+
+            harness.route("{\"type\":\"" + entry.getKey() + "\"}");
+
+            assertTrue(harness.console.isEmpty(), entry.getKey());
+            assertTrue(harness.player.chat.isEmpty(), entry.getKey());
+            assertTrue(harness.player.titles.isEmpty(), entry.getKey());
+            assertTrue(harness.player.sounds.isEmpty(), entry.getKey());
+        }
+    }
+
+    @Test
     void disabledEarthquakeListActionsStillUpdateChangedCachesWithoutNotification() {
         MceewCharacterizationSupport.Harness harness = MceewCharacterizationSupport.harness();
         MceewCharacterizationSupport.field(harness.plugin, "jmaEqlistBoolean", false);
