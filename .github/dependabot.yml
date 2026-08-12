@@ -8,6 +8,7 @@ updates:
   - package-ecosystem: maven
     directories:
       - "/"
+      - "/mceew-core"
       - "/mceew-bukkit"
     schedule:
       interval: "daily"

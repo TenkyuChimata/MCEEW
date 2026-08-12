@@ -28,6 +28,42 @@ jobs:
     - name: Verify Folia scheduler signatures
       run: mvn -B -Pfolia-compat test --file pom.xml
 
+    - name: Inspect the platform-neutral core Jar
+      shell: bash
+      run: |
+        shopt -s nullglob
+        core_jars=(mceew-core/target/mceew-core-*.jar)
+        if (( ${#core_jars[@]} != 1 )); then
+          echo "Expected exactly one core reactor Jar, found ${#core_jars[@]}."
+          exit 1
+        fi
+        core_jar="${core_jars[0]}"
+        core_entries="$(jar tf "$core_jar")"
+
+        if grep -Eq '^(org/bukkit|io/papermc|dev/folia|com/velocitypowered)/' <<<"$core_entries"; then
+          echo "The core Jar contains a platform API class."
+          exit 1
+        fi
+        if grep -Eq '(^|/)(plugin|config)\.yml$|(^|/)[^/]*Test[^/]*\.class$' <<<"$core_entries"; then
+          echo "The core Jar contains platform metadata or tests."
+          exit 1
+        fi
+
+        core_class_dir="$(mktemp -d)"
+        trap 'rm -rf "$core_class_dir"' EXIT
+        unzip -q "$core_jar" '*.class' -d "$core_class_dir"
+        if grep -aERq 'org/bukkit|io/papermc|dev/folia|com/velocitypowered' "$core_class_dir"; then
+          echo "Core bytecode references a platform API."
+          exit 1
+        fi
+        while IFS= read -r class_file; do
+          major="$(od -An -tu2 -j6 -N2 --endian=big "$class_file" | tr -d ' ')"
+          if [[ "$major" != 55 ]]; then
+            echo "$class_file targets class major $major instead of 55."
+            exit 1
+          fi
+        done < <(find "$core_class_dir" -name '*.class' -type f -print)
+
     - name: Inspect the Bukkit server Jar
       shell: bash
       run: |
@@ -51,9 +87,10 @@ jobs:
         fi
         grep -Fx 'jp/wolfx/mceew/libs/gson/Gson.class' <<<"$jar_entries"
         grep -Fx 'jp/wolfx/mceew/libs/bstats/bukkit/Metrics.class' <<<"$jar_entries"
+        test "$(grep -Fxc 'jp/wolfx/mceew/EarthquakeInfoCache.class' <<<"$jar_entries")" -eq 1
 
-        if grep -Eq '(^|/)[^/]*Test[^/]*\.class$|^config-history/|^websocket/' <<<"$jar_entries"; then
-          echo "The production Jar contains tests or test fixtures."
+        if grep -Eq '(^|/)[^/]*Test[^/]*\.class$|^config-history/|^websocket/|(^|/)mceew-core-[^/]*\.jar$' <<<"$jar_entries"; then
+          echo "The production Jar contains tests, test fixtures, or a nested core Jar."
           exit 1
         fi
 

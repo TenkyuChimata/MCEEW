@@ -16,6 +16,7 @@
     </properties>
 
     <modules>
+        <module>mceew-core</module>
         <module>mceew-bukkit</module>
     </modules>
 
