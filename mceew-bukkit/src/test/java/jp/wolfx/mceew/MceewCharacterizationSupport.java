@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
+import java.util.logging.Logger;
 
 final class MceewCharacterizationSupport {
     private static final String FIXTURE_ROOT = "websocket/current-schema/";
@@ -181,10 +182,12 @@ final class MceewCharacterizationSupport {
                 throw new IllegalStateException(error);
             }
             field(plugin, "earthquakeInfoCache", new EarthquakeInfoCache());
-            field(plugin, "platformScheduler", new ImmediateScheduler(player.proxy));
+            ImmediateScheduler scheduler = new ImmediateScheduler(player.proxy);
+            field(plugin, "platformScheduler", scheduler);
+            field(plugin, "notificationDispatcher", new BukkitNotificationDispatcher(
+                    scheduler, Logger.getLogger("MCEEW-characterization"), console::add));
             field(plugin, "version", "2.7.0");
             javaPluginField(plugin, "newConfig", configuration);
-            plugin.observeConsoleMessages(console::add);
             reloadRuntimeConfiguration();
         }
 
@@ -218,9 +221,10 @@ final class MceewCharacterizationSupport {
         final List<RecordedSound> sounds = new ArrayList<>();
         final Map<String, Boolean> permissions = new HashMap<>();
         final Set<String> queriedPermissions = new LinkedHashSet<>();
+        final List<String> permissionQueries = new ArrayList<>();
         final Player proxy;
 
-        private RecordingPlayer() {
+        RecordingPlayer() {
             proxy = (Player) Proxy.newProxyInstance(
                     Player.class.getClassLoader(), new Class<?>[]{Player.class},
                     (instance, method, arguments) -> {
@@ -228,6 +232,7 @@ final class MceewCharacterizationSupport {
                             case "hasPermission":
                                 String permission = (String) arguments[0];
                                 queriedPermissions.add(permission);
+                                permissionQueries.add(permission);
                                 return permissions.getOrDefault(permission, true);
                             case "sendMessage":
                                 if (arguments[0] instanceof String) {
@@ -296,10 +301,10 @@ final class MceewCharacterizationSupport {
         }
     }
 
-    private static final class ImmediateScheduler implements PlatformScheduler {
+    static final class ImmediateScheduler implements PlatformScheduler {
         private final Player player;
 
-        private ImmediateScheduler(Player player) {
+        ImmediateScheduler(Player player) {
             this.player = player;
         }
 

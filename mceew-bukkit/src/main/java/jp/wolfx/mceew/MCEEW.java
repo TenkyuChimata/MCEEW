@@ -7,16 +7,13 @@ import jp.wolfx.mceew.message.FujianEewEvent;
 import jp.wolfx.mceew.message.JmaEewEvent;
 import jp.wolfx.mceew.message.RegionalEewEvent;
 import jp.wolfx.mceew.message.WolfxMessageRouter;
-import jp.wolfx.mceew.notification.NotificationIntent;
 import jp.wolfx.mceew.notification.NotificationIntentFactory;
 import jp.wolfx.mceew.notification.NotificationProfile;
 import jp.wolfx.mceew.notification.NotificationSource;
 import jp.wolfx.mceew.scheduler.PlatformScheduler;
 import jp.wolfx.mceew.websocket.WebSocketConnectionManager;
-import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
-import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bstats.bukkit.Metrics;
 
@@ -32,15 +29,9 @@ import java.util.Hashtable;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.net.http.HttpClient;
-import java.util.function.Consumer;
-import java.util.function.Supplier;
-import java.util.regex.Pattern;
 
 public final class MCEEW extends JavaPlugin {
     private static final WolfxMessageRouter MESSAGE_ROUTER = new WolfxMessageRouter();
-    private static final Pattern SOUND_KEY_PATTERN = Pattern.compile(
-            "(?:[a-z0-9._-]+:)?[a-z0-9/._-]+"
-    );
     private boolean jpEewBoolean;
     private boolean scEewBoolean;
     private boolean fjEewBoolean;
@@ -101,16 +92,16 @@ public final class MCEEW extends JavaPlugin {
     private String version;
     private static final HttpClient client = HttpClient.newHttpClient();
     private PlatformScheduler platformScheduler;
+    private BukkitNotificationDispatcher notificationDispatcher;
     private WebSocketConnectionManager webSocketManager;
     private ConfigManager configManager;
-    // TEST SEAM: null in production; lets characterization tests observe console output
-    // without booting a Bukkit server.
-    private Consumer<String> consoleMessageObserver;
 
     @Override
     public void onEnable() {
         version = getDescription().getVersion();
         platformScheduler = PlatformScheduler.create(this);
+        notificationDispatcher = new BukkitNotificationDispatcher(
+                platformScheduler, getLogger());
         configManager = ConfigManager.forPlugin(this);
         webSocketManager = new WebSocketConnectionManager(
                 listener -> client.newWebSocketBuilder()
@@ -298,51 +289,13 @@ public final class MCEEW extends JavaPlugin {
         return out;
     }
 
-    private boolean canReceive(Player player, String node) {
-        return player.hasPermission("mceew.notify.all") && player.hasPermission(node);
-    }
-
-    private void sendConsoleMessage(String message) {
-        if (consoleMessageObserver != null) {
-            consoleMessageObserver.accept(message);
-            return;
-        }
-        platformScheduler.runGlobal(() -> Bukkit.getConsoleSender().sendMessage(message));
-    }
-
-    // TEST SEAM: package-private and behavior-neutral unless explicitly installed by a test.
-    void observeConsoleMessages(Consumer<String> observer) {
-        consoleMessageObserver = observer;
-    }
-
-    private void forEachPlayer(Consumer<Player> action) {
-        platformScheduler.forEachPlayer(action);
-    }
-
     private void broadcastMessage() {
-        sendConsoleMessage("§eWarning: This is an Earthquake Early Warning test.");
-        forEachPlayer(player -> player.sendMessage("§eWarning: This is an Earthquake Early Warning test."));
+        notificationDispatcher.deliverTestWarning(
+                "§eWarning: This is an Earthquake Early Warning test.");
     }
 
     private String getDate(String pattern, String timeFormat, String timezone, String originTime) {
         return EarthquakeTimeFormatter.format(pattern, timeFormat, timezone, originTime);
-    }
-
-    private void playSound(String alertSoundType, double alertSoundVolume, double alertSoundPitch, Player player) {
-        if (alertSoundType == null || !SOUND_KEY_PATTERN.matcher(alertSoundType).matches()) {
-            getLogger().warning("Unknown sound type: " + alertSoundType);
-            return;
-        }
-        try {
-            player.playSound(
-                    player.getLocation(),
-                    alertSoundType,
-                    (float) alertSoundVolume,
-                    (float) alertSoundPitch
-            );
-        } catch (IllegalArgumentException exception) {
-            getLogger().warning("Unknown sound type: " + alertSoundType);
-        }
     }
 
     private boolean isFresh(String reportTimeStr, String pattern, ZoneId zone) {
@@ -466,7 +419,7 @@ public final class MCEEW extends JavaPlugin {
                 update == EarthquakeInfoCache.UpdateResult.CHANGED,
                 enabled,
                 () -> snapshot.format(jmaEqlistBroadcastMessage)
-        ).ifPresent(this::deliverEarthquakeListNotification);
+        ).ifPresent(notificationDispatcher::deliverEarthquakeList);
     }
 
     private void cencEqlistExecute(JsonObject data, boolean enabled) {
@@ -482,7 +435,7 @@ public final class MCEEW extends JavaPlugin {
                 update == EarthquakeInfoCache.UpdateResult.CHANGED,
                 enabled,
                 () -> snapshot.format(cencEqlistBroadcastMessage)
-        ).ifPresent(this::deliverEarthquakeListNotification);
+        ).ifPresent(notificationDispatcher::deliverEarthquakeList);
     }
 
     private void scEewExecute(RegionalEewEvent event) {
@@ -566,7 +519,7 @@ public final class MCEEW extends JavaPlugin {
     }
 
     private void jmaEewAction(String flag, String reportTime, String originTime, String num, String lat, String lon, String region, String mag, String depth, String shindo, String type) {
-        deliverJmaNotification(() -> NotificationIntentFactory.jma(
+        notificationDispatcher.deliverJma(() -> NotificationIntentFactory.jma(
                 flag, reportTime, originTime, num, lat, lon, region, mag, depth, shindo, type,
                 broadcastBool, titleBool, alertBool,
                 notificationProfile(
@@ -578,7 +531,7 @@ public final class MCEEW extends JavaPlugin {
     }
 
     private void scEewAction(String reportTime, String originTime, String num, String lat, String lon, String region, String mag, String depth, String intensity) {
-        deliverRegionalNotification(NotificationSource.SICHUAN_EEW, () -> NotificationIntentFactory.regional(
+        notificationDispatcher.deliverRegional(NotificationSource.SICHUAN_EEW, () -> NotificationIntentFactory.regional(
                 NotificationSource.SICHUAN_EEW,
                 reportTime, originTime, num, lat, lon, region, mag, depth, intensity,
                 broadcastBool, titleBool, alertBool,
@@ -588,7 +541,7 @@ public final class MCEEW extends JavaPlugin {
     }
 
     private void fjEewAction(String reportTime, String originTime, String num, String lat, String lon, String region, String mag, String type) {
-        deliverRegionalNotification(NotificationSource.FUJIAN_EEW, () -> NotificationIntentFactory.fujian(
+        notificationDispatcher.deliverRegional(NotificationSource.FUJIAN_EEW, () -> NotificationIntentFactory.fujian(
                 reportTime, originTime, num, lat, lon, region, mag, type,
                 broadcastBool, titleBool, alertBool,
                 notificationProfile(
@@ -597,7 +550,7 @@ public final class MCEEW extends JavaPlugin {
     }
 
     private void cwaEewAction(String reportTime, String originTime, String num, String lat, String lon, String region, String mag, String depth, String shindo) {
-        deliverRegionalNotification(NotificationSource.CWA_EEW, () -> NotificationIntentFactory.regional(
+        notificationDispatcher.deliverRegional(NotificationSource.CWA_EEW, () -> NotificationIntentFactory.regional(
                 NotificationSource.CWA_EEW,
                 reportTime, originTime, num, lat, lon, region, mag, depth, shindo,
                 broadcastBool, titleBool, alertBool,
@@ -607,7 +560,7 @@ public final class MCEEW extends JavaPlugin {
     }
 
     private void cencEewAction(String reportTime, String originTime, String num, String lat, String lon, String region, String mag, String depth, String intensity) {
-        deliverRegionalNotification(NotificationSource.CENC_EEW, () -> NotificationIntentFactory.regional(
+        notificationDispatcher.deliverRegional(NotificationSource.CENC_EEW, () -> NotificationIntentFactory.regional(
                 NotificationSource.CENC_EEW,
                 reportTime, originTime, num, lat, lon, region, mag, depth, intensity,
                 broadcastBool, titleBool, alertBool,
@@ -617,7 +570,7 @@ public final class MCEEW extends JavaPlugin {
     }
 
     private void cqEewAction(String reportTime, String originTime, String num, String lat, String lon, String region, String mag, String depth, String intensity) {
-        deliverRegionalNotification(NotificationSource.CHONGQING_EEW, () -> NotificationIntentFactory.regional(
+        notificationDispatcher.deliverRegional(NotificationSource.CHONGQING_EEW, () -> NotificationIntentFactory.regional(
                 NotificationSource.CHONGQING_EEW,
                 reportTime, originTime, num, lat, lon, region, mag, depth, intensity,
                 broadcastBool, titleBool, alertBool,
@@ -636,73 +589,6 @@ public final class MCEEW extends JavaPlugin {
     ) {
         return new NotificationProfile(
                 broadcast, title, subtitle, soundKey, soundVolume, soundPitch);
-    }
-
-    private void deliverJmaNotification(Supplier<NotificationIntent> intentSupplier) {
-        deliverConsoleNotification(intentSupplier.get());
-        forEachPlayer(player -> {
-            NotificationIntent intent = intentSupplier.get();
-            if (intent.getChat() != null
-                    && canReceive(player, intent.getPermissionNode())) {
-                player.sendMessage(intent.getChat().render());
-            }
-            if (intent.getTitle() != null
-                    && canReceive(player, intent.getPermissionNode())) {
-                sendTitle(player, intent.getTitle());
-            }
-            if (intent.getSound() != null
-                    && canReceive(player, intent.getPermissionNode())) {
-                playSound(intent.getSound().getKey(), intent.getSound().getVolume(),
-                        intent.getSound().getPitch(), player);
-            }
-        });
-    }
-
-    private void deliverRegionalNotification(
-            NotificationSource source,
-            Supplier<NotificationIntent> intentSupplier
-    ) {
-        deliverConsoleNotification(intentSupplier.get());
-        forEachPlayer(player -> {
-            if (canReceive(player, source.getPermissionNode())) {
-                NotificationIntent intent = intentSupplier.get();
-                if (intent.getChat() != null) {
-                    player.sendMessage(intent.getChat().render());
-                }
-                if (intent.getTitle() != null) {
-                    sendTitle(player, intent.getTitle());
-                }
-                if (intent.getSound() != null) {
-                    playSound(intent.getSound().getKey(), intent.getSound().getVolume(),
-                            intent.getSound().getPitch(), player);
-                }
-            }
-        });
-    }
-
-    private void deliverEarthquakeListNotification(NotificationIntent intent) {
-        deliverConsoleNotification(intent);
-        forEachPlayer(player -> {
-            if (canReceive(player, intent.getPermissionNode())) {
-                player.sendMessage(intent.getChat().render());
-            }
-        });
-    }
-
-    private void deliverConsoleNotification(NotificationIntent intent) {
-        if (intent.isConsoleDelivery()) {
-            sendConsoleMessage(intent.getChat().render());
-        }
-    }
-
-    private void sendTitle(Player player, NotificationIntent.TitleNotice title) {
-        player.sendTitle(
-                title.renderTitle(),
-                title.renderSubtitle(),
-                title.getFadeInTicks(),
-                title.getStayTicks(),
-                title.getFadeOutTicks()
-        );
     }
 
     private String getShindoColor(String shindo) {
