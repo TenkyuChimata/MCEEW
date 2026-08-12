@@ -10,5 +10,9 @@ updates:
       - "/"
       - "/mceew-core"
       - "/mceew-bukkit"
+      - "/mceew-velocity"
     schedule:
       interval: "daily"
+    ignore:
+      # This is the intentional oldest compile baseline for one-Jar 3.4.x-4.x compatibility.
+      - dependency-name: "com.velocitypowered:velocity-api"

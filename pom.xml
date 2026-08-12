@@ -19,6 +19,7 @@
     <modules>
         <module>mceew-core</module>
         <module>mceew-bukkit</module>
+        <module>mceew-velocity</module>
     </modules>
 
     <build>

@@ -1,0 +1,15 @@
+platform-config-version: 1
+
+# Proxy-global services will live here. They must not be duplicated per backend.
+global: {}
+
+# Delivery targeting is reserved for a later phase; no targeting is active yet.
+targets:
+  default:
+    mode: all
+  sources: {}
+
+groups: {}
+
+# Future server entries may override delivery only, never WebSocket/cache/parser ownership.
+servers: {}

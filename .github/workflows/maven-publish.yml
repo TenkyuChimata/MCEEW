@@ -1,4 +1,4 @@
-# Builds the common Bukkit Jar and checks the supported API boundaries.
+# Builds the Bukkit and Velocity Jars and checks the supported API boundaries.
 
 name: Compatibility Build
 
@@ -116,3 +116,160 @@ jobs:
             exit 1
           fi
         done < <(find "$class_dir/jp/wolfx/mceew" -name '*.class' -type f ! -path '*/libs/*' -print)
+
+    - name: Inspect the Velocity proxy Jar
+      shell: bash
+      run: |
+        shopt -s nullglob
+        velocity_jars=(mceew-velocity/target/MCEEW-Velocity-*.jar)
+        if (( ${#velocity_jars[@]} != 1 )); then
+          echo "Expected exactly one Velocity distribution Jar, found ${#velocity_jars[@]}."
+          exit 1
+        fi
+        velocity_jar="${velocity_jars[0]}"
+        jar_entries="$(jar tf "$velocity_jar")"
+
+        if grep -Eq '^(com/velocitypowered|org/bukkit|io/papermc|dev/folia|net/kyori/adventure|org/bstats)/' <<<"$jar_entries"; then
+          echo "The Velocity Jar contains a platform API or bStats class."
+          exit 1
+        fi
+        if grep -Eq '^(com/google/gson|org/yaml/snakeyaml)/' <<<"$jar_entries"; then
+          echo "The Velocity Jar contains an unrelocated library."
+          exit 1
+        fi
+        grep -Fx 'jp/wolfx/mceew/velocity/libs/gson/Gson.class' <<<"$jar_entries"
+        grep -Fx 'jp/wolfx/mceew/velocity/libs/snakeyaml/Yaml.class' <<<"$jar_entries"
+        test "$(grep -Fxc 'jp/wolfx/mceew/websocket/WebSocketConnectionManager.class' <<<"$jar_entries")" -eq 1
+        test "$(grep -Fxc 'jp/wolfx/mceew/velocity/MCEEWVelocity.class' <<<"$jar_entries")" -eq 1
+
+        if grep -Eq '(^|/)[^/]*Test[^/]*\.class$|^runtime-smoke/|(^|/)mceew-core-[^/]*\.jar$' <<<"$jar_entries"; then
+          echo "The Velocity Jar contains tests, fixtures, or a nested core Jar."
+          exit 1
+        fi
+
+        expected_version="$(mvn -q -pl mceew-velocity help:evaluate \
+          -Dexpression=project.version -DforceStdout)"
+        metadata_version="$(unzip -p "$velocity_jar" velocity-plugin.json | \
+          python3 -c 'import json, sys; print(json.load(sys.stdin)["version"])')"
+        metadata_main="$(unzip -p "$velocity_jar" velocity-plugin.json | \
+          python3 -c 'import json, sys; print(json.load(sys.stdin)["main"])')"
+        test "$metadata_version" = "$expected_version"
+        test "$metadata_main" = 'jp.wolfx.mceew.velocity.MCEEWVelocity'
+        unzip -p "$velocity_jar" config.yml | grep -Fx 'platform-config-version: 1'
+
+        class_dir="$(mktemp -d)"
+        trap 'rm -rf "$class_dir"' EXIT
+        unzip -q "$velocity_jar" 'jp/wolfx/mceew/*.class' -d "$class_dir"
+        while IFS= read -r class_file; do
+          major="$(od -An -tu2 -j6 -N2 --endian=big "$class_file" | tr -d ' ')"
+          if [[ "$major" != 61 ]]; then
+            echo "$class_file targets class major $major instead of 61."
+            exit 1
+          fi
+        done < <(find "$class_dir/jp/wolfx/mceew/velocity" -name '*.class' -type f ! -path '*/libs/*' -print)
+        while IFS= read -r class_file; do
+          major="$(od -An -tu2 -j6 -N2 --endian=big "$class_file" | tr -d ' ')"
+          if [[ "$major" != 55 ]]; then
+            echo "$class_file targets class major $major instead of 55."
+            exit 1
+          fi
+        done < <(find "$class_dir/jp/wolfx/mceew" -name '*.class' -type f ! -path '*/velocity/*' -print)
+
+    - name: Assemble Velocity runtime smoke fixture
+      shell: bash
+      run: |
+        smoke_stage="$(mktemp -d)"
+        trap 'rm -rf "$smoke_stage"' EXIT
+        mkdir -p "$smoke_stage/jp/wolfx/mceew/velocity/smoke"
+        cp mceew-velocity/target/test-classes/jp/wolfx/mceew/velocity/smoke/VelocitySchedulerRuntimeProbe.class \
+          "$smoke_stage/jp/wolfx/mceew/velocity/smoke/"
+        cp mceew-velocity/src/test/resources/runtime-smoke/velocity-plugin.json \
+          "$smoke_stage/velocity-plugin.json"
+        jar --create --file mceew-velocity/target/mceew-phase1-runtime-smoke.jar \
+          -C "$smoke_stage" .
+
+    - name: Upload Velocity runtime smoke artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: velocity-phase1-runtime-smoke
+        path: |
+          mceew-velocity/target/MCEEW-Velocity-*.jar
+          mceew-velocity/target/mceew-phase1-runtime-smoke.jar
+        if-no-files-found: error
+
+  velocity-runtime-smoke:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - velocity: '3.4.0 build 566'
+            java: '17'
+            server: 'velocity-3.4.0-566.jar'
+            sha256: 'fb599cbda6a6d01decce5e281f71f51cae7cacffcfafca32a09601f407b0583e'
+            url: 'https://fill-data.papermc.io/v1/objects/fb599cbda6a6d01decce5e281f71f51cae7cacffcfafca32a09601f407b0583e/velocity-3.4.0-566.jar'
+          - velocity: '3.5.1 build 615'
+            java: '21'
+            server: 'velocity-3.5.1-615.jar'
+            sha256: 'b4e3164df5377346854dc6cb9e6a78022b1946ff69e89676313f5f6f1c6f0fb3'
+            url: 'https://fill-data.papermc.io/v1/objects/b4e3164df5377346854dc6cb9e6a78022b1946ff69e89676313f5f6f1c6f0fb3/velocity-3.5.1-615.jar'
+          - velocity: '4.0.0 build 6'
+            java: '25'
+            server: 'velocity-4.0.0-6.jar'
+            sha256: '4540289f48c83e305fc2f2c495a84d1f4d0b7f360830251e169dd5a208740e70'
+            url: 'https://fill-data.papermc.io/v1/objects/4540289f48c83e305fc2f2c495a84d1f4d0b7f360830251e169dd5a208740e70/velocity-4.0.0-6.jar'
+    name: Velocity ${{ matrix.velocity }} / Java ${{ matrix.java }}
+    steps:
+    - name: Set up JDK ${{ matrix.java }}
+      uses: actions/setup-java@v5
+      with:
+        java-version: ${{ matrix.java }}
+        distribution: 'temurin'
+
+    - name: Download MCEEW runtime smoke artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: velocity-phase1-runtime-smoke
+        path: artifacts
+
+    - name: Download pinned official Velocity server
+      shell: bash
+      run: |
+        curl --fail --location --silent --show-error \
+          '${{ matrix.url }}' --output '${{ matrix.server }}'
+        echo '${{ matrix.sha256 }}  ${{ matrix.server }}' | sha256sum --check
+
+    - name: Smoke-load the real MCEEW Velocity Jar
+      shell: bash
+      run: |
+        shopt -s nullglob
+        plugin_jars=(artifacts/MCEEW-Velocity-*.jar)
+        if (( ${#plugin_jars[@]} != 1 )); then
+          echo "Expected exactly one MCEEW Velocity Jar, found ${#plugin_jars[@]}."
+          exit 1
+        fi
+        runtime="$(mktemp -d)"
+        trap 'rm -rf "$runtime"' EXIT
+        mkdir -p "$runtime/plugins"
+        cp "${plugin_jars[0]}" "$runtime/plugins/"
+        cp artifacts/mceew-phase1-runtime-smoke.jar "$runtime/plugins/"
+        cp '${{ matrix.server }}' "$runtime/velocity.jar"
+
+        cd "$runtime"
+        set -o pipefail
+        (sleep 5; echo shutdown) | timeout 30s java -jar velocity.jar 2>&1 | tee runtime.log
+
+        grep -F 'Loaded plugin mceew ' runtime.log
+        grep -F 'MCEEW Velocity ' runtime.log | grep -F 'platform shell initialized.'
+        grep -F 'MCEEW Velocity scheduler smoke task executed.' runtime.log
+        grep -F 'MCEEW Velocity platform shell shut down.' runtime.log
+        grep -F 'MCEEW Velocity scheduler smoke probe shut down.' runtime.log
+        test -f plugins/mceew/config.yml
+        grep -Fx 'platform-config-version: 1' plugins/mceew/config.yml
+        if grep -Eq 'NoClassDefFoundError|UnsupportedClassVersionError|NoSuchMethodError|AbstractMethodError|LinkageError' runtime.log; then
+          echo "Velocity runtime smoke found a linkage failure."
+          exit 1
+        fi

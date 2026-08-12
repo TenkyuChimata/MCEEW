@@ -1,0 +1,14 @@
+{
+  "id": "mceew-phase1-smoke",
+  "name": "MCEEW Phase 1 Scheduler Smoke",
+  "version": "phase1",
+  "description": "Test-only runtime scheduler probe",
+  "authors": ["MCEEW tests"],
+  "dependencies": [
+    {
+      "id": "mceew",
+      "optional": false
+    }
+  ],
+  "main": "jp.wolfx.mceew.velocity.smoke.VelocitySchedulerRuntimeProbe"
+}
