@@ -1,6 +1,8 @@
 package jp.wolfx.mceew.velocity;
 
 import com.velocitypowered.api.network.ProtocolVersion;
+import com.velocitypowered.api.permission.PermissionSubject;
+import com.velocitypowered.api.permission.Tristate;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import java.time.Duration;
@@ -222,7 +224,15 @@ final class VelocityNotificationDispatcher implements AutoCloseable {
     }
 
     private boolean canReceive(Player player, String sourcePermission) {
-        return player.hasPermission(ALL_PERMISSION) && player.hasPermission(sourcePermission);
+        return hasNotificationPermission(player, ALL_PERMISSION)
+                && hasNotificationPermission(player, sourcePermission);
+    }
+
+    private static boolean hasNotificationPermission(
+            PermissionSubject subject,
+            String permission
+    ) {
+        return subject.getPermissionValue(permission) != Tristate.FALSE;
     }
 
     private static void sendChat(Player player, NotificationIntent.ChatNotice chat) {

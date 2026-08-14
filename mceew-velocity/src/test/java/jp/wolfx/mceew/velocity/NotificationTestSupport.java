@@ -2,6 +2,7 @@ package jp.wolfx.mceew.velocity;
 
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.network.ProtocolVersion;
+import com.velocitypowered.api.permission.Tristate;
 import com.velocitypowered.api.proxy.ConsoleCommandSource;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
@@ -56,6 +57,14 @@ final class NotificationTestSupport {
         }
 
         RecordingPlayer addPlayer(String username, String backend, Set<String> permissions) {
+            return addPlayer(username, backend, permissionValues(permissions));
+        }
+
+        RecordingPlayer addPlayer(
+                String username,
+                String backend,
+                Map<String, Tristate> permissions
+        ) {
             RecordingPlayer player = new RecordingPlayer(
                     UUID.nameUUIDFromBytes(username.getBytes(StandardCharsets.UTF_8)),
                     username,
@@ -106,7 +115,7 @@ final class NotificationTestSupport {
     static final class RecordingPlayer implements InvocationHandler {
         private final UUID uuid;
         private final String username;
-        private final Set<String> permissions;
+        private final Map<String, Tristate> permissions;
         private final Player player;
         private final List<String> permissionQueries = new ArrayList<>();
         private final List<Component> messages = new ArrayList<>();
@@ -117,11 +126,25 @@ final class NotificationTestSupport {
         private RuntimeException sendMessageFailure;
         private RuntimeException currentServerFailure;
 
-        RecordingPlayer(UUID uuid, String username, String backend, Set<String> permissions) {
+        RecordingPlayer(
+                UUID uuid,
+                String username,
+                String backend,
+                Set<String> permissions
+        ) {
+            this(uuid, username, backend, permissionValues(permissions));
+        }
+
+        RecordingPlayer(
+                UUID uuid,
+                String username,
+                String backend,
+                Map<String, Tristate> permissions
+        ) {
             this.uuid = uuid;
             this.username = username;
             this.backend = backend;
-            this.permissions = permissions;
+            this.permissions = Map.copyOf(permissions);
             player = (Player) Proxy.newProxyInstance(
                     Player.class.getClassLoader(), new Class<?>[]{Player.class}, this);
         }
@@ -179,7 +202,11 @@ final class NotificationTestSupport {
                 case "hasPermission":
                     String permission = (String) arguments[0];
                     permissionQueries.add(permission);
-                    return permissions.contains(permission);
+                    return permissionValue(permission).asBoolean();
+                case "getPermissionValue":
+                    String permissionNode = (String) arguments[0];
+                    permissionQueries.add(permissionNode);
+                    return permissionValue(permissionNode);
                 case "getCurrentServer":
                     if (currentServerFailure != null) {
                         throw currentServerFailure;
@@ -205,6 +232,18 @@ final class NotificationTestSupport {
                     return TestVelocityApi.defaultValue(method.getReturnType());
             }
         }
+
+        private Tristate permissionValue(String permission) {
+            return permissions.getOrDefault(permission, Tristate.UNDEFINED);
+        }
+    }
+
+    private static Map<String, Tristate> permissionValues(Set<String> permissions) {
+        Map<String, Tristate> values = new LinkedHashMap<>();
+        for (String permission : permissions) {
+            values.put(permission, Tristate.TRUE);
+        }
+        return Map.copyOf(values);
     }
 
     private static ConsoleCommandSource commandSource(List<Component> messages) {

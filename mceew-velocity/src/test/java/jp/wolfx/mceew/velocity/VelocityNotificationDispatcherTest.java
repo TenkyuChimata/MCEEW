@@ -5,11 +5,13 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.velocitypowered.api.network.ProtocolVersion;
+import com.velocitypowered.api.permission.Tristate;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Map;
 import java.util.Set;
 import jp.wolfx.mceew.notification.NotificationIntent;
 import jp.wolfx.mceew.notification.NotificationIntentFactory;
@@ -76,27 +78,39 @@ class VelocityNotificationDispatcherTest {
     }
 
     @Test
-    void permissionRequiresAllAndSourceWithShortCircuit() throws Exception {
+    void undefinedNotificationPermissionsDefaultToAllowAndExplicitFalseStillDenies()
+            throws Exception {
         Fixture fixture = fixture(config(channels(false, false), "all", "servers: {}"));
-        NotificationTestSupport.RecordingPlayer both = fixture.environment.addPlayer(
-                "both", "lobby", Set.of(ALL, NotificationSource.SICHUAN_EEW.getPermissionNode()));
-        NotificationTestSupport.RecordingPlayer allOnly = fixture.environment.addPlayer(
-                "all-only", "lobby", Set.of(ALL));
-        NotificationTestSupport.RecordingPlayer sourceOnly = fixture.environment.addPlayer(
-                "source-only", "lobby", Set.of(NotificationSource.SICHUAN_EEW.getPermissionNode()));
-        NotificationTestSupport.RecordingPlayer neither = fixture.environment.addPlayer(
-                "neither", "lobby", Set.of());
+        NotificationSource source = NotificationSource.SICHUAN_EEW;
+        PermissionCase[] cases = {
+                permissionCase("undefined-undefined", Tristate.UNDEFINED, Tristate.UNDEFINED, true),
+                permissionCase("true-undefined", Tristate.TRUE, Tristate.UNDEFINED, true),
+                permissionCase("undefined-true", Tristate.UNDEFINED, Tristate.TRUE, true),
+                permissionCase("true-true", Tristate.TRUE, Tristate.TRUE, true),
+                permissionCase("false-undefined", Tristate.FALSE, Tristate.UNDEFINED, false),
+                permissionCase("undefined-false", Tristate.UNDEFINED, Tristate.FALSE, false),
+                permissionCase("false-true", Tristate.FALSE, Tristate.TRUE, false),
+                permissionCase("true-false", Tristate.TRUE, Tristate.FALSE, false),
+                permissionCase("false-false", Tristate.FALSE, Tristate.FALSE, false)
+        };
+        for (PermissionCase permissionCase : cases) {
+            permissionCase.player = fixture.environment.addPlayer(
+                    permissionCase.name,
+                    "lobby",
+                    permissionValues(permissionCase.all, permissionCase.source, source));
+        }
 
-        fixture.dispatcher.dispatch(regionalEvent(fixture.config, NotificationSource.SICHUAN_EEW));
+        fixture.dispatcher.dispatch(regionalEvent(fixture.config, source));
         fixture.environment.scheduler().runAll();
 
-        assertEquals(1, both.messages().size());
-        assertTrue(allOnly.messages().isEmpty());
-        assertTrue(sourceOnly.messages().isEmpty());
-        assertTrue(neither.messages().isEmpty());
-        assertEquals(2, allOnly.permissionQueries().size());
-        assertEquals(1, sourceOnly.permissionQueries().size());
-        assertEquals(1, neither.permissionQueries().size());
+        for (PermissionCase permissionCase : cases) {
+            assertEquals(permissionCase.allowed ? 1 : 0,
+                    permissionCase.player.messages().size(), permissionCase.name);
+            assertTrue(permissionCase.player.permissionQueries().contains(ALL),
+                    permissionCase.name);
+            assertEquals(permissionCase.all == Tristate.FALSE ? 1 : 2,
+                    permissionCase.player.permissionQueries().size(), permissionCase.name);
+        }
     }
 
     @Test
@@ -367,6 +381,30 @@ class VelocityNotificationDispatcherTest {
         };
     }
 
+    private static PermissionCase permissionCase(
+            String name,
+            Tristate all,
+            Tristate source,
+            boolean allowed
+    ) {
+        return new PermissionCase(name, all, source, allowed);
+    }
+
+    private static Map<String, Tristate> permissionValues(
+            Tristate all,
+            Tristate source,
+            NotificationSource notificationSource
+    ) {
+        java.util.LinkedHashMap<String, Tristate> permissions = new java.util.LinkedHashMap<>();
+        if (all != Tristate.UNDEFINED) {
+            permissions.put(ALL, all);
+        }
+        if (source != Tristate.UNDEFINED) {
+            permissions.put(notificationSource.getPermissionNode(), source);
+        }
+        return Map.copyOf(permissions);
+    }
+
     private static String config(String notifications, String targetMode, String servers) {
         return "platform_config_version: 1\n"
                 + "global: {}\n"
@@ -411,6 +449,21 @@ class VelocityNotificationDispatcherTest {
             this.logger = logger;
             this.config = config;
             this.dispatcher = dispatcher;
+        }
+    }
+
+    private static final class PermissionCase {
+        private final String name;
+        private final Tristate all;
+        private final Tristate source;
+        private final boolean allowed;
+        private NotificationTestSupport.RecordingPlayer player;
+
+        private PermissionCase(String name, Tristate all, Tristate source, boolean allowed) {
+            this.name = name;
+            this.all = all;
+            this.source = source;
+            this.allowed = allowed;
         }
     }
 }

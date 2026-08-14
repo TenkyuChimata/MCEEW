@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.velocitypowered.api.permission.Tristate;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -99,10 +100,7 @@ class VelocityNotificationOrchestrationTest {
             throws Exception {
         RuntimeFixture fixture = runtimeFixture(false);
         NotificationTestSupport.RecordingPlayer player = fixture.environment.addPlayer(
-                "player", "lobby", Set.of(
-                        "mceew.notify.all",
-                        NotificationSource.JMA_EARTHQUAKE_LIST.getPermissionNode(),
-                        NotificationSource.CENC_EARTHQUAKE_LIST.getPermissionNode()));
+                "player", "lobby", Set.of());
         fixture.runtime.start();
 
         sendFirstUnchangedChanged(fixture, "jma_eqlist", 'c');
@@ -117,6 +115,37 @@ class VelocityNotificationOrchestrationTest {
         String jma = processor.latestJmaEarthquakeList().orElseThrow()
                 .render("%region% %shindo%");
         assertEquals("能登半島沖 §d7", jma);
+    }
+
+    @Test
+    void explicitEqlistPermissionDenialsDoNotSuppressCacheUpdatesOrConsoleDelivery()
+            throws Exception {
+        RuntimeFixture fixture = runtimeFixture(false);
+        NotificationTestSupport.RecordingPlayer player = fixture.environment.addPlayer(
+                "player", "lobby", Map.of(
+                        NotificationSource.JMA_EARTHQUAKE_LIST.getPermissionNode(),
+                        Tristate.FALSE,
+                        NotificationSource.CENC_EARTHQUAKE_LIST.getPermissionNode(),
+                        Tristate.FALSE));
+        fixture.runtime.start();
+
+        fixture.connector.attempt(0).message(fixture("jma_eqlist"));
+        fixture.connector.attempt(0).message(fixture("jma_eqlist"));
+        fixture.connector.attempt(0).message(
+                changedEqlist("jma_eqlist", 'e', "更新震央"));
+        fixture.connector.attempt(0).message(fixture("cenc_eqlist"));
+        fixture.connector.attempt(0).message(fixture("cenc_eqlist"));
+        fixture.connector.attempt(0).message(
+                changedEqlist("cenc_eqlist", 'f', "更新地区"));
+        fixture.environment.scheduler().runAll();
+
+        assertTrue(player.messages().isEmpty());
+        assertEquals(2, fixture.environment.consoleMessages().size());
+        assertEquals("更新震央", fixture.runtime.messageProcessor()
+                .latestJmaEarthquakeList().orElseThrow().render("%region%"));
+        assertEquals("更新地区", fixture.runtime.messageProcessor()
+                .latestCencEarthquakeList().orElseThrow().render("%region%"));
+        assertEquals(1, fixture.connector.connectionCount());
     }
 
     @Test

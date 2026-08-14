@@ -11,12 +11,14 @@ import com.google.gson.JsonParser;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.command.SimpleCommand;
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
+import com.velocitypowered.api.permission.Tristate;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import jp.wolfx.mceew.notification.NotificationSource;
 import net.kyori.adventure.text.Component;
@@ -123,19 +125,12 @@ class VelocityCommandTest {
     }
 
     @Test
-    void everyTestSourceUsesNormalDeliveryThenBroadcastsTheFixedWarningLocally() {
+    void everyTestSourceDefaultsUndefinedNotificationPermissionsToAllow() {
         CommandHarness harness = commandHarness("test-sources");
-        Set<String> notificationPermissions = Set.of(
-                "mceew.notify.all",
-                NotificationSource.JMA_ALERT.getPermissionNode(),
-                NotificationSource.JMA_FORECAST.getPermissionNode(),
-                NotificationSource.SICHUAN_EEW.getPermissionNode(),
-                NotificationSource.FUJIAN_EEW.getPermissionNode(),
-                NotificationSource.CWA_EEW.getPermissionNode(),
-                NotificationSource.CENC_EEW.getPermissionNode(),
-                NotificationSource.CHONGQING_EEW.getPermissionNode());
         NotificationTestSupport.RecordingPlayer player = harness.environment.addPlayer(
-                "recipient", "lobby", notificationPermissions);
+                "recipient", "lobby", Set.of());
+        NotificationTestSupport.RecordingPlayer globallyDenied = harness.environment.addPlayer(
+                "globally-denied", "lobby", Map.of("mceew.notify.all", Tristate.FALSE));
         List<Component> replies = new ArrayList<>();
         CommandSource administrator = TestVelocityApi.commandSource(
                 Set.of(VelocityCommand.ADMIN_PERMISSION), replies);
@@ -147,6 +142,7 @@ class VelocityCommandTest {
             int playerMessages = player.messages().size();
             int titles = player.titles().size();
             int sounds = player.sounds().size();
+            int deniedWarnings = globallyDenied.messages().size();
             int consoleMessages = harness.environment.consoleMessages().size();
 
             harness.command.execute(TestVelocityApi.invocation(
@@ -156,6 +152,9 @@ class VelocityCommandTest {
             assertEquals(playerMessages + 2, player.messages().size(), source);
             assertEquals(titles + 1, player.titles().size(), source);
             assertEquals(sounds + 1, player.sounds().size(), source);
+            assertEquals(deniedWarnings + 1, globallyDenied.messages().size(), source);
+            assertTrue(globallyDenied.titles().isEmpty(), source);
+            assertTrue(globallyDenied.sounds().isEmpty(), source);
             assertEquals(consoleMessages + 2,
                     harness.environment.consoleMessages().size(), source);
             assertEquals("§eWarning: This is an Earthquake Early Warning test.",
@@ -174,16 +173,57 @@ class VelocityCommandTest {
     }
 
     @Test
+    void testNotificationHonorsSourceDenyWithoutAffectingOtherUndefinedSources() {
+        CommandHarness harness = commandHarness("test-source-deny");
+        NotificationTestSupport.RecordingPlayer player = harness.environment.addPlayer(
+                "recipient", "lobby", Map.of(
+                        NotificationSource.JMA_FORECAST.getPermissionNode(), Tristate.FALSE));
+        List<Component> replies = new ArrayList<>();
+        CommandSource administrator = TestVelocityApi.commandSource(
+                Set.of(VelocityCommand.ADMIN_PERMISSION), replies);
+
+        harness.command.execute(TestVelocityApi.invocation(
+                administrator, "eew", "test", "forecast"));
+        harness.environment.scheduler().runAll();
+
+        assertEquals(List.of("§eWarning: This is an Earthquake Early Warning test."),
+                legacy(player.messages()));
+        assertTrue(player.titles().isEmpty());
+        assertTrue(player.sounds().isEmpty());
+        assertEquals(2, harness.environment.consoleMessages().size());
+
+        harness.command.execute(TestVelocityApi.invocation(
+                administrator, "eew", "test", "alert"));
+        harness.environment.scheduler().runAll();
+
+        assertEquals(3, player.messages().size());
+        assertEquals(1, player.titles().size());
+        assertEquals(1, player.sounds().size());
+        assertTrue(LEGACY.serialize(player.messages().get(1))
+                .startsWith("§c緊急地震速報 (警報)"));
+        assertEquals("§eWarning: This is an Earthquake Early Warning test.",
+                LEGACY.serialize(player.messages().get(2)));
+        assertEquals(4, harness.environment.consoleMessages().size());
+        assertTrue(replies.isEmpty());
+    }
+
+    @Test
     void administrativePermissionDenialIsSilentAndSuggestionsArePermissionAware() {
         CommandHarness harness = commandHarness("permissions");
         List<Component> replies = new ArrayList<>();
-        CommandSource denied = TestVelocityApi.commandSource(Set.of(), replies);
+        CommandSource undefined = TestVelocityApi.commandSource(Map.of(), replies);
+        CommandSource denied = TestVelocityApi.commandSource(
+                Map.of(VelocityCommand.ADMIN_PERMISSION, Tristate.FALSE), replies);
         int taskCount = harness.environment.scheduler().tasks().size();
 
+        harness.command.execute(TestVelocityApi.invocation(undefined, "eew", "test", "alert"));
+        harness.command.execute(TestVelocityApi.invocation(undefined, "eew", "reload"));
         harness.command.execute(TestVelocityApi.invocation(denied, "eew", "test", "alert"));
         harness.command.execute(TestVelocityApi.invocation(denied, "eew", "reload"));
         assertTrue(replies.isEmpty());
         assertEquals(taskCount, harness.environment.scheduler().tasks().size());
+        assertEquals(List.of("info"), harness.command.suggest(
+                TestVelocityApi.invocation(undefined, "eew")));
         assertEquals(List.of("info"), harness.command.suggest(
                 TestVelocityApi.invocation(denied, "eew")));
 

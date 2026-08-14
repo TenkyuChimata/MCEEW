@@ -5,6 +5,7 @@ import com.velocitypowered.api.command.CommandManager;
 import com.velocitypowered.api.command.CommandMeta;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.command.SimpleCommand;
+import com.velocitypowered.api.permission.Tristate;
 import com.velocitypowered.api.proxy.ConsoleCommandSource;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.scheduler.ScheduledTask;
@@ -53,13 +54,20 @@ final class TestVelocityApi {
     }
 
     static CommandSource commandSource(Set<String> permissions, List<Component> messages) {
+        return commandSource(CommandSource.class, permissionValues(permissions), messages);
+    }
+
+    static CommandSource commandSource(
+            Map<String, Tristate> permissions,
+            List<Component> messages
+    ) {
         return commandSource(CommandSource.class, permissions, messages);
     }
 
     static ConsoleCommandSource consoleCommandSource(
             Set<String> permissions, List<Component> messages) {
         return (ConsoleCommandSource) commandSource(
-                ConsoleCommandSource.class, permissions, messages);
+                ConsoleCommandSource.class, permissionValues(permissions), messages);
     }
 
     static CommandSource failingCommandSource(
@@ -70,6 +78,10 @@ final class TestVelocityApi {
             }
             if ("hasPermission".equals(method.getName())) {
                 return permissions.contains((String) arguments[0]);
+            }
+            if ("getPermissionValue".equals(method.getName())) {
+                return permissions.contains((String) arguments[0])
+                        ? Tristate.TRUE : Tristate.UNDEFINED;
             }
             if ("sendMessage".equals(method.getName())) {
                 throw sendFailure;
@@ -83,7 +95,7 @@ final class TestVelocityApi {
 
     private static CommandSource commandSource(
             Class<? extends CommandSource> type,
-            Set<String> permissions,
+            Map<String, Tristate> permissions,
             List<Component> messages
     ) {
         InvocationHandler handler = (proxy, method, arguments) -> {
@@ -91,7 +103,10 @@ final class TestVelocityApi {
                 return objectMethod(proxy, method, arguments);
             }
             if ("hasPermission".equals(method.getName())) {
-                return permissions.contains((String) arguments[0]);
+                return permissionValue(permissions, (String) arguments[0]).asBoolean();
+            }
+            if ("getPermissionValue".equals(method.getName())) {
+                return permissionValue(permissions, (String) arguments[0]);
             }
             if ("sendMessage".equals(method.getName())) {
                 messages.add((Component) arguments[0]);
@@ -103,6 +118,21 @@ final class TestVelocityApi {
                 type.getClassLoader(),
                 new Class<?>[]{type},
                 handler);
+    }
+
+    private static Map<String, Tristate> permissionValues(Set<String> permissions) {
+        Map<String, Tristate> values = new LinkedHashMap<>();
+        for (String permission : permissions) {
+            values.put(permission, Tristate.TRUE);
+        }
+        return Map.copyOf(values);
+    }
+
+    private static Tristate permissionValue(
+            Map<String, Tristate> permissions,
+            String permission
+    ) {
+        return permissions.getOrDefault(permission, Tristate.UNDEFINED);
     }
 
     static SimpleCommand.Invocation invocation(

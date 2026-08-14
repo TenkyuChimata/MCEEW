@@ -129,8 +129,12 @@ source permission:
 * `mceew.notify.cenc.eew`
 * `mceew.notify.cq`
 
-`mceew.admin` controls Velocity test and reload commands; it is separate from
-notification permissions.
+All notification permissions default to allowed, so ordinary players receive
+notifications without explicit permission grants. Explicitly denying either
+`mceew.notify.all` or the applicable source permission opts that player out.
+
+`mceew.admin` controls Velocity test and reload commands; it remains
+default-deny and must be granted explicitly.
 
 Proxy-console notifications are proxy-global. Player target membership, player
 permissions, and backend-specific channel overrides do not govern console
