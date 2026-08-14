@@ -18,6 +18,8 @@ final class BungeeCommand extends Command implements TabExecutor {
             List.of("forecast", "alert", "sc", "fj", "cwa", "cenc", "cq");
     private static final String RUNTIME_UNAVAILABLE =
             "§e[MCEEW] MCEEW runtime is not currently available.";
+    private static final String NO_PERMISSION =
+            "§c[MCEEW] You do not have permission to use this command.";
 
     private final BungeeCommandService service;
     private final String version;
@@ -34,6 +36,15 @@ final class BungeeCommand extends Command implements TabExecutor {
     public void execute(CommandSender sender, String[] arguments) {
         Objects.requireNonNull(sender, "sender");
         Objects.requireNonNull(arguments, "arguments");
+        try {
+            executeSafely(sender, arguments);
+        } catch (RuntimeException error) {
+            logger.log(Level.SEVERE, "MCEEW BungeeCord command execution failed.", error);
+            send(sender, "§c[MCEEW] Command could not be completed.");
+        }
+    }
+
+    private void executeSafely(CommandSender sender, String[] arguments) {
         if (arguments.length == 0) {
             showRoot(sender);
             return;
@@ -48,9 +59,12 @@ final class BungeeCommand extends Command implements TabExecutor {
             case "reload":
                 if (arguments.length == 1) {
                     executeReload(sender);
+                } else {
+                    send(sender, "§e[MCEEW] Usage: /eew reload");
                 }
                 break;
             default:
+                send(sender, "§e[MCEEW] Unknown subcommand. Use /eew to view commands.");
                 break;
         }
     }
@@ -60,7 +74,7 @@ final class BungeeCommand extends Command implements TabExecutor {
         send(sender, "§a[MCEEW] Platform: BungeeCord / Waterfall");
         send(sender, "§a[MCEEW] §3/eew§a - Show available commands");
         send(sender, "§a[MCEEW] §3/eew info§a - Display latest earthquake information");
-        if (sender.hasPermission(BungeePermissions.ADMIN)) {
+        if (hasAdminPermission(sender)) {
             send(sender, "§a[MCEEW] §3/eew test§a - Send a test EEW notification");
             send(sender, "§a[MCEEW] §3/eew reload§a - Reload plugin configuration");
         }
@@ -68,10 +82,7 @@ final class BungeeCommand extends Command implements TabExecutor {
 
     private void executeInfo(CommandSender sender, String[] arguments) {
         if (arguments.length != 2) {
-            send(sender,
-                    "§a[MCEEW] §3/eew info jma§a - Show Japan JMA earthquake information.");
-            send(sender,
-                    "§a[MCEEW] §3/eew info cenc§a - Show China CENC earthquake information.");
+            showInfoUsage(sender);
             return;
         }
         String information;
@@ -80,34 +91,65 @@ final class BungeeCommand extends Command implements TabExecutor {
         } else if ("cenc".equalsIgnoreCase(arguments[1])) {
             information = service.latestCencEarthquakeInformation();
         } else {
+            showInfoUsage(sender);
             return;
         }
         send(sender, information == null ? RUNTIME_UNAVAILABLE : information);
     }
 
+    private void showInfoUsage(CommandSender sender) {
+        send(sender,
+                "§a[MCEEW] §3/eew info jma§a - Show Japan JMA earthquake information.");
+        send(sender,
+                "§a[MCEEW] §3/eew info cenc§a - Show China CENC earthquake information.");
+    }
+
     private void executeTest(CommandSender sender, String[] arguments) {
-        if (!sender.hasPermission(BungeePermissions.ADMIN)) {
+        if (!hasAdminPermission(sender)) {
+            send(sender, NO_PERMISSION);
             return;
         }
         if (arguments.length != 2) {
-            send(sender,
-                    "§a[MCEEW] §3/eew test forecast§a - Send JMA forecast EEW test.");
-            send(sender, "§a[MCEEW] §3/eew test alert§a - Send JMA alert EEW test.");
-            send(sender, "§a[MCEEW] §3/eew test sc§a - Send Sichuan EEW test.");
-            send(sender, "§a[MCEEW] §3/eew test fj§a - Send Taiwan/Fujian EEW test.");
-            send(sender, "§a[MCEEW] §3/eew test cwa§a - Send Taiwan CWA EEW test.");
-            send(sender, "§a[MCEEW] §3/eew test cenc§a - Send China CENC EEW test.");
-            send(sender, "§a[MCEEW] §3/eew test cq§a - Send Chongqing EEW test.");
+            showTestUsage(sender);
             return;
         }
         String source = arguments[1].toLowerCase(Locale.ROOT);
-        if (TEST_SOURCES.contains(source) && !service.dispatchTest(source)) {
-            send(sender, RUNTIME_UNAVAILABLE);
+        if (!TEST_SOURCES.contains(source)) {
+            showTestUsage(sender);
+            return;
+        }
+        switch (service.dispatchTest(source)) {
+            case DISPATCHED:
+                break;
+            case IN_PROGRESS:
+                send(sender,
+                        "§e[MCEEW] A configuration reload is in progress; try the test again.");
+                break;
+            case UNAVAILABLE:
+                send(sender, RUNTIME_UNAVAILABLE);
+                break;
+            case FAILED:
+                send(sender, "§c[MCEEW] Test notification could not be dispatched.");
+                break;
+            default:
+                throw new IllegalStateException("Unhandled test outcome");
         }
     }
 
+    private void showTestUsage(CommandSender sender) {
+        send(sender,
+                "§a[MCEEW] §3/eew test forecast§a - Send JMA forecast EEW test.");
+        send(sender, "§a[MCEEW] §3/eew test alert§a - Send JMA alert EEW test.");
+        send(sender, "§a[MCEEW] §3/eew test sc§a - Send Sichuan EEW test.");
+        send(sender, "§a[MCEEW] §3/eew test fj§a - Send Taiwan/Fujian EEW test.");
+        send(sender, "§a[MCEEW] §3/eew test cwa§a - Send Taiwan CWA EEW test.");
+        send(sender, "§a[MCEEW] §3/eew test cenc§a - Send China CENC EEW test.");
+        send(sender, "§a[MCEEW] §3/eew test cq§a - Send Chongqing EEW test.");
+    }
+
     private void executeReload(CommandSender sender) {
-        if (!sender.hasPermission(BungeePermissions.ADMIN)) {
+        if (!hasAdminPermission(sender)) {
+            send(sender, NO_PERMISSION);
             return;
         }
         service.requestReload(outcome -> {
@@ -117,6 +159,16 @@ final class BungeeCommand extends Command implements TabExecutor {
                     break;
                 case IN_PROGRESS:
                     send(sender, "§e[MCEEW] Configuration reload is already in progress.");
+                    break;
+                case INVALID_CONFIG:
+                    send(sender,
+                            "§c[MCEEW] Configuration could not be read or validated; "
+                                    + "the active state was preserved.");
+                    break;
+                case RUNTIME_FAILED:
+                    send(sender,
+                            "§c[MCEEW] Reloaded configuration could not be activated; "
+                                    + "the active state was preserved.");
                     break;
                 case FAILED:
                     send(sender,
@@ -135,29 +187,45 @@ final class BungeeCommand extends Command implements TabExecutor {
     public Iterable<String> onTabComplete(CommandSender sender, String[] arguments) {
         Objects.requireNonNull(sender, "sender");
         Objects.requireNonNull(arguments, "arguments");
-        if (arguments.length == 0) {
-            return firstLevelSuggestions(sender, "");
+        try {
+            if (arguments.length == 0) {
+                return firstLevelSuggestions(sender, "");
+            }
+            if (arguments.length == 1) {
+                return firstLevelSuggestions(sender, arguments[0]);
+            }
+            if (arguments.length == 2 && "info".equalsIgnoreCase(arguments[0])) {
+                return matching(INFO_SOURCES, arguments[1]);
+            }
+            if (arguments.length == 2 && "test".equalsIgnoreCase(arguments[0])
+                    && hasAdminPermission(sender)) {
+                return matching(TEST_SOURCES, arguments[1]);
+            }
+            return List.of();
+        } catch (RuntimeException error) {
+            logger.log(Level.WARNING,
+                    "MCEEW BungeeCord tab completion failed.", error);
+            return List.of();
         }
-        if (arguments.length == 1) {
-            return firstLevelSuggestions(sender, arguments[0]);
-        }
-        if (arguments.length == 2 && "info".equalsIgnoreCase(arguments[0])) {
-            return matching(INFO_SOURCES, arguments[1]);
-        }
-        if (arguments.length == 2 && "test".equalsIgnoreCase(arguments[0])
-                && sender.hasPermission(BungeePermissions.ADMIN)) {
-            return matching(TEST_SOURCES, arguments[1]);
-        }
-        return List.of();
     }
 
-    private static List<String> firstLevelSuggestions(CommandSender sender, String prefix) {
+    private List<String> firstLevelSuggestions(CommandSender sender, String prefix) {
         List<String> candidates = new ArrayList<>();
         candidates.add("info");
-        if (sender.hasPermission(BungeePermissions.ADMIN)) {
+        if (hasAdminPermission(sender)) {
             candidates.addAll(Arrays.asList("test", "reload"));
         }
         return matching(candidates, prefix);
+    }
+
+    private boolean hasAdminPermission(CommandSender sender) {
+        try {
+            return sender.hasPermission(BungeePermissions.ADMIN);
+        } catch (RuntimeException error) {
+            logger.log(Level.WARNING,
+                    "MCEEW BungeeCord could not evaluate an administrative permission.", error);
+            return false;
+        }
     }
 
     private static List<String> matching(List<String> candidates, String prefix) {

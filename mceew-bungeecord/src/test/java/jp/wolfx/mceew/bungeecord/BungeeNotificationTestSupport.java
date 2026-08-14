@@ -239,6 +239,7 @@ final class BungeeNotificationTestSupport {
         private final List<Title> titles = new ArrayList<>();
         private String backend;
         private boolean failBackend;
+        private boolean failPermission;
         private boolean failChat;
         private boolean failTitle;
 
@@ -261,6 +262,10 @@ final class BungeeNotificationTestSupport {
 
         void failBackend(boolean value) {
             failBackend = value;
+        }
+
+        void failPermission(boolean value) {
+            failPermission = value;
         }
 
         void failChat(boolean value) {
@@ -299,6 +304,9 @@ final class BungeeNotificationTestSupport {
         @Override
         public boolean hasPermission(String permission) {
             permissionQueries.add(permission);
+            if (failPermission) {
+                throw new IllegalStateException("permission provider unavailable");
+            }
             return permissions.getOrDefault(permission, false);
         }
 

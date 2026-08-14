@@ -2,7 +2,9 @@ package jp.wolfx.mceew.bungeecord;
 
 import java.util.Collection;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -15,6 +17,7 @@ final class BungeeNotificationDispatcher implements AutoCloseable {
     private final BungeeConfigSnapshot config;
     private final Logger logger;
     private final BungeeTargetResolver targetResolver;
+    private final Set<PendingDelivery> pendingDeliveries = ConcurrentHashMap.newKeySet();
     private final AtomicBoolean closed = new AtomicBoolean();
 
     BungeeNotificationDispatcher(
@@ -35,10 +38,10 @@ final class BungeeNotificationDispatcher implements AutoCloseable {
         schedule(() -> deliverIfActive(event));
     }
 
-    void dispatchTest(BungeeNotificationEvent event, String warning) {
+    boolean dispatchTest(BungeeNotificationEvent event, String warning) {
         Objects.requireNonNull(event, "event");
         Objects.requireNonNull(warning, "warning");
-        schedule(() -> {
+        return schedule(() -> {
             if (closed.get()) {
                 return;
             }
@@ -47,17 +50,26 @@ final class BungeeNotificationDispatcher implements AutoCloseable {
         });
     }
 
-    private void schedule(Runnable delivery) {
+    private boolean schedule(Runnable delivery) {
         if (closed.get()) {
-            return;
+            return false;
+        }
+        PendingDelivery pending = new PendingDelivery(delivery);
+        pendingDeliveries.add(pending);
+        if (closed.get()) {
+            pending.cancel();
+            return false;
         }
         try {
-            scheduler.schedule(delivery, 0L, TimeUnit.NANOSECONDS);
+            pending.attach(scheduler.schedule(pending::run, 0L, TimeUnit.NANOSECONDS));
+            return true;
         } catch (RuntimeException error) {
+            pending.cancel();
             if (!closed.get()) {
                 logger.log(Level.WARNING,
                         "MCEEW BungeeCord could not schedule notification delivery.", error);
             }
+            return false;
         }
     }
 
@@ -205,10 +217,57 @@ final class BungeeNotificationDispatcher implements AutoCloseable {
 
     @Override
     public void close() {
-        closed.set(true);
+        if (!closed.compareAndSet(false, true)) {
+            return;
+        }
+        for (PendingDelivery pending : pendingDeliveries.toArray(new PendingDelivery[0])) {
+            pending.cancel();
+        }
     }
 
     boolean isClosed() {
         return closed.get();
+    }
+
+    int pendingDeliveryCount() {
+        return pendingDeliveries.size();
+    }
+
+    private final class PendingDelivery {
+        private final Runnable delivery;
+        private final AtomicBoolean complete = new AtomicBoolean();
+        private volatile jp.wolfx.mceew.websocket.WebSocketConnectionManager.ScheduledAction action;
+
+        private PendingDelivery(Runnable delivery) {
+            this.delivery = delivery;
+        }
+
+        private void attach(
+                jp.wolfx.mceew.websocket.WebSocketConnectionManager.ScheduledAction action
+        ) {
+            this.action = Objects.requireNonNull(action, "action");
+            if (complete.get()) {
+                action.cancel();
+            }
+        }
+
+        private void run() {
+            if (!complete.compareAndSet(false, true)) {
+                return;
+            }
+            pendingDeliveries.remove(this);
+            delivery.run();
+        }
+
+        private void cancel() {
+            if (!complete.compareAndSet(false, true)) {
+                return;
+            }
+            pendingDeliveries.remove(this);
+            jp.wolfx.mceew.websocket.WebSocketConnectionManager.ScheduledAction scheduled = action;
+            if (scheduled != null) {
+                scheduled.cancel();
+            }
+        }
     }
 }

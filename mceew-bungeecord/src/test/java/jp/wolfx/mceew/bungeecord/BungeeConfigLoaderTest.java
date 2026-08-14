@@ -171,6 +171,16 @@ class BungeeConfigLoaderTest {
                 lobby.sourceChannels().get(NotificationSource.JMA_ALERT).title());
         assertThrows(UnsupportedOperationException.class,
                 () -> config.groups().put("new", Set.of()));
+        assertThrows(UnsupportedOperationException.class,
+                () -> config.groups().get("primary").add("new"));
+        assertThrows(UnsupportedOperationException.class,
+                () -> config.defaultTarget().servers().add("new"));
+        assertThrows(UnsupportedOperationException.class,
+                () -> config.sourceTargets().clear());
+        assertThrows(UnsupportedOperationException.class,
+                () -> config.servers().clear());
+        assertThrows(UnsupportedOperationException.class,
+                () -> lobby.sourceChannels().clear());
     }
 
     @Test

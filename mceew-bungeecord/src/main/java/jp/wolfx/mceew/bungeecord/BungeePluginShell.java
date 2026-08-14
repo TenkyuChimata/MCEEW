@@ -7,6 +7,11 @@ import java.util.logging.Logger;
 
 final class BungeePluginShell implements BungeeCommandService, AutoCloseable {
     @FunctionalInterface
+    interface ConfigSource {
+        BungeeConfigSnapshot loadSnapshot() throws BungeeConfigException;
+    }
+
+    @FunctionalInterface
     interface RuntimeFactory {
         BungeeMceewRuntime create(
                 BungeeConfigSnapshot config,
@@ -17,19 +22,22 @@ final class BungeePluginShell implements BungeeCommandService, AutoCloseable {
     enum ReloadOutcome {
         SUCCESS,
         IN_PROGRESS,
+        INVALID_CONFIG,
+        RUNTIME_FAILED,
         FAILED,
         UNAVAILABLE
     }
 
     enum State {
         UNINITIALIZED,
+        INITIALIZING,
         ACTIVE,
         FAILED,
         SHUTDOWN
     }
 
     private final Object lifecycleLock = new Object();
-    private final BungeeConfigLoader configLoader;
+    private final ConfigSource configSource;
     private final BungeeDelayScheduler scheduler;
     private final Logger logger;
     private final RuntimeFactory runtimeFactory;
@@ -46,7 +54,17 @@ final class BungeePluginShell implements BungeeCommandService, AutoCloseable {
             Logger logger,
             RuntimeFactory runtimeFactory
     ) {
-        this.configLoader = Objects.requireNonNull(configLoader, "configLoader");
+        this(Objects.requireNonNull(configLoader, "configLoader")::loadSnapshot,
+                scheduler, logger, runtimeFactory);
+    }
+
+    BungeePluginShell(
+            ConfigSource configSource,
+            BungeeDelayScheduler scheduler,
+            Logger logger,
+            RuntimeFactory runtimeFactory
+    ) {
+        this.configSource = Objects.requireNonNull(configSource, "configSource");
         this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
         this.logger = Objects.requireNonNull(logger, "logger");
         this.runtimeFactory = Objects.requireNonNull(runtimeFactory, "runtimeFactory");
@@ -57,14 +75,15 @@ final class BungeePluginShell implements BungeeCommandService, AutoCloseable {
             if (state != State.UNINITIALIZED) {
                 return;
             }
+            state = State.INITIALIZING;
         }
 
         BungeeConfigSnapshot loaded;
         try {
-            loaded = configLoader.loadSnapshot();
+            loaded = configSource.loadSnapshot();
         } catch (BungeeConfigException error) {
             synchronized (lifecycleLock) {
-                if (state == State.UNINITIALIZED) {
+                if (state == State.INITIALIZING) {
                     state = State.FAILED;
                 }
             }
@@ -72,19 +91,42 @@ final class BungeePluginShell implements BungeeCommandService, AutoCloseable {
                     "MCEEW BungeeCord configuration could not be loaded; runtime remains inactive.",
                     error);
             return;
+        } catch (RuntimeException error) {
+            synchronized (lifecycleLock) {
+                if (state == State.INITIALIZING) {
+                    state = State.FAILED;
+                }
+            }
+            logger.log(Level.SEVERE,
+                    "MCEEW BungeeCord configuration loading failed unexpectedly; "
+                            + "runtime remains inactive.",
+                    error);
+            return;
+        }
+
+        synchronized (lifecycleLock) {
+            if (state != State.INITIALIZING) {
+                return;
+            }
         }
 
         BungeeMceewRuntime startedRuntime = null;
         if (loaded.runtimeEnabled()) {
             try {
                 startedRuntime = runtimeFactory.create(loaded, scheduler, logger);
+                synchronized (lifecycleLock) {
+                    if (state != State.INITIALIZING) {
+                        closePrepared(startedRuntime, "abandoned startup runtime");
+                        return;
+                    }
+                }
                 startedRuntime.start();
             } catch (RuntimeException | Error error) {
                 if (startedRuntime != null) {
-                    startedRuntime.close();
+                    closePrepared(startedRuntime, "failed startup runtime");
                 }
                 synchronized (lifecycleLock) {
-                    if (state == State.UNINITIALIZED) {
+                    if (state == State.INITIALIZING) {
                         state = State.FAILED;
                     }
                 }
@@ -98,7 +140,7 @@ final class BungeePluginShell implements BungeeCommandService, AutoCloseable {
 
         boolean activated = false;
         synchronized (lifecycleLock) {
-            if (state != State.UNINITIALIZED) {
+            if (state != State.INITIALIZING) {
                 activated = false;
             } else {
                 configSnapshot = loaded;
@@ -108,7 +150,7 @@ final class BungeePluginShell implements BungeeCommandService, AutoCloseable {
             }
         }
         if (!activated && startedRuntime != null) {
-            startedRuntime.close();
+            closePrepared(startedRuntime, "abandoned startup runtime");
         }
         if (activated) {
             logRuntimeState(loaded);
@@ -121,7 +163,9 @@ final class BungeePluginShell implements BungeeCommandService, AutoCloseable {
         ReloadOutcome immediate = null;
         long generation = 0;
         synchronized (lifecycleLock) {
-            if (state == State.SHUTDOWN || state == State.UNINITIALIZED) {
+            if (state == State.SHUTDOWN
+                    || state == State.UNINITIALIZED
+                    || state == State.INITIALIZING) {
                 immediate = ReloadOutcome.UNAVAILABLE;
             } else if (reloadInProgress) {
                 immediate = ReloadOutcome.IN_PROGRESS;
@@ -131,7 +175,7 @@ final class BungeePluginShell implements BungeeCommandService, AutoCloseable {
             }
         }
         if (immediate != null) {
-            completion.accept(immediate);
+            notifyCompletion(completion, immediate);
             return;
         }
 
@@ -147,10 +191,17 @@ final class BungeePluginShell implements BungeeCommandService, AutoCloseable {
     private void performReload(long expectedGeneration, Consumer<ReloadOutcome> completion) {
         BungeeConfigSnapshot loaded;
         try {
-            loaded = configLoader.loadSnapshot();
+            loaded = configSource.loadSnapshot();
         } catch (BungeeConfigException error) {
             logger.log(Level.SEVERE,
                     "MCEEW BungeeCord configuration reload failed; the active state was preserved.",
+                    error);
+            finishReload(expectedGeneration, ReloadOutcome.INVALID_CONFIG, completion);
+            return;
+        } catch (RuntimeException error) {
+            logger.log(Level.SEVERE,
+                    "MCEEW BungeeCord configuration reload failed unexpectedly; "
+                            + "the active state was preserved.",
                     error);
             finishReload(expectedGeneration, ReloadOutcome.FAILED, completion);
             return;
@@ -178,13 +229,13 @@ final class BungeePluginShell implements BungeeCommandService, AutoCloseable {
                 }
             }
         } catch (RuntimeException | Error error) {
-            closePrepared(preparedConfiguration);
-            closePrepared(preparedRuntime);
+            closePrepared(preparedConfiguration, "prepared notification policy");
+            closePrepared(preparedRuntime, "prepared operational runtime");
             logger.log(Level.SEVERE,
                     "MCEEW BungeeCord reload preparation failed; "
                             + "the active state was preserved.",
                     error);
-            finishReload(expectedGeneration, ReloadOutcome.FAILED, completion);
+            finishReload(expectedGeneration, ReloadOutcome.RUNTIME_FAILED, completion);
             return;
         }
 
@@ -219,10 +270,10 @@ final class BungeePluginShell implements BungeeCommandService, AutoCloseable {
                     error);
         }
 
-        closePrepared(preparedConfiguration);
-        closePrepared(preparedRuntime);
+        closePrepared(preparedConfiguration, "abandoned notification policy");
+        closePrepared(preparedRuntime, "abandoned operational runtime");
         if (runtimeToClose != null) {
-            runtimeToClose.close();
+            closePrepared(runtimeToClose, "disabled operational runtime");
         }
         if (committed) {
             logRuntimeState(loaded);
@@ -233,17 +284,28 @@ final class BungeePluginShell implements BungeeCommandService, AutoCloseable {
                 completion);
     }
 
-    private static void closePrepared(BungeeMceewRuntime preparedRuntime) {
+    private void closePrepared(BungeeMceewRuntime preparedRuntime, String description) {
         if (preparedRuntime != null) {
-            preparedRuntime.close();
+            try {
+                preparedRuntime.close();
+            } catch (RuntimeException error) {
+                logger.log(Level.WARNING,
+                        "MCEEW BungeeCord could not close " + description + ".", error);
+            }
         }
     }
 
-    private static void closePrepared(
-            BungeeMceewRuntime.PreparedConfiguration preparedConfiguration
+    private void closePrepared(
+            BungeeMceewRuntime.PreparedConfiguration preparedConfiguration,
+            String description
     ) {
         if (preparedConfiguration != null) {
-            preparedConfiguration.close();
+            try {
+                preparedConfiguration.close();
+            } catch (RuntimeException error) {
+                logger.log(Level.WARNING,
+                        "MCEEW BungeeCord could not close " + description + ".", error);
+            }
         }
     }
 
@@ -265,7 +327,19 @@ final class BungeePluginShell implements BungeeCommandService, AutoCloseable {
             }
         }
         if (notify) {
+            notifyCompletion(completion, outcome);
+        }
+    }
+
+    private void notifyCompletion(
+            Consumer<ReloadOutcome> completion,
+            ReloadOutcome outcome
+    ) {
+        try {
             completion.accept(outcome);
+        } catch (RuntimeException error) {
+            logger.log(Level.WARNING,
+                    "MCEEW BungeeCord could not deliver the reload completion response.", error);
         }
     }
 
@@ -290,10 +364,26 @@ final class BungeePluginShell implements BungeeCommandService, AutoCloseable {
     }
 
     @Override
-    public boolean dispatchTest(String sourceKey) {
+    public TestOutcome dispatchTest(String sourceKey) {
         Objects.requireNonNull(sourceKey, "sourceKey");
-        BungeeMceewRuntime runtime = operationalRuntime;
-        return runtime != null && runtime.dispatchTest(sourceKey);
+        BungeeMceewRuntime runtime;
+        synchronized (lifecycleLock) {
+            if (state == State.SHUTDOWN
+                    || state == State.UNINITIALIZED
+                    || state == State.INITIALIZING) {
+                return TestOutcome.UNAVAILABLE;
+            }
+            if (reloadInProgress) {
+                return TestOutcome.IN_PROGRESS;
+            }
+            runtime = operationalRuntime;
+        }
+        if (runtime == null) {
+            return TestOutcome.UNAVAILABLE;
+        }
+        return runtime.dispatchTest(sourceKey)
+                ? TestOutcome.DISPATCHED
+                : TestOutcome.FAILED;
     }
 
     @Override
@@ -310,10 +400,13 @@ final class BungeePluginShell implements BungeeCommandService, AutoCloseable {
             runtime = operationalRuntime;
             operationalRuntime = null;
         }
-        if (runtime != null) {
-            runtime.close();
+        try {
+            if (runtime != null) {
+                closePrepared(runtime, "operational runtime during shutdown");
+            }
+        } finally {
+            scheduler.close();
         }
-        scheduler.close();
     }
 
     State state() {

@@ -246,7 +246,7 @@ jobs:
           echo "The BungeeCord Jar contains a platform API or bStats class."
           exit 1
         fi
-        if grep -Eq '^(com/google/gson|org/yaml/snakeyaml)/' <<<"$jar_entries"; then
+        if grep -Eq '(^|/)(com/google/gson|org/yaml/snakeyaml)/' <<<"$jar_entries"; then
           echo "The BungeeCord Jar contains an unrelocated library."
           exit 1
         fi
@@ -258,6 +258,10 @@ jobs:
 
         if grep -Eq '(^|/)[^/]*Test[^/]*\.class$|^runtime-smoke/|(^|/)mceew-core-[^/]*\.jar$' <<<"$jar_entries"; then
           echo "The BungeeCord Jar contains tests, fixtures, or a nested core Jar."
+          exit 1
+        fi
+        if grep -Eiq '(^|/)[^/]+\.jar$|^META-INF/.*\.(SF|RSA|DSA)$' <<<"$jar_entries"; then
+          echo "The BungeeCord Jar contains a nested Jar or stale signature."
           exit 1
         fi
         if [[ -n "$(zipinfo -1 "$bungee_jar" | sort | uniq -d)" ]]; then

@@ -238,7 +238,84 @@ class BungeeNotificationDispatcherTest {
         assertEquals(1, healthy.titles().size());
         assertTrue(broken.chats().isEmpty());
         assertTrue(broken.titles().isEmpty());
-        assertTrue(racing.chats().isEmpty());
+        assertEquals(1, racing.chats().size(),
+                "all-target delivery falls back to global/source channels");
+        assertEquals(1, racing.titles().size());
+    }
+
+    @Test
+    void permissionFailureSkipsOnlyThatPlayerAndDoesNotAbortOthers() {
+        Fixture fixture = fixture(BungeeNotificationTestSupport.config().build());
+        BungeeNotificationTestSupport.FakePlayer failed =
+                fixture.platform.addPlayer("permission-failed", "lobby");
+        failed.failPermission(true);
+        BungeeNotificationTestSupport.FakePlayer healthy =
+                fixture.platform.addPlayer("healthy", "lobby");
+
+        fixture.dispatcher.dispatch(event(NotificationSource.JMA_FORECAST));
+        run(fixture);
+
+        assertTrue(failed.chats().isEmpty());
+        assertTrue(failed.titles().isEmpty());
+        assertEquals(1, healthy.chats().size());
+        assertEquals(1, healthy.titles().size());
+        assertEquals(1, fixture.platform.consoleMessages().size());
+    }
+
+    @Test
+    void schedulerFailureDropsNotificationWithoutLeakingOrThrowing() {
+        Fixture fixture = fixture(BungeeNotificationTestSupport.config().build());
+        BungeeNotificationTestSupport.FakePlayer player =
+                fixture.platform.addPlayer("player", "lobby");
+        fixture.backend.failSubmissions = true;
+
+        fixture.dispatcher.dispatch(event(NotificationSource.CENC_EEW));
+        boolean testAccepted = fixture.dispatcher.dispatchTest(
+                event(NotificationSource.JMA_ALERT), "test warning");
+
+        assertFalse(testAccepted);
+        assertEquals(0, fixture.dispatcher.pendingDeliveryCount());
+        assertTrue(player.chats().isEmpty());
+        assertTrue(fixture.platform.consoleMessages().isEmpty());
+    }
+
+    @Test
+    void closeActivelyCancelsQueuedTasksAndCompletedTasksDoNotLeak() {
+        Fixture fixture = fixture(BungeeNotificationTestSupport.config().build());
+        BungeeNotificationTestSupport.FakePlayer player =
+                fixture.platform.addPlayer("player", "lobby");
+
+        fixture.dispatcher.dispatch(event(NotificationSource.SICHUAN_EEW));
+        assertEquals(1, fixture.dispatcher.pendingDeliveryCount());
+        fixture.dispatcher.close();
+        assertEquals(0, fixture.dispatcher.pendingDeliveryCount());
+        run(fixture);
+        assertTrue(player.chats().isEmpty());
+
+        Fixture completed = fixture(BungeeNotificationTestSupport.config().build());
+        BungeeNotificationTestSupport.FakePlayer completedPlayer =
+                completed.platform.addPlayer("completed", "lobby");
+        for (int index = 0; index < 100; index++) {
+            completed.dispatcher.dispatch(event(NotificationSource.SICHUAN_EEW));
+        }
+        run(completed);
+        assertEquals(100, completedPlayer.chats().size());
+        assertEquals(0, completed.dispatcher.pendingDeliveryCount());
+    }
+
+    @Test
+    void deliveryAlreadyStartedBeforeCloseMayFinishWithoutResurrection() {
+        Fixture fixture = fixture(BungeeNotificationTestSupport.config().build());
+        BungeeNotificationTestSupport.FakePlayer player =
+                fixture.platform.addPlayer("player", "lobby");
+        fixture.backend.runImmediately = true;
+
+        fixture.dispatcher.dispatch(event(NotificationSource.SICHUAN_EEW));
+        fixture.dispatcher.close();
+
+        assertEquals(1, player.chats().size());
+        assertEquals(1, player.titles().size());
+        assertEquals(0, fixture.dispatcher.pendingDeliveryCount());
     }
 
     @Test

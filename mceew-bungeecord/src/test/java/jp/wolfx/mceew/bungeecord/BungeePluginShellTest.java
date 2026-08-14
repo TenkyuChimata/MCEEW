@@ -33,7 +33,8 @@ class BungeePluginShellTest {
         assertFalse(harness.shell.configSnapshot().runtimeEnabled());
         assertNull(harness.shell.latestJmaEarthquakeInformation());
         assertNull(harness.shell.latestCencEarthquakeInformation());
-        assertFalse(harness.shell.dispatchTest("forecast"));
+        assertEquals(BungeeCommandService.TestOutcome.UNAVAILABLE,
+                harness.shell.dispatchTest("forecast"));
         assertEquals(0, harness.backend.tasks.size());
     }
 
@@ -48,7 +49,8 @@ class BungeePluginShellTest {
         assertEquals(BungeePluginShell.State.ACTIVE, harness.shell.state());
         assertTrue(harness.shell.configSnapshot().runtimeEnabled());
         assertTrue(harness.shell.hasOperationalRuntime());
-        assertTrue(harness.shell.dispatchTest("alert"));
+        assertEquals(BungeeCommandService.TestOutcome.DISPATCHED,
+                harness.shell.dispatchTest("alert"));
         assertEquals(1, harness.runtimeCreations.get());
         assertEquals(1, harness.connector.connectionCount());
     }
@@ -62,20 +64,23 @@ class BungeePluginShellTest {
                 harness.platform.addPlayer("player", "lobby");
         harness.shell.initialize();
 
-        assertTrue(harness.shell.dispatchTest("forecast"));
+        assertEquals(BungeeCommandService.TestOutcome.DISPATCHED,
+                harness.shell.dispatchTest("forecast"));
         BungeeNotificationTestSupport.runAll(harness.backend);
         assertEquals(2, player.chats().size());
         assertEquals(1, player.titles().size());
 
         player.permission("mceew.suppress.jma.forecast", true);
-        assertTrue(harness.shell.dispatchTest("forecast"));
+        assertEquals(BungeeCommandService.TestOutcome.DISPATCHED,
+                harness.shell.dispatchTest("forecast"));
         BungeeNotificationTestSupport.runAll(harness.backend);
         assertEquals(3, player.chats().size(), "suppressed test adds only command warning");
         assertEquals(1, player.titles().size());
 
         write(config(true, "none"));
         assertReload(harness, BungeePluginShell.ReloadOutcome.SUCCESS);
-        assertTrue(harness.shell.dispatchTest("alert"));
+        assertEquals(BungeeCommandService.TestOutcome.DISPATCHED,
+                harness.shell.dispatchTest("alert"));
         BungeeNotificationTestSupport.runAll(harness.backend);
         assertEquals(4, player.chats().size(), "new target-none policy adds only warning");
         assertEquals(1, player.titles().size());
@@ -112,7 +117,7 @@ class BungeePluginShellTest {
         harness.shell.requestReload(outcomes::add);
         harness.backend.run(0);
 
-        assertEquals(List.of(BungeePluginShell.ReloadOutcome.FAILED), outcomes);
+        assertEquals(List.of(BungeePluginShell.ReloadOutcome.INVALID_CONFIG), outcomes);
         assertSame(original, harness.shell.configSnapshot());
         assertEquals(BungeePluginShell.State.ACTIVE, harness.shell.state());
     }
@@ -339,7 +344,7 @@ class BungeePluginShellTest {
         int connections = harness.connector.connectionCount();
         write("platform_config_version: [\n");
 
-        assertReload(harness, BungeePluginShell.ReloadOutcome.FAILED);
+        assertReload(harness, BungeePluginShell.ReloadOutcome.INVALID_CONFIG);
 
         assertSame(runtime, harness.shell.operationalRuntimeIdentity());
         assertSame(manager, runtime.webSocketManagerIdentity());
@@ -387,7 +392,7 @@ class BungeePluginShellTest {
         shell.requestReload(outcomes::add);
         backend.run(0);
 
-        assertEquals(List.of(BungeePluginShell.ReloadOutcome.FAILED), outcomes);
+        assertEquals(List.of(BungeePluginShell.ReloadOutcome.RUNTIME_FAILED), outcomes);
         assertSame(disabled, shell.configSnapshot());
         assertFalse(shell.hasOperationalRuntime());
         assertEquals(BungeePluginShell.State.ACTIVE, shell.state());

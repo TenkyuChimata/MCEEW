@@ -14,7 +14,7 @@ import jp.wolfx.mceew.notification.NotificationProfile;
 import jp.wolfx.mceew.notification.NotificationSource;
 
 /** Converts eligible processing results into deferred, Bungee-delivered core intents. */
-final class BungeeNotificationOrchestrator implements AutoCloseable {
+final class BungeeNotificationOrchestrator implements BungeeNotificationSink {
     private static final String JMA_TIME_PATTERN = "yyyy/MM/dd HH:mm:ss";
     private static final String CHINA_TIME_PATTERN = "yyyy-MM-dd HH:mm:ss";
     private static final String TEST_WARNING =
@@ -31,7 +31,8 @@ final class BungeeNotificationOrchestrator implements AutoCloseable {
         this.dispatcher = Objects.requireNonNull(dispatcher, "dispatcher");
     }
 
-    void accept(BungeeMessageProcessor.ProcessingResult result) {
+    @Override
+    public void accept(BungeeMessageProcessor.ProcessingResult result) {
         if (result.outcome() == BungeeMessageProcessor.Outcome.FRESH_REALTIME) {
             dispatcher.dispatch(realtime(result.realtimeEvent()));
         } else if (result.outcome() == BungeeMessageProcessor.Outcome.CACHE_CHANGED) {
@@ -39,7 +40,8 @@ final class BungeeNotificationOrchestrator implements AutoCloseable {
         }
     }
 
-    void dispatchTest(String sourceKey) {
+    @Override
+    public boolean dispatchTest(String sourceKey) {
         BungeeNotificationEvent event;
         switch (sourceKey) {
             case "forecast":
@@ -90,7 +92,7 @@ final class BungeeNotificationOrchestrator implements AutoCloseable {
             default:
                 throw new IllegalArgumentException("Unknown test source: " + sourceKey);
         }
-        dispatcher.dispatchTest(event, TEST_WARNING);
+        return dispatcher.dispatchTest(event, TEST_WARNING);
     }
 
     private BungeeNotificationEvent testJma(

@@ -65,17 +65,28 @@ final class BungeeTargetResolver {
                 new ArrayList<>(platform.onlinePlayers());
         Map<UUID, Recipient> recipients = new LinkedHashMap<>();
         for (BungeeNotificationPlatform.Player player : connected) {
+            String backend = null;
             try {
-                String backend = player.currentBackendName();
+                backend = player.currentBackendName();
                 backend = backend == null ? null : BungeeConfigLoader.normalizeName(backend);
-                if (target.mode() == BungeeConfigSnapshot.TargetMode.ALL
-                        || (backend != null && selectedServers.contains(backend))) {
-                    recipients.putIfAbsent(
-                            player.uniqueId(), new Recipient(player, backend));
-                }
             } catch (RuntimeException error) {
                 logger.log(Level.WARNING,
-                        "MCEEW BungeeCord skipped a player whose backend state changed "
+                        "MCEEW BungeeCord could not read a player's current backend "
+                                + "during target resolution.",
+                        error);
+                if (target.mode() == BungeeConfigSnapshot.TargetMode.SELECTED) {
+                    continue;
+                }
+            }
+            if (target.mode() != BungeeConfigSnapshot.TargetMode.ALL
+                    && (backend == null || !selectedServers.contains(backend))) {
+                continue;
+            }
+            try {
+                recipients.putIfAbsent(player.uniqueId(), new Recipient(player, backend));
+            } catch (RuntimeException error) {
+                logger.log(Level.WARNING,
+                        "MCEEW BungeeCord skipped a player whose identity became unavailable "
                                 + "during target resolution.",
                         error);
             }

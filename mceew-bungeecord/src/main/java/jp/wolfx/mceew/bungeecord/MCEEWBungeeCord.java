@@ -10,6 +10,10 @@ public final class MCEEWBungeeCord extends Plugin {
 
     @Override
     public void onEnable() {
+        if (shell != null || command != null) {
+            getLogger().warning("MCEEW BungeeCord ignored a duplicate enable request.");
+            return;
+        }
         Path dataDirectory = getDataFolder().toPath();
         BungeeDelayScheduler scheduler = new BungeeDelayScheduler(
                 getProxy().getScheduler(), this);
@@ -46,13 +50,23 @@ public final class MCEEWBungeeCord extends Plugin {
         BungeeCommand registeredCommand = command;
         command = null;
         if (registeredCommand != null) {
-            getProxy().getPluginManager().unregisterCommand(registeredCommand);
+            try {
+                getProxy().getPluginManager().unregisterCommand(registeredCommand);
+            } catch (RuntimeException error) {
+                getLogger().log(Level.WARNING,
+                        "MCEEW BungeeCord command unregister failed during shutdown.", error);
+            }
         }
 
         BungeePluginShell activeShell = shell;
         shell = null;
         if (activeShell != null) {
-            activeShell.close();
+            try {
+                activeShell.close();
+            } catch (RuntimeException error) {
+                getLogger().log(Level.WARNING,
+                        "MCEEW BungeeCord shell cleanup failed during shutdown.", error);
+            }
         }
         getLogger().info("MCEEW BungeeCord platform shell shut down.");
     }

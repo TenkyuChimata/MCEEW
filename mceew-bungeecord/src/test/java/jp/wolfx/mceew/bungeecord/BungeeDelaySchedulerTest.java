@@ -95,7 +95,8 @@ class BungeeDelaySchedulerTest {
 
     static final class FakeBackend implements BungeeDelayScheduler.Backend {
         final List<FakeTask> tasks = new ArrayList<>();
-        private boolean runImmediately;
+        boolean runImmediately;
+        boolean failSubmissions;
         private int cancelOwnerCalls;
 
         @Override
@@ -110,6 +111,9 @@ class BungeeDelaySchedulerTest {
         }
 
         private FakeTask add(Runnable task, long delay, TimeUnit unit, boolean async) {
+            if (failSubmissions) {
+                throw new IllegalStateException("scheduler rejected task");
+            }
             FakeTask fake = new FakeTask(task, delay, unit, async);
             tasks.add(fake);
             if (runImmediately) {

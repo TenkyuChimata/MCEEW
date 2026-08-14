@@ -30,7 +30,8 @@ printf 'version: 2\nmodules: []\n' > "$runtime/modules.yml"
 
 cd "$runtime"
 set -o pipefail
-(sleep 6; echo eew; echo mceew; echo 'eew reload'; sleep 2; echo end) | \
+(sleep 6; echo eew; echo mceew; echo 'eew info jma'; echo 'eew info cenc'; \
+  echo 'eew reload'; sleep 2; echo end) | \
   timeout 30s java -jar proxy.jar 2>&1 | tee runtime.log
 
 grep -F "Loaded plugin MCEEW version $expected_version" runtime.log
@@ -39,6 +40,7 @@ grep -F "MCEEW BungeeCord $expected_version platform shell initialized." runtime
 grep -F 'MCEEW BungeeCord operational runtime is disabled by configuration.' runtime.log
 test "$(grep -Fc 'Plugin version: v' runtime.log)" -ge 2
 grep -F 'Platform: BungeeCord / Waterfall' runtime.log
+test "$(grep -Fc 'MCEEW runtime is not currently available.' runtime.log)" -eq 2
 grep -F 'Configuration reloaded successfully.' runtime.log
 grep -F 'MCEEW BungeeCord platform shell shut down.' runtime.log
 grep -Fx 'platform_config_version: 1' plugins/MCEEW/config.yml

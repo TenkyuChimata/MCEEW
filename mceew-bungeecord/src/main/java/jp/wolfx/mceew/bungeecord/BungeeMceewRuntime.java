@@ -5,6 +5,7 @@ import java.net.http.HttpClient;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import jp.wolfx.mceew.BungeeMessageProcessor;
 import jp.wolfx.mceew.format.LegacyTextFormatter;
@@ -20,7 +21,7 @@ final class BungeeMceewRuntime implements AutoCloseable {
 
     @FunctionalInterface
     interface NotificationOrchestratorFactory {
-        BungeeNotificationOrchestrator create(BungeeConfigSnapshot config);
+        BungeeNotificationSink create(BungeeConfigSnapshot config);
     }
 
     static final class PreparedConfiguration implements AutoCloseable {
@@ -53,6 +54,7 @@ final class BungeeMceewRuntime implements AutoCloseable {
     private final WebSocketConnectionManager webSocketManager;
     private final NotificationOrchestratorFactory orchestratorFactory;
     private final AtomicReference<ConfigGeneration> configGeneration;
+    private final Logger logger;
 
     private State state = State.NEW;
 
@@ -93,7 +95,7 @@ final class BungeeMceewRuntime implements AutoCloseable {
             BungeeDelayScheduler delayScheduler,
             WebSocketConnectionManager.Connector connector,
             Logger logger,
-            BungeeNotificationOrchestrator notificationOrchestrator
+            BungeeNotificationSink notificationOrchestrator
     ) {
         this(config, delayScheduler, connector, logger, null, notificationOrchestrator);
     }
@@ -115,11 +117,12 @@ final class BungeeMceewRuntime implements AutoCloseable {
             WebSocketConnectionManager.Connector connector,
             Logger logger,
             NotificationOrchestratorFactory orchestratorFactory,
-            BungeeNotificationOrchestrator initialOrchestrator
+            BungeeNotificationSink initialOrchestrator
     ) {
         Objects.requireNonNull(config, "config");
         Objects.requireNonNull(delayScheduler, "delayScheduler");
         Objects.requireNonNull(connector, "connector");
+        this.logger = Objects.requireNonNull(logger, "logger");
         BungeeConfigSnapshot.SourceGates gates = config.sourceGates();
         this.orchestratorFactory = orchestratorFactory;
         messageProcessor = new BungeeMessageProcessor(
@@ -131,7 +134,7 @@ final class BungeeMceewRuntime implements AutoCloseable {
                 connector,
                 delayScheduler,
                 this::processMessage,
-                Objects.requireNonNull(logger, "logger"),
+                this.logger,
                 RECONNECT_DELAY_SECONDS,
                 TimeUnit.SECONDS);
     }
@@ -149,7 +152,14 @@ final class BungeeMceewRuntime implements AutoCloseable {
         BungeeMessageProcessor.ProcessingResult result =
                 messageProcessor.process(message, generation.processingPolicy);
         if (generation.notificationOrchestrator != null) {
-            generation.notificationOrchestrator.accept(result);
+            try {
+                generation.notificationOrchestrator.accept(result);
+            } catch (RuntimeException error) {
+                logger.log(Level.WARNING,
+                        "MCEEW BungeeCord notification processing failed; "
+                                + "the Wolfx connection remains active.",
+                        error);
+            }
         }
         return result;
     }
@@ -160,7 +170,7 @@ final class BungeeMceewRuntime implements AutoCloseable {
             throw new IllegalArgumentException(
                     "Disabled configuration does not require an operational runtime generation");
         }
-        BungeeNotificationOrchestrator preparedOrchestrator = orchestratorFactory == null
+        BungeeNotificationSink preparedOrchestrator = orchestratorFactory == null
                 ? null
                 : orchestratorFactory.create(config);
         return new PreparedConfiguration(new ConfigGeneration(
@@ -172,7 +182,14 @@ final class BungeeMceewRuntime implements AutoCloseable {
         ConfigGeneration replacement = prepared.consume();
         ConfigGeneration previous = configGeneration.getAndSet(replacement);
         if (previous != null) {
-            previous.close();
+            try {
+                previous.close();
+            } catch (RuntimeException error) {
+                logger.log(Level.WARNING,
+                        "MCEEW BungeeCord could not completely close the previous "
+                                + "notification policy.",
+                        error);
+            }
         }
     }
 
@@ -210,8 +227,13 @@ final class BungeeMceewRuntime implements AutoCloseable {
                 || !isActive()) {
             return false;
         }
-        generation.notificationOrchestrator.dispatchTest(sourceKey);
-        return true;
+        try {
+            return generation.notificationOrchestrator.dispatchTest(sourceKey);
+        } catch (RuntimeException error) {
+            logger.log(Level.WARNING,
+                    "MCEEW BungeeCord test notification dispatch failed.", error);
+            return false;
+        }
     }
 
     void start() {
@@ -278,12 +300,12 @@ final class BungeeMceewRuntime implements AutoCloseable {
     private static final class ConfigGeneration implements AutoCloseable {
         private final BungeeMessageProcessor.ProcessingPolicy processingPolicy;
         private final BungeeConfigSnapshot config;
-        private final BungeeNotificationOrchestrator notificationOrchestrator;
+        private final BungeeNotificationSink notificationOrchestrator;
 
         private ConfigGeneration(
                 BungeeMessageProcessor.ProcessingPolicy processingPolicy,
                 BungeeConfigSnapshot config,
-                BungeeNotificationOrchestrator notificationOrchestrator
+                BungeeNotificationSink notificationOrchestrator
         ) {
             this.processingPolicy = processingPolicy;
             this.config = config;
