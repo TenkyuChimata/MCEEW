@@ -243,7 +243,7 @@ jobs:
         jar_entries="$(jar tf "$bungee_jar")"
 
         if grep -Eq '^(net/md_5|io/github/waterfallmc|org/bukkit|io/papermc|dev/folia|com/velocitypowered|net/kyori/adventure|org/bstats)/' <<<"$jar_entries"; then
-          echo "The BungeeCord Jar contains a platform API or bStats class."
+          echo "The BungeeCord Jar contains a platform API or unrelocated bStats class."
           exit 1
         fi
         if grep -Eq '(^|/)(com/google/gson|org/yaml/snakeyaml)/' <<<"$jar_entries"; then
@@ -252,6 +252,13 @@ jobs:
         fi
         grep -Fx 'jp/wolfx/mceew/bungeecord/libs/gson/Gson.class' <<<"$jar_entries"
         grep -Fx 'jp/wolfx/mceew/bungeecord/libs/snakeyaml/Yaml.class' <<<"$jar_entries"
+        grep -Fx 'jp/wolfx/mceew/bungeecord/libs/bstats/bungeecord/Metrics.class' <<<"$jar_entries"
+        grep -Fx 'jp/wolfx/mceew/bungeecord/libs/bstats/MetricsBase.class' <<<"$jar_entries"
+        if wrong_metrics_adapters="$(grep -E '^jp/wolfx/mceew/bungeecord/libs/bstats/(bukkit|velocity)/' <<<"$jar_entries")"; then
+          echo "The BungeeCord Jar contains a bStats adapter for another platform:"
+          printf '%s\n' "$wrong_metrics_adapters"
+          exit 1
+        fi
         test "$(grep -Fxc 'jp/wolfx/mceew/websocket/WebSocketConnectionManager.class' <<<"$jar_entries")" -eq 1
         test "$(grep -Fxc 'jp/wolfx/mceew/bungeecord/MCEEWBungeeCord.class' <<<"$jar_entries")" -eq 1
         test "$(grep -Fxc 'jp/wolfx/mceew/bungeecord/BungeeCommand.class' <<<"$jar_entries")" -eq 1
@@ -342,6 +349,42 @@ jobs:
           fi
         done < <(find "$class_dir/jp/wolfx/mceew/bungeecord" -name '*.class' -type f \
           ! -path '*/libs/*' -print)
+
+    - name: Verify public release-candidate assets
+      shell: bash
+      run: |
+        shopt -s nullglob
+        expected_version="$(mvn -q help:evaluate -Dexpression=project.version -DforceStdout)"
+        bukkit_jars=(mceew-bukkit/target/MCEEW-*.jar)
+        velocity_jars=(mceew-velocity/target/MCEEW-Velocity-*.jar)
+        bungee_jars=(mceew-bungeecord/target/MCEEW-BungeeCord-*.jar)
+        if (( ${#bukkit_jars[@]} != 1 || ${#velocity_jars[@]} != 1 || ${#bungee_jars[@]} != 1 )); then
+          echo "Expected exactly one public distribution Jar for each platform."
+          printf 'Bukkit=%d Velocity=%d BungeeCord=%d\n' \
+            "${#bukkit_jars[@]}" "${#velocity_jars[@]}" "${#bungee_jars[@]}"
+          exit 1
+        fi
+        expected_files=(
+          "mceew-bukkit/target/MCEEW-$expected_version.jar"
+          "mceew-velocity/target/MCEEW-Velocity-$expected_version.jar"
+          "mceew-bungeecord/target/MCEEW-BungeeCord-$expected_version.jar"
+        )
+        for expected_file in "${expected_files[@]}"; do
+          if [[ ! -f "$expected_file" ]]; then
+            echo "Missing expected public release candidate: $expected_file"
+            exit 1
+          fi
+        done
+
+    - name: Upload public release-candidate artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: mceew-public-release-candidates
+        path: |
+          mceew-bukkit/target/MCEEW-*.jar
+          mceew-velocity/target/MCEEW-Velocity-*.jar
+          mceew-bungeecord/target/MCEEW-BungeeCord-*.jar
+        if-no-files-found: error
 
     - name: Assemble Velocity runtime smoke fixture
       shell: bash

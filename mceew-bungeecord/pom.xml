@@ -77,6 +77,10 @@
                             </filters>
                             <relocations>
                                 <relocation>
+                                    <pattern>org.bstats</pattern>
+                                    <shadedPattern>jp.wolfx.mceew.bungeecord.libs.bstats</shadedPattern>
+                                </relocation>
+                                <relocation>
                                     <pattern>com.google.gson</pattern>
                                     <shadedPattern>jp.wolfx.mceew.bungeecord.libs.gson</shadedPattern>
                                 </relocation>
@@ -115,6 +119,11 @@
             <groupId>org.yaml</groupId>
             <artifactId>snakeyaml</artifactId>
             <version>${snakeyaml.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.bstats</groupId>
+            <artifactId>bstats-bungeecord</artifactId>
+            <version>3.2.1</version>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>

@@ -56,8 +56,14 @@ class BungeeMetadataTest {
         assertTrue(pom.contains("<artifactId>bungeecord-api</artifactId>"));
         assertTrue(pom.contains("<scope>provided</scope>"));
         assertTrue(pom.contains("https://hub.spigotmc.org/nexus/repository/public/"));
+        assertTrue(pom.contains("<artifactId>bstats-bungeecord</artifactId>"));
+        assertTrue(pom.contains("<version>3.2.1</version>"));
+        assertTrue(pom.contains("<pattern>org.bstats</pattern>"));
+        assertTrue(pom.contains("<shadedPattern>jp.wolfx.mceew.bungeecord.libs.bstats"
+                + "</shadedPattern>"));
         assertFalse(pom.contains("waterfall"));
-        assertFalse(pom.contains("bstats"));
+        assertFalse(pom.contains("bstats-bukkit"));
+        assertFalse(pom.contains("bstats-velocity"));
         assertFalse(pom.contains("luckperms"));
     }
 

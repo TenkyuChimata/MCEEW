@@ -23,6 +23,14 @@ cp "$plugin_jar" "$runtime/plugins/"
 cp "$proxy_jar" "$runtime/proxy.jar"
 unzip -p "$plugin_jar" config.yml > "$runtime/plugins/MCEEW/config.yml"
 sed -i '0,/enabled: true/s//enabled: false/' "$runtime/plugins/MCEEW/config.yml"
+mkdir -p "$runtime/plugins/bStats"
+cat > "$runtime/plugins/bStats/config.yml" <<'EOF'
+enabled: false
+serverUuid: "00000000-0000-0000-0000-000000000000"
+logFailedRequests: false
+logSentData: false
+logResponseStatusText: false
+EOF
 
 # Disable optional proxy modules through the proxy's own supported modules.yml.
 # The MCEEW smoke exercises only the plugin and avoids unrelated module downloads.
@@ -45,6 +53,7 @@ grep -F 'Configuration reloaded successfully.' runtime.log
 grep -F 'MCEEW BungeeCord platform shell shut down.' runtime.log
 grep -Fx 'platform_config_version: 1' plugins/MCEEW/config.yml
 grep -Fx '  enabled: false' plugins/MCEEW/config.yml
+grep -Fx 'enabled: false' plugins/bStats/config.yml
 
 if grep -Fq 'Connected to WebSocket API.' runtime.log; then
   echo "$runtime_label unexpectedly opened the Wolfx WebSocket."

@@ -21,8 +21,7 @@ class BungeeModulePurityTest {
             "jdk/internal/misc/" + "Unsafe",
             "sun/reflect/" + "Reflection" + "Factory",
             "java/lang/reflect/",
-            "net/luckperms/",
-            "org/bstats/");
+            "net/luckperms/");
 
     @Test
     void productionBytecodeUsesNoForbiddenPlatformOrInternalApi() throws Exception {
@@ -52,14 +51,61 @@ class BungeeModulePurityTest {
                 "setAccessible",
                 "net.md_5.bungee.protocol",
                 "Protocolize",
-                "LuckPerms",
-                "org.bstats");
+                "LuckPerms");
         try (Stream<Path> files = Files.walk(sourceRoot)) {
             for (Path file : (Iterable<Path>) files.filter(path ->
                     path.toString().endsWith(".java"))::iterator) {
                 String source = Files.readString(file);
                 for (String token : prohibited) {
                     assertFalse(source.contains(token), file + " contains " + token);
+                }
+            }
+        }
+    }
+
+    @Test
+    void metricsIntegrationUsesOnlyTheBungeeAdapterAndNoCustomCharts() throws Exception {
+        Path root = Path.of(System.getProperty("mceew.reactor.root"));
+        Path sourceRoot = root.resolve("mceew-bungeecord/src/main/java");
+        Path output = Path.of(System.getProperty("mceew.bungeecord.output"));
+        int bungeeMetricsImports = 0;
+        List<String> prohibited = List.of(
+                "org.bstats.bukkit",
+                "org.bstats.velocity",
+                "addCustomChart",
+                "SimplePie",
+                "AdvancedPie",
+                "DrilldownPie",
+                "SingleLineChart",
+                "MultiLineChart",
+                "SimpleBarChart",
+                "MultiBarChart");
+        try (Stream<Path> files = Files.walk(sourceRoot)) {
+            for (Path file : (Iterable<Path>) files.filter(path ->
+                    path.toString().endsWith(".java"))::iterator) {
+                String source = Files.readString(file);
+                if (source.contains("org.bstats")) {
+                    bungeeMetricsImports++;
+                    assertTrue(file.endsWith("MCEEWBungeeCord.java"), file.toString());
+                    assertFalse(source.replace("org.bstats.bungeecord.Metrics", "")
+                            .contains("org.bstats"), file.toString());
+                }
+                for (String token : prohibited) {
+                    assertFalse(source.contains(token), file + " contains " + token);
+                }
+            }
+        }
+        assertTrue(bungeeMetricsImports == 1,
+                "exactly the platform plugin should reference the Bungee metrics adapter");
+
+        try (Stream<Path> files = Files.walk(output.resolve("jp/wolfx/mceew/bungeecord"))) {
+            for (Path file : (Iterable<Path>) files.filter(path ->
+                    path.toString().endsWith(".class"))::iterator) {
+                String bytes = new String(Files.readAllBytes(file), StandardCharsets.ISO_8859_1);
+                if (bytes.contains("org/bstats/")) {
+                    assertTrue(file.endsWith("MCEEWBungeeCord.class"), file.toString());
+                    assertFalse(bytes.replace("org/bstats/bungeecord/Metrics", "")
+                            .contains("org/bstats/"), file.toString());
                 }
             }
         }

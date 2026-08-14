@@ -3,14 +3,16 @@ package jp.wolfx.mceew.bungeecord;
 import java.nio.file.Path;
 import java.util.logging.Level;
 import net.md_5.bungee.api.plugin.Plugin;
+import org.bstats.bungeecord.Metrics;
 
 public final class MCEEWBungeeCord extends Plugin {
     private BungeePluginShell shell;
     private BungeeCommand command;
+    private BungeeMetricsLifecycle metricsLifecycle;
 
     @Override
     public void onEnable() {
-        if (shell != null || command != null) {
+        if (shell != null || command != null || metricsLifecycle != null) {
             getLogger().warning("MCEEW BungeeCord ignored a duplicate enable request.");
             return;
         }
@@ -40,6 +42,12 @@ public final class MCEEWBungeeCord extends Plugin {
 
         shell = newShell;
         command = newCommand;
+        BungeeMetricsLifecycle newMetricsLifecycle = new BungeeMetricsLifecycle(getLogger(), pluginId -> {
+            Metrics metrics = new Metrics(this, pluginId);
+            return metrics::shutdown;
+        });
+        metricsLifecycle = newMetricsLifecycle;
+        newMetricsLifecycle.initialize();
         newShell.initialize();
         getLogger().info("MCEEW BungeeCord " + getDescription().getVersion()
                 + " platform shell initialized.");
@@ -47,6 +55,12 @@ public final class MCEEWBungeeCord extends Plugin {
 
     @Override
     public void onDisable() {
+        BungeeMetricsLifecycle activeMetricsLifecycle = metricsLifecycle;
+        metricsLifecycle = null;
+        if (activeMetricsLifecycle != null) {
+            activeMetricsLifecycle.close();
+        }
+
         BungeeCommand registeredCommand = command;
         command = null;
         if (registeredCommand != null) {
