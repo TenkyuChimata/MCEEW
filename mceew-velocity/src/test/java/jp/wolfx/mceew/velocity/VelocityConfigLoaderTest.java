@@ -62,6 +62,24 @@ class VelocityConfigLoaderTest {
         assertFalse(content.contains("cenc-eew:"));
         assertFalse(content.contains("jma-eqlist:"));
         assertFalse(content.contains("cenc-eqlist:"));
+
+        VelocityNotificationConfig notifications = snapshot.notificationConfig();
+        assertTrue(notifications.proxyChannels(
+                NotificationSource.JMA_EARTHQUAKE_LIST).chat());
+        assertTrue(notifications.proxyChannels(
+                NotificationSource.CENC_EARTHQUAKE_LIST).chat());
+        assertEquals("§e地震情報\n §e%origin_time% §f発生\n"
+                        + " §f震央: §e%region% (北緯: §e%lat%度 東経: §e%lon%度)\n"
+                        + " §fマグニチュード: §e%mag%\n §f深さ: §e%depth%\n"
+                        + " §f最大震度: §r%shindo%\n §f津波情報: §e%info%",
+                notifications.source(NotificationSource.JMA_EARTHQUAKE_LIST)
+                        .earthquakeListTemplate());
+        assertEquals("§e中国地震台网 (%flag%)\n §e%origin_time% §f发生\n"
+                        + " §f震中: §e%region% (北纬: §e%lat%度 东经: §e%lon%度)\n"
+                        + " §f震级: §e%mag%\n §f深度: §e%depth%\n"
+                        + " §f最大烈度: §r%shindo%",
+                notifications.source(NotificationSource.CENC_EARTHQUAKE_LIST)
+                        .earthquakeListTemplate());
     }
 
     @Test
@@ -279,6 +297,48 @@ class VelocityConfigLoaderTest {
         assertPolicy(notifications.playerChannels(
                 NotificationSource.JMA_ALERT, "SERVER-SOURCE"), true);
         assertPolicy(notifications.playerChannels(NotificationSource.JMA_ALERT, null), true);
+    }
+
+    @Test
+    void eqlistBroadcastUsesDirectSourceOverrideAndInheritsWhenOmitted() throws Exception {
+        String content = validConfig("all").replace("servers: {}", ""
+                + "notifications:\n"
+                + "  defaults:\n"
+                + "    broadcast: false\n"
+                + "  sources:\n"
+                + "    jma_eqlist:\n"
+                + "      broadcast: true\n"
+                + "servers: {}");
+        byte[] original = content.getBytes(StandardCharsets.UTF_8);
+        VelocityConfigSnapshot snapshot = new VelocityConfigLoader(
+                writeConfig(original).getParent()).load();
+
+        assertTrue(snapshot.notificationConfig().proxyChannels(
+                NotificationSource.JMA_EARTHQUAKE_LIST).chat());
+        assertFalse(snapshot.notificationConfig().proxyChannels(
+                NotificationSource.CENC_EARTHQUAKE_LIST).chat());
+        assertArrayEquals(original, Files.readAllBytes(
+                temporaryDirectory.resolve("mceew/config.yml")));
+    }
+
+    @Test
+    void eqlistNestedChannelsAreRejectedInFavorOfTheCanonicalDirectSwitch()
+            throws IOException {
+        String content = validConfig("all").replace("servers: {}", ""
+                + "notifications:\n"
+                + "  sources:\n"
+                + "    jma_eqlist:\n"
+                + "      channels:\n"
+                + "        broadcast: false\n"
+                + "servers: {}");
+        Path config = writeConfig(content.getBytes(StandardCharsets.UTF_8));
+
+        VelocityConfigException error = assertThrows(
+                VelocityConfigException.class,
+                () -> new VelocityConfigLoader(config.getParent()).load());
+
+        assertTrue(error.getMessage().contains(
+                "use notifications.sources.jma_eqlist.broadcast"));
     }
 
     @Test

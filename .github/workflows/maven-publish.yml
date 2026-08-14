@@ -170,6 +170,10 @@ jobs:
         for source in jma_alert jma_forecast sichuan fujian cwa cenc_eew chongqing jma_eqlist cenc_eqlist; do
           unzip -p "$velocity_jar" config.yml | grep -Fx "    $source:"
         done
+        unzip -p "$velocity_jar" config.yml | grep -A3 -Fx '    jma_eqlist:' | \
+          grep -Fx '      broadcast: true'
+        unzip -p "$velocity_jar" config.yml | grep -A3 -Fx '    cenc_eqlist:' | \
+          grep -Fx '      broadcast: true'
         if unzip -p "$velocity_jar" config.yml | grep -Eq \
           '^[[:space:]]*(platform-config-version|time-format|jma-alert|jma-forecast|cenc-eew|jma-eqlist|cenc-eqlist):'; then
           echo "The Velocity config contains a retired kebab-case identifier."

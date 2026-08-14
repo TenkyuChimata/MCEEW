@@ -226,6 +226,50 @@ class VelocityNotificationDispatcherTest {
     }
 
     @Test
+    void eqlistServerSourceOverrideAffectsPlayersButNotProxyConsole() throws Exception {
+        Fixture disabledOnLobby = fixture(config(""
+                + "notifications:\n"
+                + "  sources:\n"
+                + "    jma_eqlist:\n"
+                + "      broadcast: true\n", "all", ""
+                + "servers:\n"
+                + "  lobby:\n"
+                + "    sources:\n"
+                + "      jma_eqlist:\n"
+                + "        broadcast: false\n"));
+        NotificationTestSupport.RecordingPlayer blocked = disabledOnLobby.environment.addPlayer(
+                "blocked", "lobby", Set.of(
+                        ALL, NotificationSource.JMA_EARTHQUAKE_LIST.getPermissionNode()));
+
+        disabledOnLobby.dispatcher.dispatch(
+                eqlistEvent(NotificationSource.JMA_EARTHQUAKE_LIST));
+        disabledOnLobby.environment.scheduler().runAll();
+
+        assertTrue(blocked.messages().isEmpty());
+        assertEquals(1, disabledOnLobby.environment.consoleMessages().size());
+
+        Fixture enabledOnLobby = fixture(config(""
+                + "notifications:\n"
+                + "  defaults:\n"
+                + "    broadcast: false\n", "all", ""
+                + "servers:\n"
+                + "  lobby:\n"
+                + "    sources:\n"
+                + "      jma_eqlist:\n"
+                + "        broadcast: true\n"));
+        NotificationTestSupport.RecordingPlayer allowed = enabledOnLobby.environment.addPlayer(
+                "allowed", "lobby", Set.of(
+                        ALL, NotificationSource.JMA_EARTHQUAKE_LIST.getPermissionNode()));
+
+        enabledOnLobby.dispatcher.dispatch(
+                eqlistEvent(NotificationSource.JMA_EARTHQUAKE_LIST));
+        enabledOnLobby.environment.scheduler().runAll();
+
+        assertEquals(1, allowed.messages().size());
+        assertTrue(enabledOnLobby.environment.consoleMessages().isEmpty());
+    }
+
+    @Test
     void oneBrokenRecipientDoesNotSuppressAnotherOrOtherChannels() throws Exception {
         Fixture fixture = fixture(config("", "all", "servers: {}"));
         Set<String> permissions = Set.of(ALL, NotificationSource.SICHUAN_EEW.getPermissionNode());

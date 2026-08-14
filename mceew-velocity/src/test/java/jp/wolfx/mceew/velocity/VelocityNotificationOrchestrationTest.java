@@ -136,39 +136,118 @@ class VelocityNotificationOrchestrationTest {
     }
 
     @Test
-    void disabledEqlistNotificationStillPublishesChangedCacheBeforeDecision() throws Exception {
-        String config = "platform_config_version: 1\n"
-                + "global: {}\n"
-                + "notifications:\n"
-                + "  sources:\n"
-                + "    jma_eqlist:\n"
-                + "      channels:\n"
-                + "        broadcast: false\n"
-                + "targets:\n"
-                + "  default:\n"
-                + "    mode: all\n"
-                + "  sources: {}\n"
-                + "groups: {}\n"
-                + "servers: {}\n";
-        RuntimeFixture fixture = runtimeFixture(false, config);
+    void disabledEqlistBroadcastsStillPublishChangedCachesBeforeDecision() throws Exception {
+        RuntimeFixture fixture = runtimeFixture(false, eqlistConfig(false, false));
         NotificationTestSupport.RecordingPlayer player = fixture.environment.addPlayer(
                 "player", "lobby", Set.of(
                         "mceew.notify.all",
-                        NotificationSource.JMA_EARTHQUAKE_LIST.getPermissionNode()));
+                        NotificationSource.JMA_EARTHQUAKE_LIST.getPermissionNode(),
+                        NotificationSource.CENC_EARTHQUAKE_LIST.getPermissionNode()));
         fixture.runtime.start();
 
-        String initial = fixture("jma_eqlist");
-        JsonObject changed = JsonParser.parseString(initial).getAsJsonObject();
-        changed.addProperty("md5", "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee");
-        changed.getAsJsonObject("No1").addProperty("location", "更新震央");
-        fixture.connector.attempt(0).message(initial);
-        fixture.connector.attempt(0).message(changed.toString());
+        fixture.connector.attempt(0).message(fixture("jma_eqlist"));
+        fixture.connector.attempt(0).message(fixture("jma_eqlist"));
+        fixture.connector.attempt(0).message(
+                changedEqlist("jma_eqlist", 'e', "更新震央"));
+        fixture.connector.attempt(0).message(fixture("cenc_eqlist"));
+        fixture.connector.attempt(0).message(fixture("cenc_eqlist"));
+        fixture.connector.attempt(0).message(
+                changedEqlist("cenc_eqlist", 'f', "更新地区"));
         fixture.environment.scheduler().runAll();
 
         assertTrue(player.messages().isEmpty());
         assertTrue(fixture.environment.consoleMessages().isEmpty());
         assertEquals("更新震央", fixture.runtime.messageProcessor()
                 .latestJmaEarthquakeList().orElseThrow().render("%region%"));
+        assertEquals("更新地区", fixture.runtime.messageProcessor()
+                .latestCencEarthquakeList().orElseThrow().render("%region%"));
+        assertEquals(1, fixture.connector.connectionCount());
+    }
+
+    @Test
+    void jmaAndCencEqlistBroadcastSwitchesAreIndependent() throws Exception {
+        assertIndependentEqlistSwitches(false, true, "中国地震台网");
+        assertIndependentEqlistSwitches(true, false, "地震情報");
+    }
+
+    @Test
+    void realtimeGatesAndEqlistBroadcastSwitchesRemainIndependent() throws Exception {
+        RuntimeFixture gatedRealtime = runtimeFixture(
+                new boolean[]{false, true, true, true, false, true},
+                eqlistConfig(true, true));
+        NotificationTestSupport.RecordingPlayer listPlayer = gatedRealtime.environment.addPlayer(
+                "list-player", "lobby", Set.of(
+                        "mceew.notify.all",
+                        NotificationSource.JMA_EARTHQUAKE_LIST.getPermissionNode(),
+                        NotificationSource.CENC_EARTHQUAKE_LIST.getPermissionNode()));
+        gatedRealtime.runtime.start();
+
+        assertEquals(VelocityMessageProcessor.Outcome.DISABLED_REALTIME,
+                gatedRealtime.runtime.processApplicationMessage(
+                        "{\"type\":\"jma_eew\"}").outcome());
+        assertEquals(VelocityMessageProcessor.Outcome.DISABLED_REALTIME,
+                gatedRealtime.runtime.processApplicationMessage(
+                        "{\"type\":\"cenc_eew\"}").outcome());
+        sendFirstUnchangedChanged(gatedRealtime, "jma_eqlist", 'e');
+        sendFirstUnchangedChanged(gatedRealtime, "cenc_eqlist", 'f');
+        gatedRealtime.environment.scheduler().runAll();
+        assertEquals(2, listPlayer.messages().size());
+        assertEquals(2, gatedRealtime.environment.consoleMessages().size());
+
+        RuntimeFixture disabledLists = runtimeFixture(true, eqlistConfig(false, false));
+        NotificationTestSupport.RecordingPlayer realtimePlayer = disabledLists.environment.addPlayer(
+                "realtime-player", "lobby", Set.of(
+                        "mceew.notify.all",
+                        NotificationSource.JMA_ALERT.getPermissionNode(),
+                        NotificationSource.CENC_EEW.getPermissionNode(),
+                        NotificationSource.JMA_EARTHQUAKE_LIST.getPermissionNode(),
+                        NotificationSource.CENC_EARTHQUAKE_LIST.getPermissionNode()));
+        disabledLists.runtime.start();
+
+        assertEquals(VelocityMessageProcessor.Outcome.FRESH_REALTIME,
+                disabledLists.runtime.processApplicationMessage(
+                        freshFixture("jma_eew")).outcome());
+        assertEquals(VelocityMessageProcessor.Outcome.FRESH_REALTIME,
+                disabledLists.runtime.processApplicationMessage(
+                        freshFixture("cenc_eew")).outcome());
+        sendFirstUnchangedChanged(disabledLists, "jma_eqlist", 'c');
+        sendFirstUnchangedChanged(disabledLists, "cenc_eqlist", 'd');
+        disabledLists.environment.scheduler().runAll();
+        assertEquals(2, realtimePlayer.messages().size());
+        assertEquals(2, disabledLists.environment.consoleMessages().size());
+        assertTrue(disabledLists.runtime.messageProcessor()
+                .latestJmaEarthquakeList().isPresent());
+        assertTrue(disabledLists.runtime.messageProcessor()
+                .latestCencEarthquakeList().isPresent());
+        assertEquals(1, gatedRealtime.connector.connectionCount());
+        assertEquals(1, disabledLists.connector.connectionCount());
+    }
+
+    private void assertIndependentEqlistSwitches(
+            boolean jmaBroadcast,
+            boolean cencBroadcast,
+            String expectedMessageFragment
+    ) throws Exception {
+        RuntimeFixture fixture = runtimeFixture(
+                false, eqlistConfig(jmaBroadcast, cencBroadcast));
+        NotificationTestSupport.RecordingPlayer player = fixture.environment.addPlayer(
+                "player-" + jmaBroadcast, "lobby", Set.of(
+                        "mceew.notify.all",
+                        NotificationSource.JMA_EARTHQUAKE_LIST.getPermissionNode(),
+                        NotificationSource.CENC_EARTHQUAKE_LIST.getPermissionNode()));
+        fixture.runtime.start();
+
+        sendFirstUnchangedChanged(fixture, "jma_eqlist", jmaBroadcast ? 'c' : 'd');
+        sendFirstUnchangedChanged(fixture, "cenc_eqlist", cencBroadcast ? 'e' : 'f');
+        fixture.environment.scheduler().runAll();
+
+        assertEquals(1, player.messages().size());
+        assertTrue(LegacyComponentSerializer.legacySection()
+                .serialize(player.messages().get(0)).contains(expectedMessageFragment));
+        assertEquals(1, fixture.environment.consoleMessages().size());
+        assertTrue(fixture.runtime.messageProcessor().latestJmaEarthquakeList().isPresent());
+        assertTrue(fixture.runtime.messageProcessor().latestCencEarthquakeList().isPresent());
+        assertEquals(1, fixture.connector.connectionCount());
     }
 
     private RuntimeFixture runtimeFixture(boolean sourcesEnabled) throws Exception {
@@ -225,6 +304,30 @@ class VelocityNotificationOrchestrationTest {
         fixture.connector.attempt(0).message(initial);
         fixture.connector.attempt(0).message(initial);
         fixture.connector.attempt(0).message(changed.toString());
+    }
+
+    private static String changedEqlist(String name, char md5Character, String region) {
+        JsonObject changed = JsonParser.parseString(fixture(name)).getAsJsonObject();
+        changed.addProperty("md5", String.valueOf(md5Character).repeat(32));
+        changed.getAsJsonObject("No1").addProperty("location", region);
+        return changed.toString();
+    }
+
+    private static String eqlistConfig(boolean jmaBroadcast, boolean cencBroadcast) {
+        return "platform_config_version: 1\n"
+                + "global: {}\n"
+                + "notifications:\n"
+                + "  sources:\n"
+                + "    jma_eqlist:\n"
+                + "      broadcast: " + jmaBroadcast + "\n"
+                + "    cenc_eqlist:\n"
+                + "      broadcast: " + cencBroadcast + "\n"
+                + "targets:\n"
+                + "  default:\n"
+                + "    mode: all\n"
+                + "  sources: {}\n"
+                + "groups: {}\n"
+                + "servers: {}\n";
     }
 
     private static String freshFixture(String name) {

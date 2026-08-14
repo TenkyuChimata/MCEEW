@@ -144,14 +144,18 @@ notifications:
         volume: 1000.0
         pitch: 1.0
 
-    # Japan JMA earthquake report. Its channel settings control local delivery;
-    # global.sources.enable_jp does not disable earthquake-list cache updates.
+    # Japan JMA earthquake report
     jma_eqlist:
+      # Enable Japan JMA report broadcast
+      broadcast: true
+      # Set the chat message format
       message: "&e地震情報\n &e%origin_time% &f発生\n &f震央: &e%region% (北緯: &e%lat%度 東経: &e%lon%度)\n &fマグニチュード: &e%mag%\n &f深さ: &e%depth%\n &f最大震度: &r%shindo%\n &f津波情報: &e%info%"
 
-    # China CENC report. Its channel settings control local delivery;
-    # global.sources.enable_cenceew does not disable earthquake-list cache updates.
+    # China CENC report
     cenc_eqlist:
+      # Enable China CENC report broadcast
+      broadcast: true
+      # Set the chat message format
       message: "&e中国地震台网 (%flag%)\n &e%origin_time% &f发生\n &f震中: &e%region% (北纬: &e%lat%度 东经: &e%lon%度)\n &f震级: &e%mag%\n &f深度: &e%depth%\n &f最大烈度: &r%shindo%"
 
 # Player targeting does not affect proxy-console notifications.

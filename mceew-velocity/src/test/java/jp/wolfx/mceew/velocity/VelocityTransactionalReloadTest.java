@@ -8,6 +8,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.command.SimpleCommand;
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
@@ -111,6 +113,57 @@ class VelocityTransactionalReloadTest {
         assertSame(manager, runtime.webSocketManagerIdentity());
         assertSame(processor, runtime.messageProcessor());
         assertEquals(1, harness.connector.connectionCount());
+    }
+
+    @Test
+    void eqlistBroadcastReloadPreservesManagerCacheAndConnection() {
+        ReloadHarness harness = reloadHarness(
+                "eqlist-broadcast", eqlistConfig(true, true));
+        NotificationTestSupport.RecordingPlayer player = harness.environment.addPlayer(
+                "recipient", "lobby", Set.of(
+                        "mceew.notify.all",
+                        NotificationSource.JMA_EARTHQUAKE_LIST.getPermissionNode(),
+                        NotificationSource.CENC_EARTHQUAKE_LIST.getPermissionNode()));
+        VelocityMceewRuntime runtime = harness.runtime();
+        Object manager = runtime.webSocketManagerIdentity();
+        Object processor = runtime.messageProcessor();
+        int connections = harness.connector.connectionCount();
+
+        runtime.processApplicationMessage(fixture("jma_eqlist"));
+        runtime.processApplicationMessage(fixture("cenc_eqlist"));
+        runtime.processApplicationMessage(changedEqlist("jma_eqlist", 'c', "初回更新"));
+        runtime.processApplicationMessage(changedEqlist("cenc_eqlist", 'd', "初次更新"));
+        harness.environment.scheduler().runAll();
+        assertEquals(2, player.messages().size());
+        assertEquals(2, harness.environment.consoleMessages().size());
+
+        writeConfig(harness.dataDirectory, eqlistConfig(false, false));
+        assertEquals(List.of(MCEEWVelocity.ReloadOutcome.SUCCESS), harness.reload());
+        runtime.processApplicationMessage(changedEqlist("jma_eqlist", 'e', "通知停止後"));
+        runtime.processApplicationMessage(changedEqlist("cenc_eqlist", 'f', "通知停止后"));
+        harness.environment.scheduler().runAll();
+
+        assertEquals(2, player.messages().size());
+        assertEquals(2, harness.environment.consoleMessages().size());
+        assertEquals("通知停止後", runtime.messageProcessor()
+                .latestJmaEarthquakeList().orElseThrow().render("%region%"));
+        assertEquals("通知停止后", runtime.messageProcessor()
+                .latestCencEarthquakeList().orElseThrow().render("%region%"));
+        assertSame(manager, runtime.webSocketManagerIdentity());
+        assertSame(processor, runtime.messageProcessor());
+        assertEquals(connections, harness.connector.connectionCount());
+
+        writeConfig(harness.dataDirectory, eqlistConfig(true, true));
+        assertEquals(List.of(MCEEWVelocity.ReloadOutcome.SUCCESS), harness.reload());
+        runtime.processApplicationMessage(changedEqlist("jma_eqlist", 'a', "通知再開"));
+        runtime.processApplicationMessage(changedEqlist("cenc_eqlist", 'b', "通知恢复"));
+        harness.environment.scheduler().runAll();
+
+        assertEquals(4, player.messages().size());
+        assertEquals(4, harness.environment.consoleMessages().size());
+        assertSame(manager, runtime.webSocketManagerIdentity());
+        assertSame(processor, runtime.messageProcessor());
+        assertEquals(connections, harness.connector.connectionCount());
     }
 
     @Test
@@ -440,6 +493,24 @@ class VelocityTransactionalReloadTest {
                 : payload.replaceFirst(
                         "\"ReportTime\"\\s*:\\s*\"[^\"]*\"",
                         "\"ReportTime\":\"not-a-timestamp\"");
+    }
+
+    private static String changedEqlist(String name, char md5Character, String region) {
+        JsonObject changed = JsonParser.parseString(fixture(name)).getAsJsonObject();
+        changed.addProperty("md5", String.valueOf(md5Character).repeat(32));
+        changed.getAsJsonObject("No1").addProperty("location", region);
+        return changed.toString();
+    }
+
+    private static String eqlistConfig(boolean jmaBroadcast, boolean cencBroadcast) {
+        return config(true, true, null, "all").replace("targets:\n", ""
+                + "notifications:\n"
+                + "  sources:\n"
+                + "    jma_eqlist:\n"
+                + "      broadcast: " + jmaBroadcast + "\n"
+                + "    cenc_eqlist:\n"
+                + "      broadcast: " + cencBroadcast + "\n"
+                + "targets:\n");
     }
 
     private static String fixture(String name) {

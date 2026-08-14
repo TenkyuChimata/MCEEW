@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.command.SimpleCommand;
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
@@ -83,7 +85,7 @@ class VelocityCommandTest {
 
     @Test
     void infoReadsOnlyImmutableCachePresentationsWithoutNetworkSideEffects() {
-        CommandHarness harness = commandHarness("info");
+        CommandHarness harness = commandHarness("info", eqlistDisabledConfig());
         List<Component> replies = new ArrayList<>();
         CommandSource source = TestVelocityApi.commandSource(Set.of(), replies);
         harness.environment.scheduler().runAll();
@@ -98,6 +100,10 @@ class VelocityCommandTest {
 
         harness.connector.attempt(0).message(fixture("jma_eqlist"));
         harness.connector.attempt(0).message(fixture("cenc_eqlist"));
+        harness.connector.attempt(0).message(
+                changedEqlist("jma_eqlist", 'e', "更新震央"));
+        harness.connector.attempt(0).message(
+                changedEqlist("cenc_eqlist", 'f', "更新地区"));
         replies.clear();
         int requestsBefore = harness.connector.attempt(0).socket().requestCalls();
         harness.command.execute(TestVelocityApi.invocation(source, "eew", "info", "jma"));
@@ -106,9 +112,10 @@ class VelocityCommandTest {
         List<String> rendered = legacy(replies);
         assertEquals(2, rendered.size());
         assertTrue(rendered.get(0).startsWith("§e地震情報\n"));
-        assertTrue(rendered.get(0).contains("能登半島沖"));
+        assertTrue(rendered.get(0).contains("更新震央"));
         assertTrue(rendered.get(1).startsWith("§e中国地震台网 (正式测定)\n"));
-        assertTrue(rendered.get(1).contains("四川测试地区"));
+        assertTrue(rendered.get(1).contains("更新地区"));
+        assertTrue(harness.environment.consoleMessages().isEmpty());
         assertEquals(bootstrapMessages,
                 harness.connector.attempt(0).socket().textMessages());
         assertEquals(requestsBefore, harness.connector.attempt(0).socket().requestCalls());
@@ -291,7 +298,20 @@ class VelocityCommandTest {
     }
 
     private CommandHarness commandHarness(String name) {
+        return commandHarness(name, null);
+    }
+
+    private CommandHarness commandHarness(String name, String configContent) {
         Path data = temporaryDirectory.resolve(name);
+        if (configContent != null) {
+            try {
+                Files.createDirectories(data);
+                Files.writeString(
+                        data.resolve("config.yml"), configContent, StandardCharsets.UTF_8);
+            } catch (IOException error) {
+                throw new IllegalStateException(error);
+            }
+        }
         NotificationTestSupport.Environment environment = new NotificationTestSupport.Environment();
         TestVelocityApi.CapturingLogger logger = TestVelocityApi.logger();
         TestWebSocketSupport.RecordingConnector connector =
@@ -310,6 +330,30 @@ class VelocityCommandTest {
         assertNotNull(command);
         assertEquals(command, environment.scheduler().commandManager().command("mceew"));
         return new CommandHarness(environment, connector, plugin, command);
+    }
+
+    private static String changedEqlist(String name, char md5Character, String region) {
+        JsonObject changed = JsonParser.parseString(fixture(name)).getAsJsonObject();
+        changed.addProperty("md5", String.valueOf(md5Character).repeat(32));
+        changed.getAsJsonObject("No1").addProperty("location", region);
+        return changed.toString();
+    }
+
+    private static String eqlistDisabledConfig() {
+        return "platform_config_version: 1\n"
+                + "global: {}\n"
+                + "notifications:\n"
+                + "  sources:\n"
+                + "    jma_eqlist:\n"
+                + "      broadcast: false\n"
+                + "    cenc_eqlist:\n"
+                + "      broadcast: false\n"
+                + "targets:\n"
+                + "  default:\n"
+                + "    mode: all\n"
+                + "  sources: {}\n"
+                + "groups: {}\n"
+                + "servers: {}\n";
     }
 
     private static List<String> legacy(List<Component> components) {

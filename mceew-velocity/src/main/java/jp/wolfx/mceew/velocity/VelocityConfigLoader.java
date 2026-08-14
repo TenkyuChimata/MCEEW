@@ -232,33 +232,50 @@ final class VelocityConfigLoader {
             Map<?, ?> user,
             Map<?, ?> bundled
     ) throws VelocityConfigException {
-        VelocityChannelOverrides channels = parseOverrides(
-                optionalMapping(user, "channels", "notifications.sources." + key + ".channels"),
-                "notifications.sources." + key + ".channels");
+        String path = "notifications.sources." + key;
+        VelocityChannelOverrides channels = parseSourceOverrides(source, user, path);
         String message = legacy(optionalStringWithFallback(
-                user, bundled, "message", "notifications.sources." + key + ".message"));
+                user, bundled, "message", path + ".message"));
         if (VelocityNotificationSources.isEarthquakeList(source)) {
             return new VelocityNotificationConfig.SourceSettings(null, message, channels);
         }
 
         String title = legacy(optionalStringWithFallback(
-                user, bundled, "title", "notifications.sources." + key + ".title"));
+                user, bundled, "title", path + ".title"));
         String subtitle = legacy(optionalStringWithFallback(
-                user, bundled, "subtitle", "notifications.sources." + key + ".subtitle"));
+                user, bundled, "subtitle", path + ".subtitle"));
         Map<?, ?> userSound = optionalMapping(
-                user, "sound", "notifications.sources." + key + ".sound");
+                user, "sound", path + ".sound");
         Map<?, ?> bundledSound = requireMapping(
                 bundled, "sound", "bundled notifications.sources." + key + ".sound");
         String soundKey = optionalStringWithFallback(
-                userSound, bundledSound, "key", "notifications.sources." + key + ".sound.key");
+                userSound, bundledSound, "key", path + ".sound.key");
         double volume = optionalNumberWithFallback(
-                userSound, bundledSound, "volume", "notifications.sources." + key + ".sound.volume");
+                userSound, bundledSound, "volume", path + ".sound.volume");
         double pitch = optionalNumberWithFallback(
-                userSound, bundledSound, "pitch", "notifications.sources." + key + ".sound.pitch");
+                userSound, bundledSound, "pitch", path + ".sound.pitch");
         return new VelocityNotificationConfig.SourceSettings(
                 new NotificationProfile(message, title, subtitle, soundKey, volume, pitch),
                 null,
                 channels);
+    }
+
+    private static VelocityChannelOverrides parseSourceOverrides(
+            NotificationSource source,
+            Map<?, ?> user,
+            String path
+    ) throws VelocityConfigException {
+        if (!VelocityNotificationSources.isEarthquakeList(source)) {
+            return parseOverrides(optionalMapping(user, "channels", path + ".channels"),
+                    path + ".channels");
+        }
+        if (user.containsKey("channels")) {
+            throw new VelocityConfigException(
+                    path + ".channels is not supported; use " + path + ".broadcast");
+        }
+        rejectLegacyChannelKeys(user, path);
+        return new VelocityChannelOverrides(
+                nullableBoolean(user, "broadcast", path + ".broadcast"), null, null);
     }
 
     private static VelocityTargetConfig parseTargets(Map<?, ?> root)

@@ -155,6 +155,11 @@ The Velocity file is `plugins/mceew/config.yml`. Its current top-level schema is
 
 `global.sources` controls realtime warning processing. JMA and CENC
 earthquake-list cache updates remain independent of those realtime switches.
+The independent report-delivery switches are
+`notifications.sources.jma_eqlist.broadcast` and
+`notifications.sources.cenc_eqlist.broadcast`. Disabling either switch stops
+that report's broadcast while its local cache and `/eew info` output continue
+to update.
 
 With `global.enabled: false`, the operational Wolfx runtime is disabled, but
 the plugin shell, `/eew`, `/mceew`, and `/eew reload` remain available. This is
