@@ -256,8 +256,37 @@ jobs:
         test "$(grep -Fxc 'jp/wolfx/mceew/bungeecord/MCEEWBungeeCord.class' <<<"$jar_entries")" -eq 1
         test "$(grep -Fxc 'jp/wolfx/mceew/bungeecord/BungeeCommand.class' <<<"$jar_entries")" -eq 1
 
-        if grep -Eq '(^|/)[^/]*Test[^/]*\.class$|^runtime-smoke/|(^|/)mceew-core-[^/]*\.jar$' <<<"$jar_entries"; then
-          echo "The BungeeCord Jar contains tests, fixtures, or a nested core Jar."
+        test_class_pattern='(^|/)[^/$]*Test(\$[^/]*)?\.class$'
+        for entry in \
+          'jp/wolfx/FooTest.class' \
+          'jp/wolfx/FooTest$Helper.class'; do
+          if ! grep -Eq "$test_class_pattern" <<<"$entry"; then
+            echo "The BungeeCord test-class matcher did not reject: $entry"
+            exit 1
+          fi
+        done
+        for entry in \
+          'jp/wolfx/mceew/bungeecord/BungeeCommandService$TestOutcome.class' \
+          'jp/wolfx/FooContest.class'; do
+          if grep -Eq "$test_class_pattern" <<<"$entry"; then
+            echo "The BungeeCord test-class matcher falsely rejected: $entry"
+            exit 1
+          fi
+        done
+
+        if unexpected_test_classes="$(grep -E "$test_class_pattern" <<<"$jar_entries")"; then
+          echo "Unexpected compiled test class in BungeeCord artifact:"
+          printf '%s\n' "$unexpected_test_classes"
+          exit 1
+        fi
+        if runtime_smoke_entries="$(grep -E '^runtime-smoke/' <<<"$jar_entries")"; then
+          echo "Unexpected runtime smoke fixture in BungeeCord artifact:"
+          printf '%s\n' "$runtime_smoke_entries"
+          exit 1
+        fi
+        if nested_core_jars="$(grep -E '(^|/)mceew-core-[^/]*\.jar$' <<<"$jar_entries")"; then
+          echo "Unexpected nested core Jar in BungeeCord artifact:"
+          printf '%s\n' "$nested_core_jars"
           exit 1
         fi
         if grep -Eiq '(^|/)[^/]+\.jar$|^META-INF/.*\.(SF|RSA|DSA)$' <<<"$jar_entries"; then
