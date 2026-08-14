@@ -267,7 +267,7 @@ class VelocityCommandTest {
         Path failedData = temporaryDirectory.resolve("failed");
         Files.createDirectories(failedData);
         Files.writeString(failedData.resolve("config.yml"),
-                "platform-config-version: [\n", StandardCharsets.UTF_8);
+                "platform_config_version: [\n", StandardCharsets.UTF_8);
         TestVelocityApi.RecordingScheduler failedScheduler =
                 new TestVelocityApi.RecordingScheduler();
         MCEEWVelocity failed = new MCEEWVelocity(
@@ -343,7 +343,7 @@ class VelocityCommandTest {
             throws IOException {
         Files.createDirectories(dataDirectory);
         Files.writeString(dataDirectory.resolve("config.yml"),
-                "platform-config-version: 1\n"
+                "platform_config_version: 1\n"
                         + "global:\n"
                         + "  enabled: " + enabled + "\n"
                         + "targets:\n"

@@ -140,15 +140,18 @@ delivery.
 
 The Velocity file is `plugins/mceew/config.yml`. Its current top-level schema is:
 
-* `platform-config-version`: Velocity schema version; currently `1`
+* `platform_config_version`: Velocity schema version; currently `1`
 * `global.enabled`: enables or disables the one proxy-global Wolfx runtime
-* `global.sources`: realtime processing switches for `jma`, `sichuan`,
-  `fujian`, `cwa`, `cenc`, and `chongqing`
-* `notifications`: time format, global channel defaults, source messages,
-  titles, sounds, and source channel overrides
+* `global.sources`: realtime processing switches `enable_jp`, `enable_sc`,
+  `enable_fj`, `enable_cwa`, `enable_cenceew`, and `enable_cq`
+* `notifications.time_format`: date-time format shared by rendered reports
+* `notifications.defaults`: global `broadcast`, `title`, and `alert` delivery
+  switches
+* `notifications.sources`: source messages, titles, sounds, and optional
+  source channel overrides
 * `targets`: default and source-specific player-recipient rules
 * `groups`: named sets of Velocity backend server names
-* `servers`: backend-specific chat/title/sound overrides
+* `servers`: backend-specific `broadcast`/`title`/`alert` overrides
 
 `global.sources` controls realtime warning processing. JMA and CENC
 earthquake-list cache updates remain independent of those realtime switches.
@@ -178,19 +181,22 @@ targets:
     servers: [lobby]
     groups: [games]
   sources:
-    jma-alert:
+    jma_alert:
       mode: all
 
 groups:
   games: [survival, creative]
 ```
 
-Valid source keys are `jma-alert`, `jma-forecast`, `sichuan`, `fujian`, `cwa`,
-`cenc-eew`, `chongqing`, `jma-eqlist`, and `cenc-eqlist`.
+Valid source keys are `jma_alert`, `jma_forecast`, `sichuan`, `fujian`, `cwa`,
+`cenc_eew`, `chongqing`, `jma_eqlist`, and `cenc_eqlist`. The same keys are
+used under `notifications.sources`, `targets.sources`, and server source
+overrides.
 
 ### Delivery-channel precedence
 
-For `chat`, `title`, and `sound`, the most specific configured value wins:
+For the `broadcast` (chat), `title`, and `alert` (sound-enable) switches, the
+most specific configured value wins:
 
 ```text
 server + source > server > source > global
@@ -202,11 +208,15 @@ Example backend overrides:
 servers:
   lobby:
     notifications:
-      sound: false
+      alert: false
     sources:
-      jma-alert:
+      jma_alert:
         title: false
 ```
+
+The nested `sound` object under a notification source contains the Adventure
+sound `key`, `volume`, and `pitch`; it is distinct from the boolean `alert`
+delivery switch.
 
 `groups` and `servers` describe delivery. They do not create per-backend
 connections, caches, parsers, or runtimes: the proxy owns exactly one of each.
@@ -216,7 +226,7 @@ connections, caches, parsers, or runtimes: the proxy owns exactly one of each.
 The artifacts use intentionally separate configuration schemas:
 
 * Bukkit: `config-version: 9`
-* Velocity: `platform-config-version: 1`
+* Velocity: `platform_config_version: 1`
 
 Do not copy the Bukkit configuration over the Velocity file. Bukkit's schema
 and deployment behavior remain standalone and contain no proxy mode.

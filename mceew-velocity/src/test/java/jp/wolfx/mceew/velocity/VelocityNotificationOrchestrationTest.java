@@ -137,13 +137,13 @@ class VelocityNotificationOrchestrationTest {
 
     @Test
     void disabledEqlistNotificationStillPublishesChangedCacheBeforeDecision() throws Exception {
-        String config = "platform-config-version: 1\n"
+        String config = "platform_config_version: 1\n"
                 + "global: {}\n"
                 + "notifications:\n"
                 + "  sources:\n"
-                + "    jma-eqlist:\n"
+                + "    jma_eqlist:\n"
                 + "      channels:\n"
-                + "        chat: false\n"
+                + "        broadcast: false\n"
                 + "targets:\n"
                 + "  default:\n"
                 + "    mode: all\n"

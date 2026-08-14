@@ -108,28 +108,33 @@ final class VelocityConfigLoader {
             root = loadMapping(reader, "Velocity config: " + configPath);
         }
 
-        Object versionValue = root.get("platform-config-version");
+        rejectLegacyKey(root, "platform-config-version", "platform_config_version");
+        Object versionValue = root.get("platform_config_version");
         if (!(versionValue instanceof Integer)) {
-            throw new VelocityConfigException("platform-config-version must be an integer");
+            throw new VelocityConfigException("platform_config_version must be an integer");
         }
         int version = (Integer) versionValue;
         if (version != CURRENT_PLATFORM_CONFIG_VERSION) {
-            throw new VelocityConfigException("Unsupported platform-config-version " + version
+            throw new VelocityConfigException("Unsupported platform_config_version " + version
                     + "; expected " + CURRENT_PLATFORM_CONFIG_VERSION);
         }
 
         Map<?, ?> global = requireMapping(root, "global", "global");
         boolean runtimeEnabled = optionalBoolean(global, "enabled", true, "global.enabled");
         Map<?, ?> sources = optionalMapping(global, "sources", "global.sources");
-        boolean jmaEnabled = optionalBoolean(sources, "jma", true, "global.sources.jma");
+        rejectLegacyOperationalSourceKeys(sources);
+        boolean jmaEnabled = optionalBoolean(
+                sources, "enable_jp", true, "global.sources.enable_jp");
         boolean sichuanEnabled = optionalBoolean(
-                sources, "sichuan", true, "global.sources.sichuan");
+                sources, "enable_sc", true, "global.sources.enable_sc");
         boolean fujianEnabled = optionalBoolean(
-                sources, "fujian", true, "global.sources.fujian");
-        boolean cwaEnabled = optionalBoolean(sources, "cwa", true, "global.sources.cwa");
-        boolean cencEnabled = optionalBoolean(sources, "cenc", true, "global.sources.cenc");
+                sources, "enable_fj", true, "global.sources.enable_fj");
+        boolean cwaEnabled = optionalBoolean(
+                sources, "enable_cwa", true, "global.sources.enable_cwa");
+        boolean cencEnabled = optionalBoolean(
+                sources, "enable_cenceew", true, "global.sources.enable_cenceew");
         boolean chongqingEnabled = optionalBoolean(
-                sources, "chongqing", true, "global.sources.chongqing");
+                sources, "enable_cq", true, "global.sources.enable_cq");
 
         VelocityTargetConfig targetConfig = parseTargets(root);
         VelocityNotificationConfig notificationConfig = parseNotifications(
@@ -171,28 +176,30 @@ final class VelocityConfigLoader {
         Map<?, ?> defaultNotifications = requireMapping(
                 bundled, "notifications", "bundled notifications");
 
+        rejectLegacyKey(userNotifications, "time-format", "notifications.time_format");
         String timeFormat = optionalStringWithFallback(
                 userNotifications,
                 defaultNotifications,
-                "time-format",
-                "notifications.time-format");
+                "time_format",
+                "notifications.time_format");
         try {
             DateTimeFormatter.ofPattern(timeFormat);
         } catch (IllegalArgumentException error) {
-            throw new VelocityConfigException("notifications.time-format is invalid", error);
+            throw new VelocityConfigException("notifications.time_format is invalid", error);
         }
 
         Map<?, ?> userDefaults = optionalMapping(
                 userNotifications, "defaults", "notifications.defaults");
         Map<?, ?> bundledDefaults = requireMapping(
                 defaultNotifications, "defaults", "bundled notifications.defaults");
+        rejectLegacyChannelKeys(userDefaults, "notifications.defaults");
         VelocityChannelPolicy channelDefaults = new VelocityChannelPolicy(
-                optionalBooleanWithFallback(userDefaults, bundledDefaults, "chat",
-                        "notifications.defaults.chat"),
+                optionalBooleanWithFallback(userDefaults, bundledDefaults, "broadcast",
+                        "notifications.defaults.broadcast"),
                 optionalBooleanWithFallback(userDefaults, bundledDefaults, "title",
                         "notifications.defaults.title"),
-                optionalBooleanWithFallback(userDefaults, bundledDefaults, "sound",
-                        "notifications.defaults.sound"));
+                optionalBooleanWithFallback(userDefaults, bundledDefaults, "alert",
+                        "notifications.defaults.alert"));
 
         Map<?, ?> userSources = optionalMapping(
                 userNotifications, "sources", "notifications.sources");
@@ -357,10 +364,11 @@ final class VelocityConfigLoader {
 
     private static VelocityChannelOverrides parseOverrides(Map<?, ?> raw, String path)
             throws VelocityConfigException {
+        rejectLegacyChannelKeys(raw, path);
         return new VelocityChannelOverrides(
-                nullableBoolean(raw, "chat", path + ".chat"),
+                nullableBoolean(raw, "broadcast", path + ".broadcast"),
                 nullableBoolean(raw, "title", path + ".title"),
-                nullableBoolean(raw, "sound", path + ".sound"));
+                nullableBoolean(raw, "alert", path + ".alert"));
     }
 
     private static void validateSourceKeys(Map<?, ?> raw, String path)
@@ -368,8 +376,40 @@ final class VelocityConfigLoader {
         for (Object rawKey : raw.keySet()) {
             String key = stringKey(rawKey, path);
             if (VelocityNotificationSources.fromKey(key) == null) {
-                throw new VelocityConfigException("Unknown notification source key: " + path + "." + key);
+                if (key.indexOf('-') >= 0) {
+                    throw new VelocityConfigException(
+                            "Notification source keys under " + path
+                                    + " must use lower_snake_case; expected one of "
+                                    + VelocityNotificationSources.entries().keySet());
+                }
+                throw new VelocityConfigException(
+                        "Unknown notification source key under " + path + "; expected one of "
+                                + VelocityNotificationSources.entries().keySet());
             }
+        }
+    }
+
+    private static void rejectLegacyOperationalSourceKeys(Map<?, ?> sources)
+            throws VelocityConfigException {
+        rejectLegacyKey(sources, "jma", "global.sources.enable_jp");
+        rejectLegacyKey(sources, "sichuan", "global.sources.enable_sc");
+        rejectLegacyKey(sources, "fujian", "global.sources.enable_fj");
+        rejectLegacyKey(sources, "cwa", "global.sources.enable_cwa");
+        rejectLegacyKey(sources, "cenc", "global.sources.enable_cenceew");
+        rejectLegacyKey(sources, "chongqing", "global.sources.enable_cq");
+    }
+
+    private static void rejectLegacyChannelKeys(Map<?, ?> raw, String path)
+            throws VelocityConfigException {
+        rejectLegacyKey(raw, "chat", path + ".broadcast");
+        rejectLegacyKey(raw, "sound", path + ".alert");
+    }
+
+    private static void rejectLegacyKey(Map<?, ?> raw, String legacyKey, String canonicalPath)
+            throws VelocityConfigException {
+        if (raw.containsKey(legacyKey)) {
+            throw new VelocityConfigException(
+                    "Retired Velocity config key is not supported; use " + canonicalPath);
         }
     }
 

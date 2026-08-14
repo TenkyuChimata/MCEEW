@@ -1,96 +1,200 @@
-# MCEEW Velocity configuration
-# One proxy-global Wolfx runtime serves every configured backend target.
-platform-config-version: 1
+#
+#  MCEEW Velocity configuration
+#
+#  API Source: https://api.wolfx.jp
+#  GitHub: https://github.com/TenkyuChimata/MCEEW
+#  Releases: https://github.com/TenkyuChimata/MCEEW/releases
+#
+# ####
+
+########################
+# %flag% 予報 or 警報 | 正式测定 or 自动测定
+# %report_time% EEW report time
+# %origin_time% Earthquake occurrence time
+# %num% Report number
+# %lat% Epicenter latitude
+# %lon% Epicenter longitude
+# %region% Epicenter location name
+# %mag% Earthquake magnitude
+# %depth% Earthquake depth
+# %shindo% Earthquake intensity
+# %type% 仮定震源 or 最終報 or 訓練 or 仮定震源 (最終報) or 訓練 (最終報) or 取消
+# %info% Tsunami information
+# \n New line
+########################
+
+# Do not change this value. This is the Velocity configuration schema version.
+platform_config_version: 1
 
 global:
+  # Enable the proxy-global Wolfx earthquake runtime. Commands remain available when false.
   enabled: true
   sources:
-    jma: true
-    sichuan: true
-    fujian: true
-    cwa: true
-    cenc: true
-    chongqing: true
+    # Process Japan JMA realtime EEW messages
+    enable_jp: true
+
+    # Process Sichuan realtime EEW messages
+    enable_sc: true
+
+    # Process Fujian/Taiwan realtime EEW messages
+    enable_fj: true
+
+    # Process Taiwan CWA realtime EEW messages
+    enable_cwa: true
+
+    # Process China CENC realtime EEW messages
+    enable_cenceew: true
+
+    # Process Chongqing realtime EEW messages
+    enable_cq: true
 
 # User-visible defaults match the Bukkit distribution. Source channel values,
 # when present, override these defaults.
 notifications:
-  time-format: "yyyy年MM月dd日 HH時mm分ss秒"
+  # Date-time format
+  time_format: "yyyy年MM月dd日 HH時mm分ss秒"
   defaults:
-    chat: true
+    # Broadcast messages to chat
+    broadcast: true
+    # Broadcast messages to title
     title: true
-    sound: true
+    # Play alert sound
+    alert: true
   sources:
-    jma-alert:
+    # Japan JMA EEW alert report
+    jma_alert:
+      # Set the chat message format
       message: "&c緊急地震速報 (%flag%) | 第%num%報 %type%\n &e%origin_time% &f発生\n &f震央: &e%region% (北緯: &e%lat%度 東経: &e%lon%度)\n &fマグニチュード: &e%mag%\n &f深さ: &e%depth%\n &f最大震度: &r%shindo%\n &f更新時間: &e%report_time%"
+      # Set the title message format
       title: "&c緊急地震速報 (%flag%)"
+      # Set the subtitle message format
       subtitle: "&e%region%で震度%shindo%&eの地震"
+      # Japan JMA EEW alert sound
       sound:
+        # Set the alert sound key
         key: block.note_block.pling
+        # Set the alert sound volume
         volume: 1000.0
+        # Set the alert sound pitch
         pitch: 1.0
-    jma-forecast:
+
+    # Japan JMA EEW forecast report
+    jma_forecast:
       message: "&e緊急地震速報 (%flag%) | 第%num%報 %type%\n &e%origin_time% &f発生\n &f震央: &e%region% (北緯: &e%lat%度 東経: &e%lon%度)\n &fマグニチュード: &e%mag%\n &f深さ: &e%depth%\n &f最大震度: &r%shindo%\n &f更新時間: &e%report_time%"
       title: "&e緊急地震速報 (%flag%)"
       subtitle: "&e%region%で震度%shindo%&eの地震"
+      # Japan JMA EEW forecast sound
       sound:
         key: block.note_block.pling
         volume: 1000.0
         pitch: 1.0
+
+    # Sichuan EEW message
     sichuan:
       message: "&c四川地震预警 | 第%num%报\n &e%origin_time% &f发生\n &f震中: &e%region% (北纬: &e%lat%度 东经: &e%lon%度)\n &f震级: &e%mag%\n &f深度: &e%depth%\n &f最大烈度: &r%shindo%\n &f更新时间: &e%report_time%"
       title: "&c四川地震预警"
       subtitle: "&e%region%发生烈度%shindo%&e的地震"
+      # Sichuan EEW sound
       sound:
         key: block.note_block.pling
         volume: 1000.0
         pitch: 1.0
+
+    # Fujian/Taiwan EEW message
     fujian:
       message: "&c福建地震預警 | 第%num%報 %type%\n &e%origin_time% &f發生\n &f震央: &e%region% (北緯: &e%lat%度 東經: &e%lon%度)\n &f規模: &e%mag%\n &f更新時間: &e%report_time%"
       title: "&c福建地震預警"
       subtitle: "&e%region%发生震级%mag%地震"
+      # Fujian/Taiwan EEW sound
       sound:
         key: block.note_block.pling
         volume: 1000.0
         pitch: 1.0
+
+    # Taiwan CWA EEW message
     cwa:
       message: "&c台灣地震預警 | 第%num%報\n &e%origin_time% &f發生\n &f震央: &e%region% (北緯: &e%lat%度 東經: &e%lon%度)\n &f規模: &e%mag%\n &f深度: &e%depth%\n &f最大震度: &r%shindo%\n &f更新時間: &e%report_time%"
       title: "&c台灣地震預警"
       subtitle: "&e%region%发生芮氏規模%mag%地震"
+      # Taiwan CWA EEW sound
       sound:
         key: block.note_block.pling
         volume: 1000.0
         pitch: 1.0
-    cenc-eew:
+
+    # China CENC EEW message
+    cenc_eew:
       message: "&c中国地震台网地震预警 | 第%num%报\n &e%origin_time% &f发生\n &f震中: &e%region% (北纬: &e%lat%度 东经: &e%lon%度)\n &f震级: &e%mag%\n &f深度: &e%depth%\n &f最大烈度: &r%shindo%\n &f更新时间: &e%report_time%"
       title: "&c中国地震台网地震预警"
       subtitle: "&e%region%发生震级%mag%地震"
+      # China CENC EEW sound
       sound:
         key: block.note_block.pling
         volume: 1000.0
         pitch: 1.0
+
+    # Chongqing EEW message
     chongqing:
       message: "&c重庆地震预警 | 第%num%报\n &e%origin_time% &f发生\n &f震中: &e%region% (北纬: &e%lat%度 东经: &e%lon%度)\n &f震级: &e%mag%\n &f深度: &e%depth%\n &f最大烈度: &r%shindo%\n &f更新时间: &e%report_time%"
       title: "&c重庆地震预警"
       subtitle: "&e%region%发生震级%mag%地震"
+      # Chongqing EEW sound
       sound:
         key: block.note_block.pling
         volume: 1000.0
         pitch: 1.0
-    jma-eqlist:
+
+    # Japan JMA earthquake report. Its channel settings control local delivery;
+    # global.sources.enable_jp does not disable earthquake-list cache updates.
+    jma_eqlist:
       message: "&e地震情報\n &e%origin_time% &f発生\n &f震央: &e%region% (北緯: &e%lat%度 東経: &e%lon%度)\n &fマグニチュード: &e%mag%\n &f深さ: &e%depth%\n &f最大震度: &r%shindo%\n &f津波情報: &e%info%"
-    cenc-eqlist:
+
+    # China CENC report. Its channel settings control local delivery;
+    # global.sources.enable_cenceew does not disable earthquake-list cache updates.
+    cenc_eqlist:
       message: "&e中国地震台网 (%flag%)\n &e%origin_time% &f发生\n &f震中: &e%region% (北纬: &e%lat%度 东经: &e%lon%度)\n &f震级: &e%mag%\n &f深度: &e%depth%\n &f最大烈度: &r%shindo%"
 
-# A source-specific target completely replaces the default target.
+# Player targeting does not affect proxy-console notifications.
+# mode: all sends to all current proxy players.
+# mode: selected sends only to players on the listed servers or named groups.
+# mode: none sends to no players.
+# A source-specific target completely replaces the default target; it does not merge.
 targets:
   default:
     mode: all
+    # servers: [lobby]
+    # groups: [primary]
+
+  # Source keys use the same identifiers as notifications.sources.
+  # Example (disabled by default):
+  # jma_alert:
+  #   mode: selected
+  #   servers: [lobby]
+  #   groups: [primary]
   sources: {}
 
-# Named groups expand to backend server names for selected targets.
+# Named groups expand to backend server names for selected targets only.
+# Example (disabled by default):
+# primary:
+#   - lobby
+#   - survival
 groups: {}
 
-# Server entries may override delivery channels only. Operational source and
-# WebSocket settings always remain proxy-global under global.*.
+# Server entries override delivery channels only. Channel precedence is:
+# server + source > server > source > global defaults.
+# Keys are broadcast, title, and alert; alert enables the configured sound.
+# Example (disabled by default):
+# lobby:
+#   notifications:
+#     broadcast: true
+#     title: true
+#     alert: false
+#   sources:
+#     jma_alert:
+#       broadcast: false
+#       title: true
+#       alert: true
+#
+# There is always one proxy-global Wolfx runtime. Server entries never create
+# per-backend WebSocket connections or caches.
 servers: {}

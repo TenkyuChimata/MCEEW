@@ -158,11 +158,23 @@ jobs:
           python3 -c 'import json, sys; print(json.load(sys.stdin)["main"])')"
         test "$metadata_version" = "$expected_version"
         test "$metadata_main" = 'jp.wolfx.mceew.velocity.MCEEWVelocity'
-        unzip -p "$velocity_jar" config.yml | grep -Fx 'platform-config-version: 1'
+        unzip -p "$velocity_jar" config.yml | grep -Fx 'platform_config_version: 1'
         unzip -p "$velocity_jar" config.yml | grep -Fx '  enabled: true'
         unzip -p "$velocity_jar" config.yml | grep -Fx 'notifications:'
-        unzip -p "$velocity_jar" config.yml | grep -Fx '    jma-alert:'
-        unzip -p "$velocity_jar" config.yml | grep -Fx '    cenc-eqlist:'
+        unzip -p "$velocity_jar" config.yml | grep -Fx '  time_format: "yyyy年MM月dd日 HH時mm分ss秒"'
+        unzip -p "$velocity_jar" config.yml | grep -Fx '    broadcast: true'
+        unzip -p "$velocity_jar" config.yml | grep -Fx '    alert: true'
+        for key in enable_jp enable_sc enable_fj enable_cwa enable_cenceew enable_cq; do
+          unzip -p "$velocity_jar" config.yml | grep -Fx "    $key: true"
+        done
+        for source in jma_alert jma_forecast sichuan fujian cwa cenc_eew chongqing jma_eqlist cenc_eqlist; do
+          unzip -p "$velocity_jar" config.yml | grep -Fx "    $source:"
+        done
+        if unzip -p "$velocity_jar" config.yml | grep -Eq \
+          '^[[:space:]]*(platform-config-version|time-format|jma-alert|jma-forecast|cenc-eew|jma-eqlist|cenc-eqlist):'; then
+          echo "The Velocity config contains a retired kebab-case identifier."
+          exit 1
+        fi
 
         compile_api="$(mvn -q -pl mceew-velocity help:evaluate \
           -Dexpression=velocity.api.version -DforceStdout)"
@@ -289,7 +301,7 @@ jobs:
         cp '${{ matrix.server }}' "$runtime/velocity.jar"
         mkdir -p "$runtime/plugins/mceew"
         cat > "$runtime/plugins/mceew/config.yml" <<'EOF'
-        platform-config-version: 1
+        platform_config_version: 1
         global:
           enabled: false
         targets:
@@ -314,7 +326,7 @@ jobs:
         grep -F 'MCEEW Velocity platform shell shut down.' runtime.log
         grep -F 'MCEEW Velocity scheduler smoke probe shut down.' runtime.log
         test -f plugins/mceew/config.yml
-        grep -Fx 'platform-config-version: 1' plugins/mceew/config.yml
+        grep -Fx 'platform_config_version: 1' plugins/mceew/config.yml
         grep -Fx '  enabled: false' plugins/mceew/config.yml
         if grep -Fq 'Connected to WebSocket API.' runtime.log; then
           echo "Velocity runtime smoke unexpectedly opened the Wolfx WebSocket."

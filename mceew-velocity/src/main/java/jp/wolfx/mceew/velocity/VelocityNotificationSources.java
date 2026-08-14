@@ -14,15 +14,15 @@ final class VelocityNotificationSources {
 
     static {
         Map<String, NotificationSource> byKey = new LinkedHashMap<>();
-        byKey.put("jma-alert", NotificationSource.JMA_ALERT);
-        byKey.put("jma-forecast", NotificationSource.JMA_FORECAST);
+        byKey.put("jma_alert", NotificationSource.JMA_ALERT);
+        byKey.put("jma_forecast", NotificationSource.JMA_FORECAST);
         byKey.put("sichuan", NotificationSource.SICHUAN_EEW);
         byKey.put("fujian", NotificationSource.FUJIAN_EEW);
         byKey.put("cwa", NotificationSource.CWA_EEW);
-        byKey.put("cenc-eew", NotificationSource.CENC_EEW);
+        byKey.put("cenc_eew", NotificationSource.CENC_EEW);
         byKey.put("chongqing", NotificationSource.CHONGQING_EEW);
-        byKey.put("jma-eqlist", NotificationSource.JMA_EARTHQUAKE_LIST);
-        byKey.put("cenc-eqlist", NotificationSource.CENC_EARTHQUAKE_LIST);
+        byKey.put("jma_eqlist", NotificationSource.JMA_EARTHQUAKE_LIST);
+        byKey.put("cenc_eqlist", NotificationSource.CENC_EARTHQUAKE_LIST);
         BY_KEY = Collections.unmodifiableMap(byKey);
 
         Map<NotificationSource, String> bySource = new EnumMap<>(NotificationSource.class);

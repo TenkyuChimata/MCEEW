@@ -11,15 +11,15 @@ class VelocityNotificationSourcesTest {
     @Test
     void stableConfigKeysMapToCoreSourcesAndPermissionNodes() {
         Map<String, String> expected = new LinkedHashMap<>();
-        expected.put("jma-alert", "mceew.notify.jma.alert");
-        expected.put("jma-forecast", "mceew.notify.jma.forecast");
+        expected.put("jma_alert", "mceew.notify.jma.alert");
+        expected.put("jma_forecast", "mceew.notify.jma.forecast");
         expected.put("sichuan", "mceew.notify.sc");
         expected.put("fujian", "mceew.notify.fj");
         expected.put("cwa", "mceew.notify.cwa");
-        expected.put("cenc-eew", "mceew.notify.cenc.eew");
+        expected.put("cenc_eew", "mceew.notify.cenc.eew");
         expected.put("chongqing", "mceew.notify.cq");
-        expected.put("jma-eqlist", "mceew.notify.jma.eqlist");
-        expected.put("cenc-eqlist", "mceew.notify.cenc.eqlist");
+        expected.put("jma_eqlist", "mceew.notify.jma.eqlist");
+        expected.put("cenc_eqlist", "mceew.notify.cenc.eqlist");
 
         assertEquals(expected.keySet(), VelocityNotificationSources.entries().keySet());
         for (Map.Entry<String, String> entry : expected.entrySet()) {

@@ -33,10 +33,35 @@ class VelocityConfigLoaderTest {
         Path config = dataDirectory.resolve("config.yml");
         assertTrue(Files.isRegularFile(config));
         String content = Files.readString(config);
-        assertTrue(content.contains("platform-config-version: 1"));
+        assertTrue(content.contains("platform_config_version: 1"));
         assertTrue(content.contains("enabled: true"));
-        assertTrue(content.contains("chongqing: true"));
+        assertTrue(content.contains("enable_jp: true"));
+        assertTrue(content.contains("enable_sc: true"));
+        assertTrue(content.contains("enable_fj: true"));
+        assertTrue(content.contains("enable_cwa: true"));
+        assertTrue(content.contains("enable_cenceew: true"));
+        assertTrue(content.contains("enable_cq: true"));
+        assertTrue(content.contains("time_format:"));
+        assertTrue(content.contains("broadcast: true"));
+        assertTrue(content.contains("alert: true"));
+        assertTrue(content.contains("jma_alert:"));
+        assertTrue(content.contains("cenc_eew:"));
+        assertTrue(content.contains("jma_eqlist:"));
+        assertTrue(content.contains("cenc_eqlist:"));
         assertTrue(content.contains("mode: all"));
+        for (String placeholder : new String[]{
+            "%flag%", "%report_time%", "%origin_time%", "%num%", "%lat%", "%lon%",
+            "%region%", "%mag%", "%depth%", "%shindo%", "%type%", "%info%", "# \\n New line"
+        }) {
+            assertTrue(content.contains(placeholder), placeholder);
+        }
+        assertFalse(content.contains("platform-config-version:"));
+        assertFalse(content.contains("time-format:"));
+        assertFalse(content.contains("jma-alert:"));
+        assertFalse(content.contains("jma-forecast:"));
+        assertFalse(content.contains("cenc-eew:"));
+        assertFalse(content.contains("jma-eqlist:"));
+        assertFalse(content.contains("cenc-eqlist:"));
     }
 
     @Test
@@ -65,7 +90,7 @@ class VelocityConfigLoaderTest {
     }
 
     @Test
-    void missingOperationalKeysInPhaseOneConfigUseInMemoryDefaultsWithoutRewrite()
+    void missingOperationalKeysUseInMemoryDefaultsWithoutRewrite()
             throws Exception {
         byte[] original = validConfig("all").getBytes(StandardCharsets.UTF_8);
         Path config = writeConfig(original);
@@ -95,7 +120,7 @@ class VelocityConfigLoaderTest {
     @Test
     void wrongSourceBooleanTypeFailsWithoutRewriting() throws IOException {
         byte[] original = operationalConfig(true)
-                .replace("jma: true", "jma: yes-please")
+                .replace("enable_jp: true", "enable_jp: yes-please")
                 .getBytes(StandardCharsets.UTF_8);
         Path config = writeConfig(original);
 
@@ -103,13 +128,13 @@ class VelocityConfigLoaderTest {
                 VelocityConfigException.class,
                 () -> new VelocityConfigLoader(config.getParent()).load());
 
-        assertTrue(error.getMessage().contains("global.sources.jma must be a boolean"));
+        assertTrue(error.getMessage().contains("global.sources.enable_jp must be a boolean"));
         assertArrayEquals(original, Files.readAllBytes(config));
     }
 
     @Test
     void malformedYamlFailsSafelyAndRemainsUntouched() throws IOException {
-        byte[] original = "platform-config-version: [\n".getBytes(StandardCharsets.UTF_8);
+        byte[] original = "platform_config_version: [\n".getBytes(StandardCharsets.UTF_8);
         Path config = writeConfig(original);
 
         VelocityConfigException error = assertThrows(
@@ -142,15 +167,15 @@ class VelocityConfigLoaderTest {
                 VelocityConfigException.class,
                 () -> new VelocityConfigLoader(config.getParent()).load());
 
-        assertTrue(error.getMessage().contains("Unsupported platform-config-version 2"));
+        assertTrue(error.getMessage().contains("Unsupported platform_config_version 2"));
         assertArrayEquals(original, Files.readAllBytes(config));
     }
 
     @Test
     void unknownKeysAreAcceptedAndNotRewritten() throws Exception {
         String content = validConfig("none")
-                + "future-feature:\n"
-                + "  nested-value: keep-me\n";
+                + "future_feature:\n"
+                + "  nested_value: keep-me\n";
         byte[] original = content.getBytes(StandardCharsets.UTF_8);
         Path config = writeConfig(original);
 
@@ -161,7 +186,7 @@ class VelocityConfigLoaderTest {
     }
 
     @Test
-    void phaseTwoConfigInheritsNotificationDefaultsWithoutRewrite() throws Exception {
+    void minimalConfigInheritsNotificationDefaultsWithoutRewrite() throws Exception {
         byte[] original = validConfig("all").getBytes(StandardCharsets.UTF_8);
         Path config = writeConfig(original);
 
@@ -174,6 +199,19 @@ class VelocityConfigLoaderTest {
         assertTrue(policy.sound());
         assertEquals("yyyy年MM月dd日 HH時mm分ss秒",
                 snapshot.notificationConfig().timeFormat());
+        assertArrayEquals(original, Files.readAllBytes(config));
+    }
+
+    @Test
+    void canonicalTimeFormatLoadsWithoutRewriting() throws Exception {
+        String content = validConfig("all").replace(
+                "global: {}", "global: {}\nnotifications:\n  time_format: yyyy/MM/dd HH:mm:ss");
+        byte[] original = content.getBytes(StandardCharsets.UTF_8);
+        Path config = writeConfig(original);
+
+        VelocityConfigSnapshot snapshot = new VelocityConfigLoader(config.getParent()).load();
+
+        assertEquals("yyyy/MM/dd HH:mm:ss", snapshot.notificationConfig().timeFormat());
         assertArrayEquals(original, Files.readAllBytes(config));
     }
 
@@ -205,31 +243,31 @@ class VelocityConfigLoaderTest {
                 .replace("servers: {}", ""
                         + "notifications:\n"
                         + "  defaults:\n"
-                        + "    chat: false\n"
+                        + "    broadcast: false\n"
                         + "    title: false\n"
-                        + "    sound: false\n"
+                        + "    alert: false\n"
                         + "  sources:\n"
-                        + "    jma-alert:\n"
+                        + "    jma_alert:\n"
                         + "      channels:\n"
-                        + "        chat: true\n"
+                        + "        broadcast: true\n"
                         + "        title: true\n"
-                        + "        sound: true\n"
+                        + "        alert: true\n"
                         + "servers:\n"
                         + "  server-only:\n"
                         + "    notifications:\n"
-                        + "      chat: false\n"
+                        + "      broadcast: false\n"
                         + "      title: false\n"
-                        + "      sound: false\n"
+                        + "      alert: false\n"
                         + "  server-source:\n"
                         + "    notifications:\n"
-                        + "      chat: false\n"
+                        + "      broadcast: false\n"
                         + "      title: false\n"
-                        + "      sound: false\n"
+                        + "      alert: false\n"
                         + "    sources:\n"
-                        + "      jma-alert:\n"
-                        + "        chat: true\n"
+                        + "      jma_alert:\n"
+                        + "        broadcast: true\n"
                         + "        title: true\n"
-                        + "        sound: true");
+                        + "        alert: true");
         VelocityConfigSnapshot snapshot = new VelocityConfigLoader(
                 writeConfig(content.getBytes(StandardCharsets.UTF_8)).getParent()).load();
         VelocityNotificationConfig notifications = snapshot.notificationConfig();
@@ -248,7 +286,7 @@ class VelocityConfigLoaderTest {
         String content = validConfig("all").replace("servers: {}", ""
                 + "notifications:\n"
                 + "  defaults:\n"
-                + "    chat: yes-please\n"
+                + "    broadcast: yes-please\n"
                 + "servers: {}");
         byte[] original = content.getBytes(StandardCharsets.UTF_8);
         Path config = writeConfig(original);
@@ -257,8 +295,63 @@ class VelocityConfigLoaderTest {
                 VelocityConfigException.class,
                 () -> new VelocityConfigLoader(config.getParent()).load());
 
-        assertTrue(error.getMessage().contains("notifications.defaults.chat must be a boolean"));
+        assertTrue(error.getMessage().contains(
+                "notifications.defaults.broadcast must be a boolean"));
         assertArrayEquals(original, Files.readAllBytes(config));
+    }
+
+    @Test
+    void retiredTopLevelAndNotificationKeysAreRejected() throws IOException {
+        assertRetiredKeyRejected(
+                validConfig("all").replace(
+                        "platform_config_version", "platform-config-version"),
+                "platform_config_version");
+        assertRetiredKeyRejected(
+                validConfig("all").replace(
+                        "global: {}", "global: {}\nnotifications:\n  time-format: yyyy"),
+                "notifications.time_format");
+        assertRetiredKeyRejected(
+                validConfig("all").replace(
+                        "global: {}", "global: {}\nnotifications:\n  defaults:\n    chat: true"),
+                "notifications.defaults.broadcast");
+        assertRetiredKeyRejected(
+                validConfig("all").replace(
+                        "global: {}", "global: {}\nnotifications:\n  defaults:\n    sound: true"),
+                "notifications.defaults.alert");
+    }
+
+    @Test
+    void retiredOperationalSourceKeysAreRejected() throws IOException {
+        String[] oldKeys = {"jma", "sichuan", "fujian", "cwa", "cenc", "chongqing"};
+        String[] newKeys = {
+            "enable_jp", "enable_sc", "enable_fj", "enable_cwa", "enable_cenceew", "enable_cq"
+        };
+        for (int index = 0; index < oldKeys.length; index++) {
+            assertRetiredKeyRejected(
+                    validConfig("all").replace(
+                            "global: {}",
+                            "global:\n  sources:\n    " + oldKeys[index] + ": true"),
+                    "global.sources." + newKeys[index]);
+        }
+    }
+
+    @Test
+    void retiredKebabCaseNotificationSourceKeysAreRejected() throws IOException {
+        String[] oldKeys = {
+            "jma-alert", "jma-forecast", "cenc-eew", "jma-eqlist", "cenc-eqlist"
+        };
+        for (String oldKey : oldKeys) {
+            String content = validConfig("all").replace(
+                    "global: {}", "global: {}\nnotifications:\n  sources:\n    "
+                            + oldKey + ": {}");
+            Path config = writeConfig(content.getBytes(StandardCharsets.UTF_8));
+
+            VelocityConfigException error = assertThrows(
+                    VelocityConfigException.class,
+                    () -> new VelocityConfigLoader(config.getParent()).load());
+
+            assertTrue(error.getMessage().contains("must use lower_snake_case"));
+        }
     }
 
     @Test
@@ -280,7 +373,7 @@ class VelocityConfigLoaderTest {
         String content = validConfig("none")
                 .replace("  sources: {}", ""
                         + "  sources:\n"
-                        + "    jma-alert:\n"
+                        + "    jma_alert:\n"
                         + "      mode: selected\n"
                         + "      servers:\n"
                         + "        - Lobby\n"
@@ -307,12 +400,24 @@ class VelocityConfigLoaderTest {
         return config;
     }
 
+    private void assertRetiredKeyRejected(String content, String canonicalPath) throws IOException {
+        byte[] original = content.getBytes(StandardCharsets.UTF_8);
+        Path config = writeConfig(original);
+
+        VelocityConfigException error = assertThrows(
+                VelocityConfigException.class,
+                () -> new VelocityConfigLoader(config.getParent()).load());
+
+        assertTrue(error.getMessage().contains(canonicalPath));
+        assertArrayEquals(original, Files.readAllBytes(config));
+    }
+
     private static String validConfig(String mode) {
         return validConfigWithVersion("1").replace("mode: all", "mode: " + mode);
     }
 
     private static String validConfigWithVersion(String version) {
-        return "platform-config-version: " + version + "\n"
+        return "platform_config_version: " + version + "\n"
                 + "global: {}\n"
                 + "targets:\n"
                 + "  default:\n"
@@ -323,16 +428,16 @@ class VelocityConfigLoaderTest {
     }
 
     private static String operationalConfig(boolean enabled) {
-        return "platform-config-version: 1\n"
+        return "platform_config_version: 1\n"
                 + "global:\n"
                 + "  enabled: " + enabled + "\n"
                 + "  sources:\n"
-                + "    jma: " + enabled + "\n"
-                + "    sichuan: " + enabled + "\n"
-                + "    fujian: " + enabled + "\n"
-                + "    cwa: " + enabled + "\n"
-                + "    cenc: " + enabled + "\n"
-                + "    chongqing: " + enabled + "\n"
+                + "    enable_jp: " + enabled + "\n"
+                + "    enable_sc: " + enabled + "\n"
+                + "    enable_fj: " + enabled + "\n"
+                + "    enable_cwa: " + enabled + "\n"
+                + "    enable_cenceew: " + enabled + "\n"
+                + "    enable_cq: " + enabled + "\n"
                 + "targets:\n"
                 + "  default:\n"
                 + "    mode: all\n"

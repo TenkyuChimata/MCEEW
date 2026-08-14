@@ -146,7 +146,7 @@ class MCEEWVelocityLifecycleTest {
     void failedConfigLeavesRuntimeInactive() throws IOException {
         Path dataDirectory = temporaryDirectory.resolve("mceew");
         Files.createDirectories(dataDirectory);
-        Files.writeString(dataDirectory.resolve("config.yml"), "platform-config-version: [\n");
+        Files.writeString(dataDirectory.resolve("config.yml"), "platform_config_version: [\n");
         TestVelocityApi.CapturingLogger logger = TestVelocityApi.logger();
         TestWebSocketSupport.RecordingConnector connector =
                 new TestWebSocketSupport.RecordingConnector(true);
@@ -231,7 +231,7 @@ class MCEEWVelocityLifecycleTest {
     private static void writeConfig(Path dataDirectory, boolean enabled) throws IOException {
         Files.createDirectories(dataDirectory);
         Files.writeString(dataDirectory.resolve("config.yml"),
-                "platform-config-version: 1\n"
+                "platform_config_version: 1\n"
                         + "global:\n"
                         + "  enabled: " + enabled + "\n"
                         + "targets:\n"

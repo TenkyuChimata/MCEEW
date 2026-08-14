@@ -89,18 +89,25 @@ class VelocityTransactionalReloadTest {
         Object manager = runtime.webSocketManagerIdentity();
         Object processor = runtime.messageProcessor();
 
-        writeConfig(harness.dataDirectory, config(true, false, null, "all"));
+        writeConfig(harness.dataDirectory, config(true, false, false, null, "all"));
         assertEquals(List.of(MCEEWVelocity.ReloadOutcome.SUCCESS), harness.reload());
         assertEquals(VelocityMessageProcessor.Outcome.DISABLED_REALTIME,
                 runtime.processApplicationMessage("{\"type\":\"jma_eew\"}").outcome());
+        assertEquals(VelocityMessageProcessor.Outcome.DISABLED_REALTIME,
+                runtime.processApplicationMessage("{\"type\":\"cenc_eew\"}").outcome());
         assertEquals(VelocityMessageProcessor.Outcome.CACHE_FIRST_VALUE,
                 runtime.processApplicationMessage(fixture("jma_eqlist")).outcome());
+        assertEquals(VelocityMessageProcessor.Outcome.CACHE_FIRST_VALUE,
+                runtime.processApplicationMessage(fixture("cenc_eqlist")).outcome());
         assertTrue(runtime.messageProcessor().latestJmaEarthquakeList().isPresent());
+        assertTrue(runtime.messageProcessor().latestCencEarthquakeList().isPresent());
 
-        writeConfig(harness.dataDirectory, config(true, true, null, "all"));
+        writeConfig(harness.dataDirectory, config(true, true, true, null, "all"));
         assertEquals(List.of(MCEEWVelocity.ReloadOutcome.SUCCESS), harness.reload());
         assertEquals(VelocityMessageProcessor.Outcome.FRESH_REALTIME,
                 runtime.processApplicationMessage(freshFixture("jma_eew")).outcome());
+        assertEquals(VelocityMessageProcessor.Outcome.FRESH_REALTIME,
+                runtime.processApplicationMessage(freshFixture("cenc_eew")).outcome());
         assertSame(manager, runtime.webSocketManagerIdentity());
         assertSame(processor, runtime.messageProcessor());
         assertEquals(1, harness.connector.connectionCount());
@@ -154,7 +161,7 @@ class VelocityTransactionalReloadTest {
         String oldCenc = runtime.latestCencEarthquakeInformation();
         int connections = harness.connector.connectionCount();
         int closeCalls = harness.connector.attempt(0).socket().closeCalls();
-        String malformed = "platform-config-version: [\n";
+        String malformed = "platform_config_version: [\n";
         FilesWrite.write(harness.dataDirectory.resolve("config.yml"), malformed);
 
         assertEquals(List.of(MCEEWVelocity.ReloadOutcome.FAILED), harness.reload());
@@ -208,7 +215,7 @@ class VelocityTransactionalReloadTest {
     @Test
     void failedStartupCanReloadInvalidThenRecoverWithoutProxyRestart() {
         Path data = temporaryDirectory.resolve("startup-recovery");
-        writeConfig(data, "platform-config-version: [\n");
+        writeConfig(data, "platform_config_version: [\n");
         ReloadHarness harness = reloadHarnessWithoutInitialization(data);
         harness.plugin.onProxyInitialize(new ProxyInitializeEvent());
 
@@ -390,12 +397,23 @@ class VelocityTransactionalReloadTest {
             String sichuanMessage,
             String targetMode
     ) {
+        return config(enabled, jmaEnabled, true, sichuanMessage, targetMode);
+    }
+
+    private static String config(
+            boolean enabled,
+            boolean jmaEnabled,
+            boolean cencEnabled,
+            String sichuanMessage,
+            String targetMode
+    ) {
         StringBuilder yaml = new StringBuilder()
-                .append("platform-config-version: 1\n")
+                .append("platform_config_version: 1\n")
                 .append("global:\n")
                 .append("  enabled: ").append(enabled).append('\n')
                 .append("  sources:\n")
-                .append("    jma: ").append(jmaEnabled).append('\n');
+                .append("    enable_jp: ").append(jmaEnabled).append('\n')
+                .append("    enable_cenceew: ").append(cencEnabled).append('\n');
         if (sichuanMessage != null) {
             yaml.append("notifications:\n")
                     .append("  sources:\n")

@@ -195,7 +195,7 @@ class VelocityNotificationDispatcherTest {
                 + "  lobby:\n"
                 + "    sources:\n"
                 + "      sichuan:\n"
-                + "        sound: true\n";
+                + "        alert: true\n";
         Fixture fixture = fixture(config(disabledDefaults(), "all", servers));
         NotificationTestSupport.RecordingPlayer player = fixture.environment.addPlayer(
                 "player", "lobby", Set.of(ALL, NotificationSource.SICHUAN_EEW.getPermissionNode()));
@@ -324,7 +324,7 @@ class VelocityNotificationDispatcherTest {
     }
 
     private static String config(String notifications, String targetMode, String servers) {
-        return "platform-config-version: 1\n"
+        return "platform_config_version: 1\n"
                 + "global: {}\n"
                 + notifications
                 + "targets:\n"
@@ -338,17 +338,17 @@ class VelocityNotificationDispatcherTest {
     private static String disabledDefaults() {
         return "notifications:\n"
                 + "  defaults:\n"
-                + "    chat: false\n"
+                + "    broadcast: false\n"
                 + "    title: false\n"
-                + "    sound: false\n";
+                + "    alert: false\n";
     }
 
     private static String channels(boolean title, boolean sound) {
         return "notifications:\n"
                 + "  defaults:\n"
-                + "    chat: true\n"
+                + "    broadcast: true\n"
                 + "    title: " + title + "\n"
-                + "    sound: " + sound + "\n";
+                + "    alert: " + sound + "\n";
     }
 
     private static final class Fixture {
