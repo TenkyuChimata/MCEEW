@@ -284,4 +284,4 @@ The standalone Bukkit artifact uses bStats project 17261:
 
 The Velocity artifact uses its separately registered bStats project 33363:
 
-[MCEEW Velocity statistics](https://bstats.org/plugin/velocity/MCEEW/33363)
+[![bStats](https://bstats.org/signatures/velocity/MCEEW.svg)](https://bstats.org/plugin/velocity/MCEEW/33363)
