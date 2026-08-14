@@ -48,8 +48,37 @@ class BungeePluginShellTest {
         assertEquals(BungeePluginShell.State.ACTIVE, harness.shell.state());
         assertTrue(harness.shell.configSnapshot().runtimeEnabled());
         assertTrue(harness.shell.hasOperationalRuntime());
-        assertFalse(harness.shell.dispatchTest("alert"));
+        assertTrue(harness.shell.dispatchTest("alert"));
         assertEquals(1, harness.runtimeCreations.get());
+        assertEquals(1, harness.connector.connectionCount());
+    }
+
+    @Test
+    void enabledShellDispatchesTestsThroughCurrentTargetAndSuppressionPolicy()
+            throws Exception {
+        write(config(true, "all"));
+        Harness harness = harness();
+        BungeeNotificationTestSupport.FakePlayer player =
+                harness.platform.addPlayer("player", "lobby");
+        harness.shell.initialize();
+
+        assertTrue(harness.shell.dispatchTest("forecast"));
+        BungeeNotificationTestSupport.runAll(harness.backend);
+        assertEquals(2, player.chats().size());
+        assertEquals(1, player.titles().size());
+
+        player.permission("mceew.suppress.jma.forecast", true);
+        assertTrue(harness.shell.dispatchTest("forecast"));
+        BungeeNotificationTestSupport.runAll(harness.backend);
+        assertEquals(3, player.chats().size(), "suppressed test adds only command warning");
+        assertEquals(1, player.titles().size());
+
+        write(config(true, "none"));
+        assertReload(harness, BungeePluginShell.ReloadOutcome.SUCCESS);
+        assertTrue(harness.shell.dispatchTest("alert"));
+        BungeeNotificationTestSupport.runAll(harness.backend);
+        assertEquals(4, player.chats().size(), "new target-none policy adds only warning");
+        assertEquals(1, player.titles().size());
         assertEquals(1, harness.connector.connectionCount());
     }
 
@@ -431,6 +460,8 @@ class BungeePluginShellTest {
         logger.setUseParentHandlers(false);
         TestWebSocketSupport.RecordingConnector connector =
                 new TestWebSocketSupport.RecordingConnector(true);
+        BungeeNotificationTestSupport.FakePlatform platform =
+                new BungeeNotificationTestSupport.FakePlatform();
         AtomicInteger runtimeCreations = new AtomicInteger();
         BungeePluginShell shell = new BungeePluginShell(
                 new BungeeConfigLoader(temporaryDirectory, getClass().getClassLoader()),
@@ -438,10 +469,19 @@ class BungeePluginShellTest {
                 logger,
                 (loaded, delayScheduler, platformLogger) -> {
                     runtimeCreations.incrementAndGet();
+                    BungeeMceewRuntime.NotificationOrchestratorFactory orchestrators = current ->
+                            new BungeeNotificationOrchestrator(
+                                    current,
+                                    new BungeeNotificationDispatcher(
+                                            platform,
+                                            delayScheduler,
+                                            current,
+                                            platformLogger));
                     return new BungeeMceewRuntime(
-                            loaded, delayScheduler, connector, platformLogger);
+                            loaded, delayScheduler, connector, platformLogger, orchestrators);
                 });
-        return new Harness(backend, scheduler, shell, connector, runtimeCreations);
+        return new Harness(
+                backend, scheduler, shell, connector, runtimeCreations, platform);
     }
 
     private static void assertReload(
@@ -507,19 +547,22 @@ class BungeePluginShellTest {
         private final BungeePluginShell shell;
         private final TestWebSocketSupport.RecordingConnector connector;
         private final AtomicInteger runtimeCreations;
+        private final BungeeNotificationTestSupport.FakePlatform platform;
 
         private Harness(
                 BungeeDelaySchedulerTest.FakeBackend backend,
                 BungeeDelayScheduler scheduler,
                 BungeePluginShell shell,
                 TestWebSocketSupport.RecordingConnector connector,
-                AtomicInteger runtimeCreations
+                AtomicInteger runtimeCreations,
+                BungeeNotificationTestSupport.FakePlatform platform
         ) {
             this.backend = backend;
             this.scheduler = scheduler;
             this.shell = shell;
             this.connector = connector;
             this.runtimeCreations = runtimeCreations;
+            this.platform = platform;
         }
     }
 }

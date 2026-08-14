@@ -500,7 +500,7 @@ final class BungeeConfigLoader {
         return (String) key;
     }
 
-    private static String normalizeName(String value) {
+    static String normalizeName(String value) {
         return value.trim().toLowerCase(Locale.ROOT);
     }
 

@@ -13,11 +13,14 @@ public final class MCEEWBungeeCord extends Plugin {
         Path dataDirectory = getDataFolder().toPath();
         BungeeDelayScheduler scheduler = new BungeeDelayScheduler(
                 getProxy().getScheduler(), this);
+        BungeeNotificationPlatform notificationPlatform =
+                new BungeeProxyNotificationPlatform(getProxy());
         BungeePluginShell newShell = new BungeePluginShell(
                 new BungeeConfigLoader(dataDirectory),
                 scheduler,
                 getLogger(),
-                BungeeMceewRuntime::production);
+                (config, runtimeScheduler, logger) -> BungeeMceewRuntime.production(
+                        config, runtimeScheduler, logger, notificationPlatform));
         BungeeCommand newCommand = new BungeeCommand(
                 newShell, getDescription().getVersion(), getLogger());
 

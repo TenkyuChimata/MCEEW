@@ -178,6 +178,7 @@ final class BungeePluginShell implements BungeeCommandService, AutoCloseable {
                 }
             }
         } catch (RuntimeException | Error error) {
+            closePrepared(preparedConfiguration);
             closePrepared(preparedRuntime);
             logger.log(Level.SEVERE,
                     "MCEEW BungeeCord reload preparation failed; "
@@ -218,6 +219,7 @@ final class BungeePluginShell implements BungeeCommandService, AutoCloseable {
                     error);
         }
 
+        closePrepared(preparedConfiguration);
         closePrepared(preparedRuntime);
         if (runtimeToClose != null) {
             runtimeToClose.close();
@@ -234,6 +236,14 @@ final class BungeePluginShell implements BungeeCommandService, AutoCloseable {
     private static void closePrepared(BungeeMceewRuntime preparedRuntime) {
         if (preparedRuntime != null) {
             preparedRuntime.close();
+        }
+    }
+
+    private static void closePrepared(
+            BungeeMceewRuntime.PreparedConfiguration preparedConfiguration
+    ) {
+        if (preparedConfiguration != null) {
+            preparedConfiguration.close();
         }
     }
 
@@ -282,7 +292,8 @@ final class BungeePluginShell implements BungeeCommandService, AutoCloseable {
     @Override
     public boolean dispatchTest(String sourceKey) {
         Objects.requireNonNull(sourceKey, "sourceKey");
-        return false;
+        BungeeMceewRuntime runtime = operationalRuntime;
+        return runtime != null && runtime.dispatchTest(sourceKey);
     }
 
     @Override

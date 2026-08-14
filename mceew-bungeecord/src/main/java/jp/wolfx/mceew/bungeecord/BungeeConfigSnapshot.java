@@ -84,6 +84,8 @@ final class BungeeConfigSnapshot {
     }
 
     static final class ChannelOverrides {
+        private static final ChannelOverrides EMPTY = new ChannelOverrides(null, null);
+
         private final Boolean broadcast;
         private final Boolean title;
 
@@ -98,6 +100,12 @@ final class BungeeConfigSnapshot {
 
         Boolean title() {
             return title;
+        }
+
+        ChannelPolicy applyTo(ChannelPolicy inherited) {
+            return new ChannelPolicy(
+                    broadcast == null ? inherited.broadcast() : broadcast,
+                    title == null ? inherited.title() : title);
         }
     }
 
@@ -179,6 +187,10 @@ final class BungeeConfigSnapshot {
         Map<NotificationSource, ChannelOverrides> sourceChannels() {
             return sourceChannels;
         }
+
+        ChannelOverrides sourceChannels(NotificationSource source) {
+            return sourceChannels.getOrDefault(source, ChannelOverrides.EMPTY);
+        }
     }
 
     private final int platformConfigVersion;
@@ -255,6 +267,44 @@ final class BungeeConfigSnapshot {
 
     Map<String, ServerSettings> servers() {
         return servers;
+    }
+
+    SourceSettings source(NotificationSource source) {
+        SourceSettings settings = notificationSources.get(source);
+        if (settings == null) {
+            throw new IllegalArgumentException("Missing notification settings for " + source);
+        }
+        return settings;
+    }
+
+    ChannelPolicy proxyChannels(NotificationSource source) {
+        return source(source).channels().applyTo(notificationDefaults);
+    }
+
+    ChannelPolicy playerChannels(NotificationSource source, String backendName) {
+        ChannelPolicy effective = proxyChannels(source);
+        if (backendName == null) {
+            return effective;
+        }
+        ServerSettings server = servers.get(BungeeConfigLoader.normalizeName(backendName));
+        if (server == null) {
+            return effective;
+        }
+        effective = server.channels().applyTo(effective);
+        return server.sourceChannels(source).applyTo(effective);
+    }
+
+    TargetSpec targetFor(NotificationSource source) {
+        return sourceTargets.getOrDefault(source, defaultTarget);
+    }
+
+    Set<String> selectedServers(NotificationSource source) {
+        TargetSpec target = targetFor(source);
+        Set<String> selected = new LinkedHashSet<>(target.servers());
+        for (String group : target.groups()) {
+            selected.addAll(groups.get(group));
+        }
+        return Collections.unmodifiableSet(selected);
     }
 
     private static <T> Map<NotificationSource, T> immutableEnumMap(

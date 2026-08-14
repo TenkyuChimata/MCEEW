@@ -91,7 +91,7 @@ class BungeeModulePurityTest {
     }
 
     @Test
-    void phaseTwoRuntimeHasNoPlayerTargetPermissionOrDeliveryDependency() throws Exception {
+    void phaseThreeProcessorAndRuntimeContainNoDirectPlayerOrPermissionLogic() throws Exception {
         Path root = Path.of(System.getProperty("mceew.reactor.root"));
         List<Path> runtimeSources = List.of(
                 root.resolve("mceew-bungeecord/src/main/java/jp/wolfx/mceew/"
@@ -103,7 +103,6 @@ class BungeeModulePurityTest {
                 "getPlayers(",
                 "getServer(",
                 "mceew.suppress.",
-                "NotificationDispatcher",
                 "sendMessage(",
                 "sendTitle(");
         for (Path source : runtimeSources) {

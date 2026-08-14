@@ -94,6 +94,20 @@ class BungeeCommandTest {
     }
 
     @Test
+    void operationalTestDispatchDoesNotReportUnavailable() {
+        FakeService service = new FakeService();
+        service.testAvailable = true;
+        BungeeCommand command = command(service, "test-version");
+        FakeSender administrator = new FakeSender();
+        administrator.permissions.put(BungeePermissions.ADMIN, true);
+
+        command.execute(administrator, new String[]{"test", "forecast"});
+
+        assertEquals(List.of("forecast"), service.testCalls);
+        assertFalse(administrator.contains("runtime is not currently available"));
+    }
+
+    @Test
     void reloadRequiresAdminAndReportsEveryOutcome() {
         FakeService service = new FakeService();
         BungeeCommand command = command(service, "test-version");
@@ -164,6 +178,7 @@ class BungeeCommandTest {
         private int reloadCalls;
         private BungeePluginShell.ReloadOutcome reloadOutcome =
                 BungeePluginShell.ReloadOutcome.SUCCESS;
+        private boolean testAvailable;
 
         @Override
         public String latestJmaEarthquakeInformation() {
@@ -178,7 +193,7 @@ class BungeeCommandTest {
         @Override
         public boolean dispatchTest(String sourceKey) {
             testCalls.add(sourceKey);
-            return false;
+            return testAvailable;
         }
 
         @Override
