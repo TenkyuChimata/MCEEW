@@ -89,4 +89,28 @@ class BungeeModulePurityTest {
             }
         }
     }
+
+    @Test
+    void phaseTwoRuntimeHasNoPlayerTargetPermissionOrDeliveryDependency() throws Exception {
+        Path root = Path.of(System.getProperty("mceew.reactor.root"));
+        List<Path> runtimeSources = List.of(
+                root.resolve("mceew-bungeecord/src/main/java/jp/wolfx/mceew/"
+                        + "BungeeMessageProcessor.java"),
+                root.resolve("mceew-bungeecord/src/main/java/jp/wolfx/mceew/bungeecord/"
+                        + "BungeeMceewRuntime.java"));
+        List<String> prohibited = List.of(
+                "ProxiedPlayer",
+                "getPlayers(",
+                "getServer(",
+                "mceew.suppress.",
+                "NotificationDispatcher",
+                "sendMessage(",
+                "sendTitle(");
+        for (Path source : runtimeSources) {
+            String content = Files.readString(source);
+            for (String token : prohibited) {
+                assertFalse(content.contains(token), source + " contains " + token);
+            }
+        }
+    }
 }
