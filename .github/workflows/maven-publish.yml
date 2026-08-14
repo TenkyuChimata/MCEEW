@@ -1,4 +1,4 @@
-# Builds the Bukkit and Velocity Jars and checks the supported API boundaries.
+# Builds the Bukkit, Velocity, and BungeeCord Jars and checks supported API boundaries.
 
 name: Compatibility Build
 
@@ -230,6 +230,86 @@ jobs:
           exit 1
         fi
 
+    - name: Inspect the BungeeCord proxy Jar
+      shell: bash
+      run: |
+        shopt -s nullglob
+        bungee_jars=(mceew-bungeecord/target/MCEEW-BungeeCord-*.jar)
+        if (( ${#bungee_jars[@]} != 1 )); then
+          echo "Expected exactly one BungeeCord distribution Jar, found ${#bungee_jars[@]}."
+          exit 1
+        fi
+        bungee_jar="${bungee_jars[0]}"
+        jar_entries="$(jar tf "$bungee_jar")"
+
+        if grep -Eq '^(net/md_5|io/github/waterfallmc|org/bukkit|io/papermc|dev/folia|com/velocitypowered|net/kyori/adventure|org/bstats)/' <<<"$jar_entries"; then
+          echo "The BungeeCord Jar contains a platform API or bStats class."
+          exit 1
+        fi
+        if grep -Eq '^(com/google/gson|org/yaml/snakeyaml)/' <<<"$jar_entries"; then
+          echo "The BungeeCord Jar contains an unrelocated library."
+          exit 1
+        fi
+        grep -Fx 'jp/wolfx/mceew/bungeecord/libs/gson/Gson.class' <<<"$jar_entries"
+        grep -Fx 'jp/wolfx/mceew/bungeecord/libs/snakeyaml/Yaml.class' <<<"$jar_entries"
+        test "$(grep -Fxc 'jp/wolfx/mceew/websocket/WebSocketConnectionManager.class' <<<"$jar_entries")" -eq 1
+        test "$(grep -Fxc 'jp/wolfx/mceew/bungeecord/MCEEWBungeeCord.class' <<<"$jar_entries")" -eq 1
+        test "$(grep -Fxc 'jp/wolfx/mceew/bungeecord/BungeeCommand.class' <<<"$jar_entries")" -eq 1
+
+        if grep -Eq '(^|/)[^/]*Test[^/]*\.class$|^runtime-smoke/|(^|/)mceew-core-[^/]*\.jar$' <<<"$jar_entries"; then
+          echo "The BungeeCord Jar contains tests, fixtures, or a nested core Jar."
+          exit 1
+        fi
+        if [[ -n "$(zipinfo -1 "$bungee_jar" | sort | uniq -d)" ]]; then
+          echo "The BungeeCord Jar contains duplicate ZIP entries."
+          exit 1
+        fi
+
+        expected_version="$(mvn -q -pl mceew-bungeecord help:evaluate \
+          -Dexpression=project.version -DforceStdout)"
+        metadata_version="$(unzip -p "$bungee_jar" bungee.yml | \
+          awk -F': ' '$1 == "version" { print $2 }')"
+        metadata_main="$(unzip -p "$bungee_jar" bungee.yml | \
+          awk -F': ' '$1 == "main" { print $2 }')"
+        test "$metadata_version" = "$expected_version"
+        test "$metadata_main" = 'jp.wolfx.mceew.bungeecord.MCEEWBungeeCord'
+        unzip -p "$bungee_jar" config.yml | grep -Fx 'platform_config_version: 1'
+        unzip -p "$bungee_jar" config.yml | grep -Fx 'notifications:'
+        unzip -p "$bungee_jar" config.yml | grep -Fx '    broadcast: true'
+        unzip -p "$bungee_jar" config.yml | grep -Fx '    title: true'
+        for source in jma_alert jma_forecast sichuan fujian cwa cenc_eew chongqing jma_eqlist cenc_eqlist; do
+          unzip -p "$bungee_jar" config.yml | grep -Fx "    $source:"
+        done
+        if unzip -p "$bungee_jar" config.yml | grep -Eq '^[[:space:]]*(alert|sound):'; then
+          echo "The BungeeCord config exposes an unsupported alert or sound key."
+          exit 1
+        fi
+
+        compile_api="$(mvn -q -pl mceew-bungeecord help:evaluate \
+          -Dexpression=bungeecord.api.version -DforceStdout)"
+        test "$compile_api" = '1.21-R0.4-SNAPSHOT'
+
+        class_dir="$(mktemp -d)"
+        trap 'rm -rf "$class_dir"' EXIT
+        unzip -q "$bungee_jar" 'jp/wolfx/mceew/*.class' -d "$class_dir"
+        while IFS= read -r class_file; do
+          major="$(od -An -tu2 -j6 -N2 --endian=big "$class_file" | tr -d ' ')"
+          if [[ "$major" != 55 ]]; then
+            echo "$class_file targets class major $major instead of 55."
+            exit 1
+          fi
+        done < <(find "$class_dir/jp/wolfx/mceew" -name '*.class' -type f \
+          ! -path '*/libs/*' -print)
+
+        while IFS= read -r class_file; do
+          if grep -aEq 'io/github/waterfallmc/|net/md_5/bungee/protocol/|org/bukkit/|com/velocitypowered/|sun/misc/Unsafe|jdk/internal/misc/Unsafe|sun/reflect/ReflectionFactory|java/lang/reflect/|net/luckperms/|org/bstats/' \
+            "$class_file"; then
+            echo "$class_file references a prohibited platform, internal, reflection, provider, or metrics API."
+            exit 1
+          fi
+        done < <(find "$class_dir/jp/wolfx/mceew/bungeecord" -name '*.class' -type f \
+          ! -path '*/libs/*' -print)
+
     - name: Assemble Velocity runtime smoke fixture
       shell: bash
       run: |
@@ -250,6 +330,13 @@ jobs:
         path: |
           mceew-velocity/target/MCEEW-Velocity-*.jar
           mceew-velocity/target/mceew-phase1-runtime-smoke.jar
+        if-no-files-found: error
+
+    - name: Upload BungeeCord runtime smoke artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: bungeecord-phase1-runtime-smoke
+        path: mceew-bungeecord/target/MCEEW-BungeeCord-*.jar
         if-no-files-found: error
 
   velocity-runtime-smoke:
@@ -357,3 +444,59 @@ jobs:
           echo "Velocity runtime smoke found a linkage failure."
           exit 1
         fi
+
+  bungeecord-runtime-smoke:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    name: BungeeCord / Waterfall pinned runtime smoke
+    steps:
+    - uses: actions/checkout@v7
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v5
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    - name: Download MCEEW BungeeCord artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: bungeecord-phase1-runtime-smoke
+        path: artifacts
+
+    - name: Download pinned official proxy runtimes
+      shell: bash
+      run: |
+        curl --fail --location --silent --show-error \
+          'https://ci.md-5.net/job/BungeeCord/1999/artifact/bootstrap/target/BungeeCord.jar' \
+          --output BungeeCord-1999.jar
+        echo 'f7c3af08001b9c9f794e820ab29c8cb793df3e0e551d68c6e7006409d5111c38  BungeeCord-1999.jar' | sha256sum --check
+
+        curl --fail --location --silent --show-error \
+          'https://ci.md-5.net/job/BungeeCord/2086/artifact/bootstrap/target/BungeeCord.jar' \
+          --output BungeeCord-2086.jar
+        echo '81eafeb17629f3c056912b5ecb4c9a89b8d8a399ebfeaf2d1a17ae4e07fc34c4  BungeeCord-2086.jar' | sha256sum --check
+
+        curl --fail --location --silent --show-error \
+          'https://fill-data.papermc.io/v1/objects/5eda8bfd0691e5088701f87020c68964299586df0faba289a634122d282d598c/waterfall-1.21-615.jar' \
+          --output Waterfall-1.21-615.jar
+        echo '5eda8bfd0691e5088701f87020c68964299586df0faba289a634122d282d598c  Waterfall-1.21-615.jar' | sha256sum --check
+
+    - name: Smoke-load one artifact sequentially on all pinned proxies
+      shell: bash
+      run: |
+        shopt -s nullglob
+        plugin_jars=(artifacts/MCEEW-BungeeCord-*.jar)
+        if (( ${#plugin_jars[@]} != 1 )); then
+          echo "Expected exactly one MCEEW BungeeCord Jar, found ${#plugin_jars[@]}."
+          exit 1
+        fi
+        plugin_jar="${plugin_jars[0]}"
+        .github/scripts/smoke-bungeecord.sh \
+          "$plugin_jar" BungeeCord-1999.jar 'BungeeCord build 1999 / Java 17'
+        .github/scripts/smoke-bungeecord.sh \
+          "$plugin_jar" BungeeCord-2086.jar 'BungeeCord build 2086 / Java 17'
+        .github/scripts/smoke-bungeecord.sh \
+          "$plugin_jar" Waterfall-1.21-615.jar 'Waterfall build 615 / Java 17'

@@ -12,7 +12,7 @@
     <name>MCEEW Parent</name>
 
     <properties>
-        <revision>2.8.0</revision>
+        <revision>2.9.0</revision>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
@@ -20,6 +20,7 @@
         <module>mceew-core</module>
         <module>mceew-bukkit</module>
         <module>mceew-velocity</module>
+        <module>mceew-bungeecord</module>
     </modules>
 
     <build>

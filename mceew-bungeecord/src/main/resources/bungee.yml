@@ -1,0 +1,5 @@
+name: MCEEW
+main: jp.wolfx.mceew.bungeecord.MCEEWBungeeCord
+version: ${project.version}
+author: TenkyuChimata
+description: Minecraft Earthquake Early Warning

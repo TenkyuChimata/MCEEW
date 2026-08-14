@@ -11,8 +11,11 @@ updates:
       - "/mceew-core"
       - "/mceew-bukkit"
       - "/mceew-velocity"
+      - "/mceew-bungeecord"
     schedule:
       interval: "daily"
     ignore:
       # This is the intentional oldest compile baseline for one-Jar 3.4.x-4.x compatibility.
       - dependency-name: "com.velocitypowered:velocity-api"
+      # This snapshot is the intentional BungeeCord/Waterfall compatibility compile baseline.
+      - dependency-name: "net.md-5:bungeecord-api"
