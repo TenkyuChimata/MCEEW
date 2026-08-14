@@ -14,6 +14,7 @@ import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import jp.wolfx.mceew.velocity.generated.VelocityBuildInfo;
+import org.bstats.velocity.Metrics;
 import org.slf4j.Logger;
 
 @Plugin(
@@ -23,6 +24,13 @@ import org.slf4j.Logger;
         description = "Minecraft Earthquake Early Warning",
         authors = {"TenkyuChimata"})
 public final class MCEEWVelocity {
+    private static final int BSTATS_PLUGIN_ID = 33363;
+
+    @FunctionalInterface
+    interface MetricsCreator {
+        Metrics create(Object plugin, int pluginId);
+    }
+
     @FunctionalInterface
     interface RuntimeFactory {
         VelocityMceewRuntime create(
@@ -43,11 +51,13 @@ public final class MCEEWVelocity {
     private final Logger logger;
     private final VelocityConfigLoader configLoader;
     private final VelocityDelayScheduler delayScheduler;
+    private final MetricsCreator metricsCreator;
     private final RuntimeFactory runtimeFactory;
     private final VelocityCommand command;
 
     private LifecycleState lifecycleState = LifecycleState.UNINITIALIZED;
     private CommandMeta commandMeta;
+    private Metrics metrics;
     private boolean reloadInProgress;
     private volatile VelocityConfigSnapshot configSnapshot;
     private volatile VelocityMceewRuntime operationalRuntime;
@@ -56,10 +66,19 @@ public final class MCEEWVelocity {
     public MCEEWVelocity(
             ProxyServer proxyServer,
             Logger logger,
-            @DataDirectory Path dataDirectory) {
-        this(proxyServer, logger, dataDirectory,
-                (config, scheduler, platformLogger) -> VelocityMceewRuntime.production(
-                        config, scheduler, platformLogger, proxyServer));
+            @DataDirectory Path dataDirectory,
+            Metrics.Factory metricsFactory) {
+        this(proxyServer, logger, dataDirectory, metricsCreator(metricsFactory),
+                productionRuntimeFactory(proxyServer));
+    }
+
+    MCEEWVelocity(
+            ProxyServer proxyServer,
+            Logger logger,
+            Path dataDirectory
+    ) {
+        this(proxyServer, logger, dataDirectory, (plugin, pluginId) -> null,
+                productionRuntimeFactory(proxyServer));
     }
 
     MCEEWVelocity(
@@ -68,11 +87,22 @@ public final class MCEEWVelocity {
             Path dataDirectory,
             RuntimeFactory runtimeFactory
     ) {
+        this(proxyServer, logger, dataDirectory, (plugin, pluginId) -> null, runtimeFactory);
+    }
+
+    MCEEWVelocity(
+            ProxyServer proxyServer,
+            Logger logger,
+            Path dataDirectory,
+            MetricsCreator metricsCreator,
+            RuntimeFactory runtimeFactory
+    ) {
         this.proxyServer = Objects.requireNonNull(proxyServer, "proxyServer");
         this.logger = Objects.requireNonNull(logger, "logger");
         Objects.requireNonNull(dataDirectory, "dataDirectory");
         this.configLoader = new VelocityConfigLoader(dataDirectory);
         this.delayScheduler = new VelocityDelayScheduler(proxyServer, this);
+        this.metricsCreator = Objects.requireNonNull(metricsCreator, "metricsCreator");
         this.runtimeFactory = Objects.requireNonNull(runtimeFactory, "runtimeFactory");
         command = new VelocityCommand(this, logger);
     }
@@ -95,6 +125,8 @@ public final class MCEEWVelocity {
             }
             return;
         }
+
+        initializeMetrics();
 
         VelocityConfigSnapshot loaded;
         try {
@@ -154,6 +186,7 @@ public final class MCEEWVelocity {
     public void onProxyShutdown(ProxyShutdownEvent event) {
         Objects.requireNonNull(event, "event");
         VelocityMceewRuntime runtime;
+        Metrics initializedMetrics;
         CommandMeta registeredCommand;
         synchronized (lifecycleLock) {
             if (lifecycleState == LifecycleState.SHUTDOWN) {
@@ -164,6 +197,8 @@ public final class MCEEWVelocity {
             configSnapshot = null;
             runtime = operationalRuntime;
             operationalRuntime = null;
+            initializedMetrics = metrics;
+            metrics = null;
             registeredCommand = commandMeta;
             commandMeta = null;
         }
@@ -174,11 +209,59 @@ public final class MCEEWVelocity {
                 logger.error("MCEEW Velocity command could not be unregistered cleanly.", error);
             }
         }
+        shutdownMetrics(initializedMetrics);
         if (runtime != null) {
             runtime.close();
         }
         delayScheduler.close();
         logger.info("MCEEW Velocity platform shell shut down.");
+    }
+
+    private void initializeMetrics() {
+        Metrics initializedMetrics;
+        try {
+            initializedMetrics = metricsCreator.create(this, BSTATS_PLUGIN_ID);
+        } catch (RuntimeException error) {
+            logger.warn(
+                    "MCEEW Velocity bStats metrics could not be initialized; continuing without metrics.",
+                    error);
+            return;
+        }
+        if (initializedMetrics == null) {
+            return;
+        }
+
+        boolean retained = false;
+        synchronized (lifecycleLock) {
+            if (lifecycleState == LifecycleState.INITIALIZING && metrics == null) {
+                metrics = initializedMetrics;
+                retained = true;
+            }
+        }
+        if (!retained) {
+            shutdownMetrics(initializedMetrics);
+        }
+    }
+
+    private void shutdownMetrics(Metrics initializedMetrics) {
+        if (initializedMetrics == null) {
+            return;
+        }
+        try {
+            initializedMetrics.shutdown();
+        } catch (RuntimeException error) {
+            logger.warn("MCEEW Velocity bStats metrics could not be shut down cleanly.", error);
+        }
+    }
+
+    private static MetricsCreator metricsCreator(Metrics.Factory metricsFactory) {
+        Objects.requireNonNull(metricsFactory, "metricsFactory");
+        return metricsFactory::make;
+    }
+
+    private static RuntimeFactory productionRuntimeFactory(ProxyServer proxyServer) {
+        return (config, scheduler, platformLogger) -> VelocityMceewRuntime.production(
+                config, scheduler, platformLogger, proxyServer);
     }
 
     private boolean registerCommand() {

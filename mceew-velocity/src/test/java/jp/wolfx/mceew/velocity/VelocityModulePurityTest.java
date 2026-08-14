@@ -27,7 +27,6 @@ class VelocityModulePurityTest {
                     "org/bukkit",
                     "io/papermc",
                     "dev/folia",
-                    "org/bstats",
                     "com/velocitypowered/proxy/",
                     "java/lang/reflect",
                     "MinecraftPacket",

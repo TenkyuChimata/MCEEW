@@ -139,6 +139,13 @@ jobs:
         fi
         grep -Fx 'jp/wolfx/mceew/velocity/libs/gson/Gson.class' <<<"$jar_entries"
         grep -Fx 'jp/wolfx/mceew/velocity/libs/snakeyaml/Yaml.class' <<<"$jar_entries"
+        grep -Fx 'jp/wolfx/mceew/velocity/libs/bstats/velocity/Metrics.class' <<<"$jar_entries"
+        grep -Fx 'jp/wolfx/mceew/velocity/libs/bstats/velocity/Metrics$Factory.class' <<<"$jar_entries"
+        grep -Fx 'jp/wolfx/mceew/velocity/libs/bstats/MetricsBase.class' <<<"$jar_entries"
+        if grep -Eq '^jp/wolfx/mceew/velocity/libs/bstats/bukkit/' <<<"$jar_entries"; then
+          echo "The Velocity Jar contains the Bukkit bStats adapter."
+          exit 1
+        fi
         test "$(grep -Fxc 'jp/wolfx/mceew/websocket/WebSocketConnectionManager.class' <<<"$jar_entries")" -eq 1
         test "$(grep -Fxc 'jp/wolfx/mceew/velocity/MCEEWVelocity.class' <<<"$jar_entries")" -eq 1
         test "$(grep -Fxc 'jp/wolfx/mceew/velocity/VelocityCommand.class' <<<"$jar_entries")" -eq 1
@@ -213,6 +220,8 @@ jobs:
 
         command_registration="$(javap -classpath "$velocity_jar" -c -p \
           jp.wolfx.mceew.velocity.MCEEWVelocity)"
+        grep -F 'jp.wolfx.mceew.velocity.libs.bstats.velocity.Metrics$Factory' \
+          <<<"$command_registration"
         grep -F 'CommandManager.metaBuilder:(Ljava/lang/String;)' <<<"$command_registration"
         grep -F 'CommandManager.register:(Lcom/velocitypowered/api/command/CommandMeta;Lcom/velocitypowered/api/command/Command;)V' \
           <<<"$command_registration"
@@ -314,6 +323,14 @@ jobs:
           sources: {}
         groups: {}
         servers: {}
+        EOF
+        mkdir -p "$runtime/plugins/bStats"
+        cat > "$runtime/plugins/bStats/config.txt" <<'EOF'
+        enabled=false
+        server-uuid=00000000-0000-0000-0000-000000000000
+        log-errors=false
+        log-sent-data=false
+        log-response-status-text=false
         EOF
 
         cd "$runtime"
