@@ -22,6 +22,10 @@ jobs:
         distribution: 'temurin'
         cache: maven
 
+    - name: Test Velocity smoke readiness sequencing
+      shell: bash
+      run: bash .github/scripts/test-smoke-velocity.sh
+
     - name: Build against the Spigot baseline
       run: mvn -B clean verify --file pom.xml
 
@@ -377,7 +381,7 @@ jobs:
         done
 
     - name: Upload public release-candidate artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: mceew-public-release-candidates
         path: |
@@ -398,18 +402,20 @@ jobs:
           "$smoke_stage/velocity-plugin.json"
         jar --create --file mceew-velocity/target/mceew-phase1-runtime-smoke.jar \
           -C "$smoke_stage" .
+        cp .github/scripts/smoke-velocity.sh mceew-velocity/target/
 
     - name: Upload Velocity runtime smoke artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: velocity-phase1-runtime-smoke
         path: |
           mceew-velocity/target/MCEEW-Velocity-*.jar
           mceew-velocity/target/mceew-phase1-runtime-smoke.jar
+          mceew-velocity/target/smoke-velocity.sh
         if-no-files-found: error
 
     - name: Upload BungeeCord runtime smoke artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: bungeecord-phase1-runtime-smoke
         path: mceew-bungeecord/target/MCEEW-BungeeCord-*.jar
@@ -448,7 +454,7 @@ jobs:
         distribution: 'temurin'
 
     - name: Download MCEEW runtime smoke artifacts
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       with:
         name: velocity-phase1-runtime-smoke
         path: artifacts
@@ -467,6 +473,10 @@ jobs:
         plugin_jars=(artifacts/MCEEW-Velocity-*.jar)
         if (( ${#plugin_jars[@]} != 1 )); then
           echo "Expected exactly one MCEEW Velocity Jar, found ${#plugin_jars[@]}."
+          exit 1
+        fi
+        if [[ ! -f artifacts/smoke-velocity.sh ]]; then
+          echo 'Velocity smoke runner is missing from the runtime artifact.'
           exit 1
         fi
         runtime="$(mktemp -d)"
@@ -498,8 +508,7 @@ jobs:
 
         cd "$runtime"
         set -o pipefail
-        (sleep 5; echo eew; echo mceew; echo 'eew reload'; sleep 2; echo shutdown) | \
-          timeout 30s java -jar velocity.jar 2>&1 | tee runtime.log
+        bash "$GITHUB_WORKSPACE/artifacts/smoke-velocity.sh" velocity.jar runtime.log
 
         grep -F 'Loaded plugin mceew ' runtime.log
         grep -F 'MCEEW Velocity ' runtime.log | grep -F 'platform shell initialized.'
@@ -516,7 +525,7 @@ jobs:
           echo "Velocity runtime smoke unexpectedly opened the Wolfx WebSocket."
           exit 1
         fi
-        if grep -Eq 'NoClassDefFoundError|UnsupportedClassVersionError|NoSuchMethodError|AbstractMethodError|LinkageError' runtime.log; then
+        if grep -Eq 'ClassNotFoundException|NoClassDefFoundError|UnsupportedClassVersionError|NoSuchMethodError|AbstractMethodError|LinkageError' runtime.log; then
           echo "Velocity runtime smoke found a linkage failure."
           exit 1
         fi
@@ -537,7 +546,7 @@ jobs:
         distribution: 'temurin'
 
     - name: Download MCEEW BungeeCord artifact
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       with:
         name: bungeecord-phase1-runtime-smoke
         path: artifacts
