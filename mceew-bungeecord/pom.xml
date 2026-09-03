@@ -20,7 +20,7 @@
         <java.version>11</java.version>
         <!-- Intentional public-API compile baseline for one-Jar BungeeCord/Waterfall compatibility. -->
         <bungeecord.api.version>1.21-R0.4-SNAPSHOT</bungeecord.api.version>
-        <snakeyaml.version>2.6</snakeyaml.version>
+        <snakeyaml.version>2.7</snakeyaml.version>
     </properties>
 
     <build>
