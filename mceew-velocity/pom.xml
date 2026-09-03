@@ -20,7 +20,7 @@
         <java.version>17</java.version>
         <!-- Intentionally compile against the minimum supported API for one-Jar Velocity 3.4.x-4.x compatibility. -->
         <velocity.api.version>3.4.0</velocity.api.version>
-        <snakeyaml.version>2.6</snakeyaml.version>
+        <snakeyaml.version>2.7</snakeyaml.version>
     </properties>
 
     <build>
