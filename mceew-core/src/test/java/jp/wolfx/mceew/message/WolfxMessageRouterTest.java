@@ -79,6 +79,18 @@ class WolfxMessageRouterTest {
     }
 
     @Test
+    void canonicalRealtimeFixturesUseOfficialMagnitudeField() {
+        for (String source : new String[]{
+                "jma_eew", "sc_eew", "fj_eew", "cwa_eew", "cenc_eew", "cq_eew"}) {
+            JsonObject payload = fixture(source);
+            assertTrue(payload.has("Magnitude"), source);
+
+            RealtimeEewEvent event = router.parseRealtime(router.route(payload.toString()));
+            assertEquals(payload.get("Magnitude").getAsString(), event.getMagnitude(), source);
+        }
+    }
+
+    @Test
     void parsesCanonicalJmaEventWithoutFormattingItsSemanticValues() {
         JmaEewEvent event = (JmaEewEvent) router.parseRealtime(routeFixture("jma_eew"));
 

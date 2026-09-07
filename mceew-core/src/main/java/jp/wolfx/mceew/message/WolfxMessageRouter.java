@@ -105,7 +105,7 @@ public final class WolfxMessageRouter {
         String latitude = data.get("Latitude").getAsString();
         String longitude = data.get("Longitude").getAsString();
         String region = data.get("Hypocenter").getAsString();
-        String magnitude = data.get("Magunitude").getAsString();
+        String magnitude = data.get("Magnitude").getAsString();
         String depth = data.get("Depth").getAsString();
         String maximumIntensity = data.get("MaxIntensity").getAsString();
         String originTime = data.get("OriginTime").getAsString();
@@ -125,7 +125,7 @@ public final class WolfxMessageRouter {
         String latitude = data.get("Latitude").getAsString();
         String longitude = data.get("Longitude").getAsString();
         String region = data.get("HypoCenter").getAsString();
-        String magnitude = data.get("Magunitude").getAsString();
+        String magnitude = data.get("Magnitude").getAsString();
         String maximumIntensity = String.valueOf(Math.round(
                 Float.parseFloat(data.get("MaxIntensity").getAsString())));
         String depth = data.get("Depth").isJsonNull()
@@ -144,7 +144,7 @@ public final class WolfxMessageRouter {
         String latitude = data.get("Latitude").getAsString();
         String longitude = data.get("Longitude").getAsString();
         String region = data.get("HypoCenter").getAsString();
-        String magnitude = data.get("Magunitude").getAsString();
+        String magnitude = data.get("Magnitude").getAsString();
         String originTime = data.get("OriginTime").getAsString();
         boolean finalReport = data.get("isFinal").getAsBoolean();
         return new FujianEewEvent(
@@ -158,7 +158,7 @@ public final class WolfxMessageRouter {
         String latitude = data.get("Latitude").getAsString();
         String longitude = data.get("Longitude").getAsString();
         String region = data.get("HypoCenter").getAsString();
-        String magnitude = data.get("Magunitude").getAsString();
+        String magnitude = data.get("Magnitude").getAsString();
         String depth = data.get("Depth").getAsString();
         String maximumIntensity = data.get("MaxIntensity").getAsString();
         String originTime = data.get("OriginTime").getAsString();
