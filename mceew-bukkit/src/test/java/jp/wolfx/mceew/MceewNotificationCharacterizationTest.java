@@ -120,7 +120,8 @@ class MceewNotificationCharacterizationTest {
         assertEquals(2.5F, harness.player.sounds.get(0).volume);
         assertEquals(0.75F, harness.player.sounds.get(0).pitch);
 
-        MceewCharacterizationSupport.field(harness.plugin, "cqEewBoolean", false);
+        harness.configuration.set("enable_cq", false);
+        harness.reloadRuntimeConfiguration();
         harness.clearOutput();
         harness.routeFresh("cq_eew");
         assertTrue(harness.console.isEmpty());

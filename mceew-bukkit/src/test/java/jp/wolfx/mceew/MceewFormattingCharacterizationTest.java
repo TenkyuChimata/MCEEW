@@ -41,9 +41,7 @@ class MceewFormattingCharacterizationTest {
         MceewCharacterizationSupport.Harness harness = MceewCharacterizationSupport.harness();
         ZonedDateTime now = ZonedDateTime.of(2026, 8, 12, 14, 30, 0, 0, TOKYO);
 
-        assertTrue((Boolean) MceewCharacterizationSupport.invoke(
-                harness.plugin, "isFresh",
-                new Class<?>[]{String.class, String.class, ZoneId.class, ZonedDateTime.class},
+        assertTrue(harness.runtime.isFresh(
                 "not-a-time", "yyyy/MM/dd HH:mm:ss", TOKYO, now));
     }
 
@@ -181,20 +179,16 @@ class MceewFormattingCharacterizationTest {
     private static boolean fresh(
             MceewCharacterizationSupport.Harness harness,
             ZonedDateTime report, ZonedDateTime now) {
-        return (Boolean) MceewCharacterizationSupport.invoke(
-                harness.plugin, "isFresh",
-                new Class<?>[]{String.class, String.class, ZoneId.class, ZonedDateTime.class},
+        return harness.runtime.isFresh(
                 report.format(TIME), "yyyy/MM/dd HH:mm:ss", TOKYO, now);
     }
 
     private static String shindo(MceewCharacterizationSupport.Harness harness, String value) {
-        return (String) MceewCharacterizationSupport.invoke(
-                harness.plugin, "getShindoColor", new Class<?>[]{String.class}, value);
+        return harness.runtime.getShindoColor(value);
     }
 
     private static String intensity(MceewCharacterizationSupport.Harness harness, String value) {
-        return (String) MceewCharacterizationSupport.invoke(
-                harness.plugin, "getIntensityColor", new Class<?>[]{String.class}, value);
+        return harness.runtime.getIntensityColor(value);
     }
 
     private static JsonObject freshJma() {

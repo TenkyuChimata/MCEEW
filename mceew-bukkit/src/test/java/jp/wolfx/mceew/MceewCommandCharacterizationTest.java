@@ -1,6 +1,5 @@
 package jp.wolfx.mceew;
 
-import jp.wolfx.mceew.websocket.WebSocketConnectionManager;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.junit.jupiter.api.Test;
@@ -8,7 +7,6 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.http.WebSocket;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -18,10 +16,9 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -154,27 +151,47 @@ class MceewCommandCharacterizationTest {
         reloaded.set("enable_sc", false);
         Files.writeString(dataDirectory.resolve("config.yml"), reloaded.saveToString(),
                 StandardCharsets.UTF_8);
-        installReloadFiles(harness, dataDirectory);
-        MceewCharacterizationSupport.field(harness.plugin, "configManager",
-                configManager(dataDirectory, this::defaultConfigStream));
+        ConfigManager manager = configManager(dataDirectory, this::defaultConfigStream);
+        List<String> reloadOrder = new ArrayList<>();
+        AtomicReference<YamlConfiguration> loadedConfiguration =
+                new AtomicReference<>(harness.configuration);
+        BukkitConfigurationReloader reloader = new BukkitConfigurationReloader(
+                () -> {
+                    reloadOrder.add("prepare");
+                    manager.prepareConfig();
+                },
+                () -> {
+                    reloadOrder.add("reload");
+                    loadedConfiguration.set(YamlConfiguration.loadConfiguration(
+                            dataDirectory.resolve("config.yml").toFile()));
+                },
+                () -> {
+                    reloadOrder.add("apply");
+                    harness.runtime.applyConfiguration(loadedConfiguration.get());
+                },
+                Logger.getLogger("MceewCommandCharacterizationTest.reload.success"));
         AtomicInteger connects = new AtomicInteger();
         AtomicBoolean observedLoadedValue = new AtomicBoolean();
-        WebSocketConnectionManager manager = webSocketManager(() -> {
+        BukkitMceewCommand command = new BukkitMceewCommand(
+                MceewCharacterizationSupport.projectVersion(), harness.runtime, reloader, () -> {
+            reloadOrder.add("restart");
             connects.incrementAndGet();
-            observedLoadedValue.set(!(Boolean) MceewCharacterizationSupport.field(
-                    harness.plugin, "scEewBoolean"));
+            harness.clearOutput();
+            harness.routeFresh("sc_eew");
+            observedLoadedValue.set(harness.console.isEmpty());
+            harness.clearOutput();
         });
-        MceewCharacterizationSupport.field(harness.plugin, "webSocketManager", manager);
         List<String> messages = new ArrayList<>();
 
-        assertTrue(command(harness,
+        assertTrue(command(command,
                 MceewCharacterizationSupport.sender(true, messages), "reload"));
 
         assertEquals(List.of("§a[MCEEW] Configuration reloaded successfully."), messages);
         assertEquals(1, connects.get());
         assertTrue(observedLoadedValue.get(), "runtime config is loaded before restart connects");
-        assertFalse((Boolean) MceewCharacterizationSupport.field(
-                harness.plugin, "scEewBoolean"));
+        assertEquals(List.of("prepare", "reload", "apply", "restart"), reloadOrder);
+        harness.routeFresh("sc_eew");
+        assertTrue(harness.console.isEmpty());
     }
 
     @Test
@@ -186,45 +203,61 @@ class MceewCommandCharacterizationTest {
         onDisk.set("enable_sc", false);
         Files.writeString(dataDirectory.resolve("config.yml"), onDisk.saveToString(),
                 StandardCharsets.UTF_8);
-        installReloadFiles(harness, dataDirectory);
-        Object originalLoadedConfig = MceewCharacterizationSupport.field(harness.plugin, "newConfig");
-        MceewCharacterizationSupport.field(harness.plugin, "configManager",
-                configManager(dataDirectory, () -> {
+        ConfigManager manager = configManager(dataDirectory, () -> {
                     throw new IOException("deliberate defaults failure");
-                }));
+                });
+        List<String> reloadOrder = new ArrayList<>();
+        AtomicReference<YamlConfiguration> loadedConfiguration =
+                new AtomicReference<>(harness.configuration);
+        Object originalLoadedConfig = loadedConfiguration.get();
+        BukkitConfigurationReloader reloader = new BukkitConfigurationReloader(
+                () -> {
+                    reloadOrder.add("prepare");
+                    manager.prepareConfig();
+                },
+                () -> {
+                    reloadOrder.add("reload");
+                    loadedConfiguration.set(YamlConfiguration.loadConfiguration(
+                            dataDirectory.resolve("config.yml").toFile()));
+                },
+                () -> {
+                    reloadOrder.add("apply");
+                    harness.runtime.applyConfiguration(loadedConfiguration.get());
+                },
+                Logger.getLogger("MceewCommandCharacterizationTest.reload.failure"));
         AtomicInteger connects = new AtomicInteger();
-        MceewCharacterizationSupport.field(harness.plugin, "webSocketManager",
-                webSocketManager(connects::incrementAndGet));
+        BukkitMceewCommand command = new BukkitMceewCommand(
+                MceewCharacterizationSupport.projectVersion(), harness.runtime, reloader, () -> {
+            reloadOrder.add("restart");
+            connects.incrementAndGet();
+        });
         List<String> messages = new ArrayList<>();
 
-        assertTrue(command(harness,
+        assertTrue(command(command,
                 MceewCharacterizationSupport.sender(true, messages), "reload"));
 
         assertEquals(List.of(
                 "§c[MCEEW] Configuration reload failed; the existing file was left unchanged."),
                 messages);
-        assertTrue((Boolean) MceewCharacterizationSupport.field(
-                harness.plugin, "scEewBoolean"));
+        harness.routeFresh("sc_eew");
+        assertFalse(harness.console.isEmpty());
         assertSame(originalLoadedConfig,
-                MceewCharacterizationSupport.field(harness.plugin, "newConfig"),
+                loadedConfiguration.get(),
                 "reloadConfig was not called");
         assertEquals(0, connects.get());
+        assertEquals(List.of("prepare"), reloadOrder);
     }
 
     private static boolean command(
             MceewCharacterizationSupport.Harness harness,
             CommandSender sender, String... arguments) {
-        return harness.plugin.onCommand(sender, null, "eew", arguments);
+        return command(harness.command, sender, arguments);
     }
 
-    private void installReloadFiles(
-            MceewCharacterizationSupport.Harness harness, Path dataDirectory) {
-        MceewCharacterizationSupport.javaPluginField(
-                harness.plugin, "dataFolder", dataDirectory.toFile());
-        MceewCharacterizationSupport.javaPluginField(
-                harness.plugin, "configFile", dataDirectory.resolve("config.yml").toFile());
-        MceewCharacterizationSupport.javaPluginField(
-                harness.plugin, "classLoader", getClass().getClassLoader());
+    private static boolean command(
+            BukkitMceewCommand command,
+            CommandSender sender, String... arguments) {
+        return command.execute(sender, arguments);
     }
 
     private InputStream defaultConfigStream() throws IOException {
@@ -241,18 +274,6 @@ class MceewCommandCharacterizationTest {
                 "MceewCommandCharacterizationTest." + System.nanoTime());
         logger.setUseParentHandlers(false);
         return new ConfigManager(dataDirectory, defaults, logger, new TestFileAccess());
-    }
-
-    private static WebSocketConnectionManager webSocketManager(Runnable onConnect) {
-        return new WebSocketConnectionManager(
-                listener -> {
-                    onConnect.run();
-                    return CompletableFuture.completedFuture((WebSocket) null);
-                },
-                (task, delay, unit) -> () -> { },
-                message -> { },
-                Logger.getLogger("MceewCommandCharacterizationTest.websocket"),
-                5, TimeUnit.SECONDS);
     }
 
     private static final class TestFileAccess implements ConfigManager.FileAccess {

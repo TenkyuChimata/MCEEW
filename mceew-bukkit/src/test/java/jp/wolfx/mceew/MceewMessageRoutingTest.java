@@ -1,6 +1,7 @@
 package jp.wolfx.mceew;
 
 import com.google.gson.JsonObject;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -88,19 +89,20 @@ class MceewMessageRoutingTest {
 
     @Test
     void eachDisabledRealtimeSourceIsIgnoredWithoutDisablingOtherSources() {
-        Map<String, String> flagByFixture = Map.of(
-                "jma_eew", "jpEewBoolean",
-                "sc_eew", "scEewBoolean",
-                "fj_eew", "fjEewBoolean",
-                "cwa_eew", "cwaEewBoolean",
-                "cenc_eew", "cencEewBoolean",
-                "cq_eew", "cqEewBoolean"
+        Map<String, String> configPathByFixture = Map.of(
+                "jma_eew", "enable_jp",
+                "sc_eew", "enable_sc",
+                "fj_eew", "enable_fj",
+                "cwa_eew", "enable_cwa",
+                "cenc_eew", "enable_cenceew",
+                "cq_eew", "enable_cq"
         );
 
-        for (Map.Entry<String, String> entry : flagByFixture.entrySet()) {
+        for (Map.Entry<String, String> entry : configPathByFixture.entrySet()) {
+            YamlConfiguration configuration = MceewCharacterizationSupport.defaultConfiguration();
+            configuration.set(entry.getValue(), false);
             MceewCharacterizationSupport.Harness harness =
-                    MceewCharacterizationSupport.harness();
-            MceewCharacterizationSupport.field(harness.plugin, entry.getValue(), false);
+                    MceewCharacterizationSupport.harness(configuration);
 
             harness.routeFresh(entry.getKey());
 
@@ -118,19 +120,20 @@ class MceewMessageRoutingTest {
 
     @Test
     void disabledRealtimeSourcesRemainUnparsed() {
-        Map<String, String> flagByType = Map.of(
-                "jma_eew", "jpEewBoolean",
-                "sc_eew", "scEewBoolean",
-                "fj_eew", "fjEewBoolean",
-                "cwa_eew", "cwaEewBoolean",
-                "cenc_eew", "cencEewBoolean",
-                "cq_eew", "cqEewBoolean"
+        Map<String, String> configPathByType = Map.of(
+                "jma_eew", "enable_jp",
+                "sc_eew", "enable_sc",
+                "fj_eew", "enable_fj",
+                "cwa_eew", "enable_cwa",
+                "cenc_eew", "enable_cenceew",
+                "cq_eew", "enable_cq"
         );
 
-        for (Map.Entry<String, String> entry : flagByType.entrySet()) {
+        for (Map.Entry<String, String> entry : configPathByType.entrySet()) {
+            YamlConfiguration configuration = MceewCharacterizationSupport.defaultConfiguration();
+            configuration.set(entry.getValue(), false);
             MceewCharacterizationSupport.Harness harness =
-                    MceewCharacterizationSupport.harness();
-            MceewCharacterizationSupport.field(harness.plugin, entry.getValue(), false);
+                    MceewCharacterizationSupport.harness(configuration);
 
             harness.route("{\"type\":\"" + entry.getKey() + "\"}");
 
@@ -143,9 +146,11 @@ class MceewMessageRoutingTest {
 
     @Test
     void disabledEarthquakeListActionsStillUpdateChangedCachesWithoutNotification() {
-        MceewCharacterizationSupport.Harness harness = MceewCharacterizationSupport.harness();
-        MceewCharacterizationSupport.field(harness.plugin, "jmaEqlistBoolean", false);
-        MceewCharacterizationSupport.field(harness.plugin, "cencEqlistBoolean", false);
+        YamlConfiguration configuration = MceewCharacterizationSupport.defaultConfiguration();
+        configuration.set("Action.jma", false);
+        configuration.set("Action.cenc", false);
+        MceewCharacterizationSupport.Harness harness =
+                MceewCharacterizationSupport.harness(configuration);
         JsonObject jma = MceewCharacterizationSupport.fixture("jma_eqlist");
         JsonObject cenc = MceewCharacterizationSupport.fixture("cenc_eqlist");
 
